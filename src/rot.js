@@ -119,7 +119,6 @@ const queryEach = (selector, element, func) => {
 const terr = msg => new TypeError(msg);
 const err = msg => new Error(msg);
 const DOMcontains = (descendant, parent = doc) => parent == descendant || Boolean(parent.compareDocumentPosition(descendant) & 16);
-const arraysEqual = (a, b) => a == null || b == null ? false : a === b || a.length == b.length && every(a, (v,i) => v == b[i]);
 
 let NativeEventTypes = "DOMContentLoaded blur focus focusin focusout load resize scroll unload click dblclick mousedown mouseup mousemove mouseover mouseout mouseenter mouseleave change select submit keydown keypress keyup error contextmenu pointerdown pointerup pointermove pointerover pointerout pointerenter pointerleave touchstart touchend touchmove touchcancel";
 const isNativeEvent = evt => NativeEventTypes.includes(evt);
@@ -439,8 +438,7 @@ each(
 
 return {
   informer,
-  EventManager,
-  isNativeEvent,
+  EventManager,on,once,
   dom,
   plugins,
   extend,
@@ -453,11 +451,11 @@ return {
   each,
   query,queryAll,queryEach,
   DOMcontains,
-  arraysEqual,
   flatten,
   isDef,
   isUndef,
   isPrimitive,
+  isNativeEvent,
   isNull,
   isFunc,
   isStr,
