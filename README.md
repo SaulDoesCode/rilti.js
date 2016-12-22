@@ -4,17 +4,24 @@ a small robust and unapologetic view layer library built for the front-end
 
 ##### currently in alpha phase and subject to breaking changes
 feel free to fork, raise issues
-constructive criticism is welcome 
+constructive criticism is welcome
 
 ### features
 * lifecycle hooks
 * event management
+* observe attributes
 * informers (Observable like reactive objects)
 * streamlined element creation
 * useful methods and utilities
 * no classes no extra fuzz
 * plugins can extend and add any feature
 * written and distributed in plain es2015/es6
+
+### planned features
+* managed custom attributes aka directives
+* uniform interface for non native events
+* more reactivity and virtualization
+* offer collection of useful optional plugins
 
 ### api
 | method | description  |

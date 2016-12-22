@@ -356,9 +356,16 @@ const domMethods = node => ({
     fn(this, node);
     return this;
   },
+  extend(obj) {
+    return extend(this, obj);
+  },
   get mounted() { return DOMcontains(node) },
   listeners : [],
   lifecycle:{},
+  update(options) {
+    this.lifecycle.update.inform('options', options, this.oldOptions, this, node);
+    return actualize(options, node);
+  },
   attrupdate : informer(),
   observeAttr(name, handle, once = false) {
     return this.attrupdate[once ? 'once' : 'on']((attrname, ...details) => name === attrname && handle(attrname, ...details));
@@ -367,6 +374,10 @@ const domMethods = node => ({
 
 const lifecycleStages = 'create mount destroy update'.split(' ');
 const eventActualizer = (fn, dm) => (val, key) => {
+  if(!isEmpty(dm.listeners)) {
+    each(dm.listeners, l => l.off());
+    dm.listeners = [];
+  }
   let listener;
   fn = fn(key);
   if(isFunc(val)) listener = fn(val);
@@ -376,8 +387,9 @@ const eventActualizer = (fn, dm) => (val, key) => {
 
 function actualize(options, el) {
   if(!isNode(el)) el = isStr(el) ? query(el) : doc.createElement(options.tag);
-  const dm = domMethods(el);
-  el.dm = dm;
+  const dm = el.dm || domMethods(el);
+  if(!el.dm) el.dm = dm;
+  dm.oldOptions = options;
   if(options.class) el.className = options.class;
   if(options.inner) {
     if(isFunc(options.inner)) options.inner = options.inner(dm, el);
@@ -387,15 +399,17 @@ function actualize(options, el) {
   if(options.attr) dm.setAttr(options.attr);
   if(options.on) each(options.on, eventActualizer(dm.on, dm));
   if(options.once) each(options.once, eventActualizer(dm.once, dm));
-  dm.extend = extend(dm);
-  each(lifecycleStages, stage => {
+  if(!dm.lifecycle.create) each(lifecycleStages, stage => {
       dm.lifecycle[stage] = informer();
       if(isObj(options.lifecycle) && isFunc(options.lifecycle[stage])) options.lifecycle[stage] = dm.lifecycle[stage][stage === 'update' ? 'on' : 'once'](options.lifecycle[stage]);
   });
   if(isObj(options.props)) extend(dm, options.props);
-  if(plugins.methods) extend(dm, plugins.methods);
-  if(plugins.handles) each(plugins.handles, handle => handle(options, dm, el));
-  dm.lifecycle[dm.mounted ? 'mount' : 'create'].inform(dm, el);
+  if(!dm.plugged) {
+    if(plugins.methods) extend(dm, plugins.methods);
+    if(plugins.handles) each(plugins.handles, handle => handle(options, dm, el));
+    dm.plugged = true;
+  }
+  if(!dm.mounted) dm.lifecycle['create'].inform(dm, el);
   return dm;
 }
 
@@ -418,10 +432,12 @@ new MutationObserver(muts => each(muts, mut => {
             //if (Directives.has(attr.name)) manageAttr(el, attr.name, attr.value, '', true);
         //});
     });
-    if (mut.type == 'attributes' && mut.attributeName != 'style' && mut.target.dm) {
-      const dm = mut.target.dm;
-      const name = mut.attributeName;
-      dm.attrupdate.inform(name, dm.getAttr(name), mut.oldValue, dm.hasAttr(name), dm);
+    if(mut.target.dm  && mut.attributeName != 'style') {
+      if (mut.type == 'attributes') {
+        const dm = mut.target.dm;
+        const name = mut.attributeName;
+        dm.attrupdate.inform(name, dm.getAttr(name), mut.oldValue, dm.hasAttr(name), dm);
+      } else mut.target.dm.lifecycle.update.inform('mut', mut, mut.target.dm, mut.target);
     }
 })).observe(doc, {
     attributes: true,
