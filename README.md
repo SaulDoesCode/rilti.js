@@ -2,6 +2,16 @@
 
 a small robust and unapologetic view layer library built for the front-end
 
+### features
+* lifecycle hooks
+* event management
+* informers (Observable like reactive objects)
+* streamlined element creation
+* useful methods and utilities
+* no classes no extra fuzz
+* plugins can extend and add any feature
+* written and distributed in plain es2015/es6
+
 ### api
 | method | description  |
 |--------|--------------|
@@ -20,6 +30,19 @@ a small robust and unapologetic view layer library built for the front-end
 | ``on( {target}, {type}, {listener}, {=options} )`` | generates event listener |
 | ``once( {target}, {type}, {listener}, {=options} )`` | generates event listener that triggers only once |
 
+##### rot also exports a few type testing functions
+usage : ``rot.isX( {any} ) // -> boolean``  
+isBool, isFunc,
+isDef, isUndef,
+isNull, isEmpty,
+isNum, isInt,
+isStr,isObj,
+isArr, isArrlike,
+isMap, isSet,
+isEl, isNode, isNodeList,
+isInput, isPrimitive, isNativeEvent,
+
+rot.js can work with module loaders, but will simply be global if none are used
 
 #### example time!!!
 
@@ -74,3 +97,5 @@ a small robust and unapologetic view layer library built for the front-end
 * unminified : > 18kb
 * minified : > 11kb
 * minified && gziped : > 5kb
+
+#### licence = MIT
