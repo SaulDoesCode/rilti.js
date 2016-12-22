@@ -380,6 +380,7 @@ const domMethods = node => ({
     fn(this, node);
     return this;
   },
+  listeners : [],
   get mounted() { return DOMcontains(node) },
   lifecycle:{},
   attrupdate : new informer(),
@@ -395,18 +396,23 @@ function actualize(options, el) {
   const dm = domMethods(el);
   el.dm = dm;
   if(options.class) el.className = options.class;
-  if(options.inner) dm.html(options.inner);
+  if(options.inner) dm.html(isFunc(options.inner) ? options.inner(dm, el) : options.inner);
   else if(options.text) dm.Text(options.text);
   if(options.style) dm.css(options.style);
   if(options.attr) dm.setAttr(options.attr);
-  if(options.events) each(options.events, (val, key) => {
-    if(isFunc(val)) options.events[key] = on(el, key, val);
-    else if(isArr(val)) options.events[key] = on(el, key, ...val);
+  if(options.on) each(options.on, (val, key) => {
+    let listener;
+    if(isFunc(val)) listener = on(el, key, val);
+    else if(isArr(val)) listener = on(el, key, ...val);
     else if(isObj(val)) {
-      const {handle, options} = val;
-      on(el, key, handle, options);
+      if(val.isInformer) listener = on(el, key, val.inform.bind(val));
+      else {
+        const {handle, options} = val;
+        listener = on(el, key, handle, options);
+      }
     }
-  })
+    if(listener) dm.listeners.push(listener);
+  });
   dm.extend = extend(dm);
   each(lifecycleStages, stage => {
       dm.lifecycle[stage] = new informer();
