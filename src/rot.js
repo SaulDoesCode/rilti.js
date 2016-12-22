@@ -5,12 +5,13 @@
 * @author Saul van der Walt
 **/
 
-(function (name, context, definition) {
+(function (context, definition) {
+  const name = 'rot';
   if (typeof module != 'undefined' && module.exports) module.exports = definition();
   else if (typeof define == 'function' && define.amd) define(name, definition);
   else context[name] = definition();
-})('rot', this, function () {
-
+})(this, () => {
+  "use strict";
   const root = window || global, doc = document;
 
   const curry = (fn, arity) => {
@@ -148,15 +149,18 @@
           return this;
       },
       off() {
-          target.removeEventListener(type, handle);
-          active = false;
+          if (active) {
+            target.removeEventListener(type, handle);
+            active = false;
+          }
           return this;
       },
       once() {
-          this.off().active = true;
+          this.off();
+          active = true;
           target.addEventListener(type, function hn() {
               handle.apply(this, arguments);
-              target.removeEventListener(event, hn);
+              target.removeEventListener(type, hn);
           }, options);
           return this;
       }
@@ -357,8 +361,8 @@ const domMethods = node => ({
   },
   html: Inner(node, 'innerHTML'),
   Text: Inner(node, 'textContent'),
-  on:(type, handle, options) => EventManager(node, type, handle, options).on(),
-  once:(type, handle, options) => EventManager(node, type, handle, options).once(),
+  on:on(node),
+  once:once(node),
   append(...args) {
       const dfrag = domfrag();
       each(args, val => val.appendTo ? val.appendTo(dfrag) : isNode(val) ? dfrag.appendChild(val) : dfrag.innerHTML += val);
@@ -396,7 +400,15 @@ const domMethods = node => ({
   }
 });
 
-const lifecycleStages = ['create', 'mount', 'destroy', 'update'];
+const lifecycleStages = 'create mount destroy update'.split(' ');
+const eventActualizer = (fn,dm) => (val, key) => {
+  let listener;
+  fn = fn(key);
+  if(isFunc(val)) listener = fn(val);
+  else if(isObj(val)) listener = val.isInformer ? fn(val.inform.bind(val)) : fn(val.handle, val.options);
+  console.log(listener);
+  if(listener) dm.listeners.push(listener);
+}
 
 function actualize(options, el) {
   if(!isNode(el)) el = isStr(el) ? query(el) : doc.createElement(options.tag);
@@ -407,19 +419,8 @@ function actualize(options, el) {
   else if(options.text) dm.Text(options.text);
   if(options.style) dm.css(options.style);
   if(options.attr) dm.setAttr(options.attr);
-  if(options.on) each(options.on, (val, key) => {
-    let listener;
-    if(isFunc(val)) listener = on(el, key, val);
-    else if(isArr(val)) listener = on(el, key, ...val);
-    else if(isObj(val)) {
-      if(val.isInformer) listener = on(el, key, val.inform.bind(val));
-      else {
-        const {handle, options} = val;
-        listener = on(el, key, handle, options);
-      }
-    }
-    if(listener) dm.listeners.push(listener);
-  });
+  if(options.on) each(options.on, eventActualizer(dm.on, dm));
+  if(options.once) each(options.once, eventActualizer(dm.once, dm));
   dm.extend = extend(dm);
   each(lifecycleStages, stage => {
       dm.lifecycle[stage] = new informer();
