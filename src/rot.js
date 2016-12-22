@@ -11,268 +11,244 @@
   else if (typeof define == 'function' && define.amd) define(name, definition);
   else context[name] = definition();
 })(this, () => {
-  "use strict";
-  const root = window || global, doc = document;
+"use strict";
+const root = window || global, doc = document;
 
-  const curry = (fn, arity) => {
-    if(isNaN(arity)) arity = fn.length;
-    return (function resolver(...memory) {
-      return (...more) => {
-        const local = memory.slice().concat(more);
-        return (local.length >= arity ? fn : resolver)(...local);
-      }
-    }());
-  },
-  includes = curry((host,containee) => host.includes(containee)),
-  Keys = Object.keys,
-  every = (arr, fn) => Array.prototype.every.call(arr, fn),
-  typestr = toString.call,
-  type = (obj, str) => typestr(obj) === str,
-  typeinc = str => obj => toString.call(obj).includes(str),
-  isDef = o => o !== undefined,
-  isUndef = o => o === undefined,
-  isNull = o => o === null,
-  isFunc = o => typeof o === 'function',
-  isStr = o => typeof o === 'string',
-  isBool = o => typeof o === 'boolean',
-  isNum = o => !isBool(o) && !isNaN(Number(o)),
-  isPrimitive = s => typeof s === 'string' || typeof s === 'number',
-  isInt = val => isNum(val) && val % 1 === 0,
-  isObj = typeinc('Object'),
-  isArr = Array.isArray,
-  isArrlike = o => o !== undefined && typeof o.length !== 'undefined',
-  isEmpty = val => {
-      try { return !(isObj(val) ? Keys(val).length : isArrlike(val) ? val.length : val.size) || val === ''; } catch (e) {}
-      return false;
-  },
-  isNode = o => o instanceof Node,
-  isNodeList = nl => nl instanceof NodeList || (isArrlike(nl) && !isEmpty(nl) && every(nl, isNode)),
-  isEl = typeinc('HTML'),
-  isInput = el => isEl(el) && ['INPUT', 'TEXTAREA'].some(includes(el.tagName)),
-  isMap = typeinc('Map'),
-  isSet = typeinc('Set'),
-  get = (obj, path) => new Promise((pass,fail) => {
-        path.replace(/\[(\w+)\]/g, '.$1').replace(/^\./, '').split(".").map(step => {
-            step in obj ? obj = obj[step] : obj = undefined;
-        });
-        isDef(obj) ? pass(obj) : fail();
-  }),
-  set = (obj, path, val) => new Promise((pass,fail) => {
-      path = path.split(".");
-      const last = path.length - 1;
-      path.map((step, i) => {
-          if (obj[step] == undefined) obj[step] = {};
-          last == i ? obj[step] = val : obj = obj[step];
-      });
-      pass();
-  }),
-  each = (iterable, func) => {
-      if (isFunc(func)) {
-          if(iterable.forEach && !isEmpty(iterable)) iterable.forEach(func);
-          else {
-            let i = 0;
-            if (isArrlike(iterable) && !localStorage) for (; i < iterable.length; i += 1) func(iterable[i], i, iterable);
-            else if (isInt(iterable) && !isStr(iterable)) while (iterable != i) func(i += 1);
-            else for (i in iterable) if (iterable.hasOwnProperty(i)) func(iterable[i], i, iterable);
-          }
-      }
-  },
-  def = curry(Object.defineProperty),
-  getdesc = Object.getOwnPropertyDescriptor,
-  extend = curry((host, obj) => {
-    each(Keys(obj), key => def(host,key, getdesc(obj, key)));
-    return host;
-  }),
-  safeExtend = (host, obj) => {
-    each(Keys(obj), key => !(key in host) && def(host,key, getdesc(obj, key)));
-    return host;
-  },
-  omitProps = (obj, props) => {
-    const temp = {};
-    each(Keys(obj), key => {
-      if(!props.includes(key)) def(temp, key, getdesc(obj, key));
-    });
-    return temp;
-  },
-  flatten = arr => Array.prototype.reduce.call(arr, (flat, toFlatten) => flat.concat(isArr(toFlatten) ? flatten(toFlatten) : toFlatten), []);
-
-  const rename = (obj, keys, newkeys) => {
-    each(keys, (key,i) => {
-      def(obj, newkeys[i], getdesc(obj,key));
-      delete obj[key];
-    });
-    return obj;
-  }
-
-  const query = (selector, element = doc) => {
-      try {
-        return (isStr(element) ? doc.querySelector(element) : element).querySelector(selector);
-      } catch(e) {
-        return false;
-      }
-  }
-
-  const queryAll = (selector, element = doc) => {
-      try {
-        if (isStr(element)) element = query(element);
-        if(isNode(element)) return Array.from(element.querySelectorAll(selector));
-      } catch(e) {}
-      return false;
-  }
-
-  const queryEach = (selector, element, func) => {
-      if (isFunc(element)) {
-          func = element;
-          element = null;
-      }
-      const list = queryAll(selector, element);
-      if (isArrlike(list)) each(list, func);
-      return list;
-  }
-
-  const DOMcontains = (descendant, parent = doc) => parent == descendant || Boolean(parent.compareDocumentPosition(descendant) & 16);
-  const arraysEqual = (a, b) => a == null || b == null ? false : a === b || a.length == b.length && every(a, (v,i) => v == b[i]);
-
-  let NativeEventTypes = "DOMContentLoaded blur focus focusin focusout load resize scroll unload click dblclick mousedown mouseup mousemove mouseover mouseout mouseenter mouseleave change select submit keydown keypress keyup error contextmenu pointerdown pointerup pointermove pointerover pointerout pointerenter pointerleave touchstart touchend touchmove touchcancel";
-  const isNativeEvent = evt => NativeEventTypes.includes(evt);
-
-  const EventManager = curry((target, type, handle, options = false) => {
-    if(isStr(target)) target = query(target);
-    if(!target || !target.addEventListener) throw new Error('EventManager: Target Invalid');
-    let active = false;
-    return {
-      on() {
-          if (!active) {
-              target.addEventListener(type, handle, options);
-              active = true;
-          }
-          return this;
-      },
-      off() {
-          if (active) {
-            target.removeEventListener(type, handle);
-            active = false;
-          }
-          return this;
-      },
-      once() {
-          this.off();
-          active = true;
-          target.addEventListener(type, function hn() {
-              handle.apply(this, arguments);
-              target.removeEventListener(type, hn);
-          }, options);
-          return this;
-      }
+const curry = (fn, arity) => {
+  if(isNaN(arity)) arity = fn.length;
+  return (function resolver(...memory) {
+    return (...more) => {
+      const local = memory.slice().concat(more);
+      return (local.length >= arity ? fn : resolver)(...local);
     }
-  }, 3);
-
-  class informer {
-    constructor() {
-      this.handles = new Set();
-      this.isInformer = true;
+  }());
+},
+undef = undefined,
+includes = curry((host,containee) => host.includes(containee)),
+Keys = Object.keys,
+every = (arr, fn) => Array.prototype.every.call(arr, fn),
+typestr = toString.call,
+type = (obj, str) => typestr(obj) === str,
+typeinc = str => obj => toString.call(obj).includes(str),
+isDef = o => o !== undef,
+isUndef = o => o === undef,
+isNull = o => o === null,
+isFunc = o => typeof o === 'function',
+isStr = o => typeof o === 'string',
+isBool = o => typeof o === 'boolean',
+isNum = o => !isBool(o) && !isNaN(Number(o)),
+isPrimitive = s => typeof s === 'string' || typeof s === 'number',
+isInt = val => isNum(val) && val % 1 === 0,
+isObj = typeinc('Object'),
+isArr = Array.isArray,
+isArrlike = o => o !== undef && typeof o.length !== 'undefined',
+isEmpty = val => {
+    try { return !(isObj(val) ? Keys(val).length : isArrlike(val) ? val.length : val.size) || val === ''; } catch (e) {}
+    return false;
+},
+isNode = o => o instanceof Node,
+isNodeList = nl => nl instanceof NodeList || (isArrlike(nl) && !isEmpty(nl) && every(nl, isNode)),
+isEl = typeinc('HTML'),
+isInput = el => isEl(el) && ['INPUT', 'TEXTAREA'].some(includes(el.tagName)),
+isMap = typeinc('Map'),
+isSet = typeinc('Set'),
+each = (iterable, func) => {
+    if (isFunc(func)) {
+        if(iterable.forEach && !isEmpty(iterable)) iterable.forEach(func);
+        else {
+          let i = 0;
+          if (isArrlike(iterable) && !localStorage) for (; i < iterable.length; i += 1) func(iterable[i], i, iterable);
+          else if (isInt(iterable) && !isStr(iterable)) while (iterable != i) func(i += 1);
+          else for (i in iterable) if (iterable.hasOwnProperty(i)) func(iterable[i], i, iterable);
+        }
     }
+},
+def = curry(Object.defineProperty),
+getdesc = Object.getOwnPropertyDescriptor,
+extend = curry((host, obj) => {
+  each(Keys(obj), key => def(host,key, getdesc(obj, key)));
+  return host;
+}),
+safeExtend = (host, obj) => {
+  each(Keys(obj), key => !(key in host) && def(host,key, getdesc(obj, key)));
+  return host;
+},
+omitProps = (obj, props) => {
+  const temp = {};
+  each(Keys(obj), key => {
+    if(!props.includes(key)) def(temp, key, getdesc(obj, key));
+  });
+  return temp;
+},
+flatten = arr => Array.prototype.reduce.call(arr, (flat, toFlatten) => flat.concat(isArr(toFlatten) ? flatten(toFlatten) : toFlatten), []);
+
+const rename = (obj, keys, newkeys) => {
+  each(keys, (key,i) => {
+    def(obj, newkeys[i], getdesc(obj,key));
+    delete obj[key];
+  });
+  return obj;
+}
+
+const query = (selector, element = doc) => {
+    try {
+      return (isStr(element) ? doc.querySelector(element) : element).querySelector(selector);
+    } catch(e) {
+      return false;
+    }
+}
+
+const queryAll = (selector, element = doc) => {
+    try {
+      if (isStr(element)) element = query(element);
+      if(isNode(element)) return Array.from(element.querySelectorAll(selector));
+    } catch(e) {}
+    return false;
+}
+
+const queryEach = (selector, element, func) => {
+    if (isFunc(element)) {
+        func = element;
+        element = null;
+    }
+    const list = queryAll(selector, element);
+    if (isArrlike(list)) each(list, func);
+    return list;
+}
+
+const terr = msg => new TypeError(msg);
+const err = msg => new Error(msg);
+const DOMcontains = (descendant, parent = doc) => parent == descendant || Boolean(parent.compareDocumentPosition(descendant) & 16);
+const arraysEqual = (a, b) => a == null || b == null ? false : a === b || a.length == b.length && every(a, (v,i) => v == b[i]);
+
+let NativeEventTypes = "DOMContentLoaded blur focus focusin focusout load resize scroll unload click dblclick mousedown mouseup mousemove mouseover mouseout mouseenter mouseleave change select submit keydown keypress keyup error contextmenu pointerdown pointerup pointermove pointerover pointerout pointerenter pointerleave touchstart touchend touchmove touchcancel";
+const isNativeEvent = evt => NativeEventTypes.includes(evt);
+
+const EventManager = curry((target, type, handle, options = false) => {
+  if(isStr(target)) target = query(target);
+  if(!target || !target.addEventListener) throw err('EventManager: Target Invalid');
+  let active = false;
+  return {
+    on() {
+        if (!active) {
+            target.addEventListener(type, handle, options);
+            active = true;
+        }
+        return this;
+    },
+    off() {
+        if (active) {
+          target.removeEventListener(type, handle);
+          active = false;
+        }
+        return this;
+    },
+    once() {
+        this.off();
+        active = true;
+        target.addEventListener(type, function hn() {
+            handle.apply(this, arguments);
+            target.removeEventListener(type, hn);
+        }, options);
+        return this;
+    }
+  }
+}, 3);
+
+const informer = () => {
+  const handles = new Set();
+  return {
+    isInformer : true,
     handle(once, handle) {
         if(isFunc(once)) {
           handle = once;
           once = false;
         }
-        if(!isFunc(handle)) throw new TypeError('informer.handle : ought to be a function');
-        const handles = this.handles;
-
-        const activate = state => {
-          handle._once = !!state;
-          handles.add(handle);
-          return handle;
-        }
+        if(!isFunc(handle)) throw terr('informer.handle : ought to be a function');
 
         handle.off = () => {
           handles.delete(handle);
           return handle;
         }
-        handle.on = activate;
-        handle.once = activate.bind(null, true);
+        handle.on = state  => {
+          handle._once = !!state;
+          handles.add(handle);
+          return handle;
+        }
+        handle.once = handle.on(true);
 
-        return activate(once);
-    }
-    has(v) {
-      return this.handles.has(v);
-    }
+        return handle.on(once);
+    },
+    has:v => handles.has(v),
     on(handle) {
       return this.handle(handle);
-    }
+    },
     once(handle) {
       return this.handle(true, handle);
-    }
-    off(handle) {
-      this.handles.delete(handle);
-    }
+    },
+    off:handle => {handles.delete(handle)},
     get empty() {
-      return this.handles.size == 0;
-    }
+      return handles.size == 0;
+    },
     get size() {
-      return this.handles.size;
-    }
+      return handles.size;
+    },
     inform(...args) {
-      if(!arraysEqual(this.lastInform, args)) {
-        this.lastInform = args;
-        if (this.handles.size != 0) this.handles.forEach(hndl => {
+      if (handles.size != 0) {
+        handles.forEach(hndl => {
           hndl(...args);
           if(hndl._once) hndl.off();
         });
+        this.lastInform = args;
       }
     }
-    forceInform(...args) {
-      this.lastInform = args;
-      this.handles.forEach(hndl => {
-        hndl(...args);
-        if(hndl._once) hndl.off();
-      });
-    }
-    static fromEvent(target, eventtype, once = false, options) {
-        if(isStr(target) && isNativeEvent(target)) {
-          options = once;
-          once = eventtype;
-          eventtype = target;
-          target = root;
-        } else target = query(target);
-        if (!target.addEventListener) throw new Error("informer.fromEvent: target.addEventListener not found");
-        if (arguments.length == 1) return informer.fromEvent.bind(null, target);
-        if (!isStr(eventtype)) throw new TypeError("informer.fromEvent: eventtype isn't a string");
-        if (!isBool(once)) {
-            options = once;
-            once = false;
-        }
-        let inf = new informer();
-        const evtListener = EventManager(target, eventtype, e => {
-          inf.inform(e,evtListener);
-          if(once) inf = null;
-        }, options)[once ? 'once' : 'on']();
-        return inf;
-    }
-    static propHook(obj,key,hook) {
-      const inf = new informer();
-      const propDesc = getdesc(obj,key);
-      propDesc.enumerable = false;
-      const ikey = "informer-"+key;
-      const g = 'get', s = 'set';
-      def(obj, ikey, propDesc);
-      def(obj, key,{
-        get() {
-          const val = hook ? hook(g, obj[ikey]) : obj[ikey];
-          inf.inform(g, val);
-          return val;
-        },
-        set(val) {
-          const oldval = obj[ikey];
-          const newval = hook ? hook(s, oldval, val) : val;
-          inf.inform(s, oldval, newval);
-          obj[ikey] = newval;
-        }
-      });
-      return inf;
-    }
   }
+}
+
+informer.fromEvent = function(target, eventtype, once = false, options) {
+    if(isStr(target) && isNativeEvent(target)) {
+      options = once;
+      once = eventtype;
+      eventtype = target;
+      target = root;
+    } else target = query(target);
+    if (!target.addEventListener) throw err("informer.fromEvent: target.addEventListener not found");
+    if (arguments.length == 1) return informer.fromEvent.bind(null, target);
+    if (!isStr(eventtype)) throw terr("informer.fromEvent: eventtype isn't a string");
+    if (!isBool(once)) {
+        options = once;
+        once = false;
+    }
+    let inf = informer();
+    const evtListener = EventManager(target, eventtype, e => {
+      inf.inform(e,evtListener);
+      if(once) inf = null;
+    }, options)[once ? 'once' : 'on']();
+    return inf;
+}
+
+informer.propHook = (obj,key,hook) => {
+  const inf = informer();
+  const propDesc = getdesc(obj,key);
+  propDesc.enumerable = false;
+  const ikey = "informer-"+key;
+  const g = 'get', s = 'set';
+  def(obj, ikey, propDesc);
+  def(obj, key,{
+    get() {
+      const val = hook ? hook(g, obj[ikey]) : obj[ikey];
+      inf.inform(g, val);
+      return val;
+    },
+    set(val) {
+      const oldval = obj[ikey];
+      const newval = hook ? hook(s, oldval, val) : val;
+      inf.inform(s, oldval, newval);
+      obj[ikey] = newval;
+    }
+  });
+  return inf;
+}
 
 const run = fn => doc.readyState != 'complete' ? informer.fromEvent('DOMContentLoaded', true).once(fn) : fn();
 const plugins = {
@@ -295,20 +271,17 @@ const domfrag = inner => {
 const Inner = (node, type) => {
     if(isNode(node.node)) node = node.node;
     type = isInput(node) ? 'value' : type;
-    return function() {
-        if (!arguments.length) return node[type];
+    return function(...args) {
+        if (!args.length) return node[type];
         if (node[type] && node[type].length) node[type] = '';
-        each(arguments, function handleArg(val) {
+        each(args, val => {
             if(isStr(val)) node[type] += val;
-            else if(isArr(val)) each(val, handleArg);
-            else if(isDef(val)) {
-              if(val.appendTo) val.appendTo(node);
-              else if(isNode(val)) node.appendChild(val);
-              else if(isObj(val) && val.isInformer) val.on(Inner(node, type));
-            }
+            else if(val.appendTo) val.appendTo(node);
+            else if(isNode(val)) node.appendChild(val);
+            else if(isObj(val) && val.isInformer) val.on(Inner(node, type));
         });
         return this;
-    };
+    }
 }
 
 const on = curry((target, type, handle, options) => EventManager(target, type, handle, options).on(), 3);
@@ -318,15 +291,8 @@ const domMethods = node => ({
   node,
   hasAttr:node.hasAttribute.bind(node),
   getAttr:node.getAttribute.bind(node),
-  setAttr(attr, val) {
-      const sa = node.setAttribute.bind(node);
-      if (isUndef(val)) {
-          if (isObj(attr)) each(attr, (v, a) => sa(a, v));
-          else if (isStr(attr)) attr.includes('=') || attr.includes('&') ? each(attr.split('&'), Attr => {
-              const eqsplit = Attr.split('=');
-              sa(eqsplit[0], isDef(eqsplit[1]) ? eqsplit[1] : '');
-          }) : sa(attr, '');
-      } else sa(attr, '');
+  setAttr(attr, val = '') {
+      isObj(attr) ? each(attr, (v,a) => node.setAttribute(a,v)) : node.setAttribute(attr, val);
       return this;
   },
   removeAttr(...args) {
@@ -356,7 +322,7 @@ const domMethods = node => ({
   css(styles, prop) {
       if (isObj(styles)) each(styles, (prop, key) => node.style[key] = prop);
       else if (isStr(styles) && isStr(prop)) node.style[styles] = prop;
-      else throw new TypeError('CSS : Styles is not an object or string pair');
+      else throw terr('CSS : Styles is not an object or string pair');
       return this;
   },
   html: Inner(node, 'innerHTML'),
@@ -391,22 +357,21 @@ const domMethods = node => ({
     fn(this, node);
     return this;
   },
-  listeners : [],
   get mounted() { return DOMcontains(node) },
+  listeners : [],
   lifecycle:{},
-  attrupdate : new informer(),
+  attrupdate : informer(),
   observeAttr(name, handle, once = false) {
     return this.attrupdate[once ? 'once' : 'on']((attrname, ...details) => name === attrname && handle(attrname, ...details));
   }
 });
 
 const lifecycleStages = 'create mount destroy update'.split(' ');
-const eventActualizer = (fn,dm) => (val, key) => {
+const eventActualizer = (fn, dm) => (val, key) => {
   let listener;
   fn = fn(key);
   if(isFunc(val)) listener = fn(val);
   else if(isObj(val)) listener = val.isInformer ? fn(val.inform.bind(val)) : fn(val.handle, val.options);
-  console.log(listener);
   if(listener) dm.listeners.push(listener);
 }
 
@@ -415,15 +380,17 @@ function actualize(options, el) {
   const dm = domMethods(el);
   el.dm = dm;
   if(options.class) el.className = options.class;
-  if(options.inner) dm.html(isFunc(options.inner) ? options.inner(dm, el) : options.inner);
-  else if(options.text) dm.Text(options.text);
+  if(options.inner) {
+    if(isFunc(options.inner)) options.inner = options.inner(dm, el);
+    isArrlike(options.inner) ? dm.html(...flatten(options.inner)) : dm.html(options.inner);
+  } else if(options.text) dm.Text(options.text);
   if(options.style) dm.css(options.style);
   if(options.attr) dm.setAttr(options.attr);
   if(options.on) each(options.on, eventActualizer(dm.on, dm));
   if(options.once) each(options.once, eventActualizer(dm.once, dm));
   dm.extend = extend(dm);
   each(lifecycleStages, stage => {
-      dm.lifecycle[stage] = new informer();
+      dm.lifecycle[stage] = informer();
       if(isObj(options.lifecycle) && isFunc(options.lifecycle[stage])) options.lifecycle[stage] = dm.lifecycle[stage][stage === 'update' ? 'on' : 'once'](options.lifecycle[stage]);
   });
   if(isObj(options.props)) extend(dm, options.props);
@@ -434,7 +401,7 @@ function actualize(options, el) {
 }
 
 const dom = curry((tag, data) => {
-  if(!isStr(tag)) throw new TypeError('invalid element instantiation parameters');
+  if(!isStr(tag)) throw terr('invalid element instantiation parameters');
   if(!isObj(data)) data = isArrlike(data) || isNode(data) ? { inner : data } : {};
   data.tag = tag;
   return actualize(data);
@@ -463,55 +430,50 @@ new MutationObserver(muts => each(muts, mut => {
     subtree: true
 });
 
-extend(dom,{
-  extend,
-  query,queryAll,queryEach,
-  on,once
-});
+extend(dom,{extend,query,queryAll,queryEach,on,once});
 
 each(
   'picture img input list a script table td th tr article aside ul ol li h1 h2 h3 h4 h5 h6 div span pre code section button br label header i style nav menu main menuitem'.split(' '),
   tag => dom[tag] = dom(tag)
 );
 
-  return {
-    informer,
-    EventManager,
-    isNativeEvent,
-    dom,
-    plugins,
-    extend,
-    safeExtend,
-    def,
-    getdesc,
-    get,
-    set,
-    rename,
-    run,
-    curry,
-    each,
-    query,queryAll,queryEach,
-    DOMcontains,
-    arraysEqual,
-    flatten,
-    isDef,
-    isUndef,
-    isPrimitive,
-    isNull,
-    isFunc,
-    isStr,
-    isBool,
-    isNum,
-    isInt,
-    isObj,
-    isArr,
-    isArrlike,
-    isEmpty,
-    isEl,
-    isNode,
-    isNodeList,
-    isInput,
-    isMap,
-    isSet
-  };
+return {
+  informer,
+  EventManager,
+  isNativeEvent,
+  dom,
+  plugins,
+  extend,
+  safeExtend,
+  def,
+  getdesc,
+  rename,
+  run,
+  curry,
+  each,
+  query,queryAll,queryEach,
+  DOMcontains,
+  arraysEqual,
+  flatten,
+  isDef,
+  isUndef,
+  isPrimitive,
+  isNull,
+  isFunc,
+  isStr,
+  isBool,
+  isNum,
+  isInt,
+  isObj,
+  isArr,
+  isArrlike,
+  isEmpty,
+  isEl,
+  isNode,
+  isNodeList,
+  isInput,
+  isMap,
+  isSet
+};
+
 });
