@@ -3,6 +3,11 @@ logs
 *.log
 npm-debug.log*
 
+# Developer Tools
+caddy.exe
+Caddyfile
+*.bat
+
 # Runtime data
 pids
 *.pid

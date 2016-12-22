@@ -1,0 +1,28 @@
+{
+  "name": "rot.js",
+  "version": "0.0.5",
+  "description": "simple small plugable view layer for the front end written in es6 with no apologies",
+  "main": "init.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sauldoescode/rot.js.git"
+  },
+  "keywords": [
+    "es6",
+    "view",
+    "library",
+    "front-end"
+  ],
+  "author": "Saul van der Walt",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/sauldoescode/rot.js/issues"
+  },
+  "homepage": "https://github.com/sauldoescode/rot.js#readme",
+  "devDependencies": {
+    "babili": "0.0.9"
+  }
+}
