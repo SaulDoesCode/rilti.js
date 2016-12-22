@@ -1,3 +1,10 @@
+/**
+* rot.js alpha
+* @licence MIT
+* @repo SaulDoesCode/rot.js
+* @author Saul van der Walt
+**/
+
 (function (name, context, definition) {
   if (typeof module != 'undefined' && module.exports) module.exports = definition();
   else if (typeof define == 'function' && define.amd) define(name, definition);
