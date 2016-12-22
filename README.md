@@ -15,9 +15,60 @@ a small robust and unapologetic view layer library built for the front-end
 | ``extend( {host object}, {object} )`` | extends host object with all props of other object |
 | ``rename( {object}, {[...keys]}, {[...newkeys]} )`` | renames keys in an object |
 | ``flatten( {arraylike} )`` | flattens multidimensional arraylike objects |
+| ``informer( )`` | small Observable like notifier/informer objects |
 | ``EventManager( {target}, {type}, {listener}, {=options} )`` | internal method used for managing event listeners |
 | ``on( {target}, {type}, {listener}, {=options} )`` | generates event listener |
 | ``once( {target}, {type}, {listener}, {=options} )`` | generates event listener that triggers only once |
+
+
+#### example time!!!
+
+```javascript
+
+  const {dom} = rot;
+  const {div, nav} = dom;
+
+  function goHome() {
+    document.location.replace("https://mysite:3000/#home");
+  }
+
+  const navbutton = (inner, click) => div({
+    class : 'navbar-button',
+    inner,
+    on : { click }
+  });
+
+  const navbar = nav({
+    class : 'navbar',
+    style : {
+      color : '#fff',
+    },
+    attr : {
+      id : 'mainbar'
+    },
+    props : {
+      get importantThing() {
+        return this.importantPropery;
+      },
+      hide() {
+        this.css({
+          display:'none';
+        });
+      },
+    },
+    inner : [
+      'My Company Title',
+      navbutton('home', goHome),
+    ]
+  });
+
+  rot.run(() => {
+    // post dom load code here
+    navbar.appendTo(document.body);
+
+    console.log(navbar.importantThing);
+  });
+```
 
 #### weight
 * unminified : > 18kb
