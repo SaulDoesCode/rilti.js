@@ -5,7 +5,7 @@ a small robust and unapologetic view layer library built for the front-end
 ### api
 | method | description  |
 |--------|--------------|
-| ``dom( {object} )`` | creates and defines behavior for elements  |
+| ``dom( {object} )`` | where the magic happens it creates and defines behavior for elements from given options |
 | ``DOMcontains( {node}, {=parent node} )`` | determines whether or not the dom or other node contains a specific node |
 | ``query( {string}, {=string/node} )`` | improved alternative to ``document.querySelector``|
 | ``queryAll( {string}, {=string/node} )`` | improved alternative to ``document.querySelectorAll``|
@@ -15,5 +15,11 @@ a small robust and unapologetic view layer library built for the front-end
 | ``extend( {host object}, {object} )`` | extends host object with all props of other object |
 | ``rename( {object}, {[...keys]}, {[...newkeys]} )`` | renames keys in an object |
 | ``flatten( {arraylike} )`` | flattens multidimensional arraylike objects |
-| ``arraysEqual( {arraylike}, {arraylike} )`` | tests whether two arraylike objects are equal |
 | ``EventManager( {target}, {type}, {listener}, {=options} )`` | internal method used for managing event listeners |
+| ``on( {target}, {type}, {listener}, {=options} )`` | generates event listener |
+| ``once( {target}, {type}, {listener}, {=options} )`` | generates event listener that triggers only once |
+
+#### weight
+* unminified : > 18kb
+* minified : > 11kb
+* minified && gziped : > 5kb
