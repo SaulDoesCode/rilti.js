@@ -12,7 +12,7 @@ function formatBytes(bytes, decimals) {
 
 //exec('caddy.exe');
 
-fs.watch('./src/js/', (_, filename) => {
+fs.watch('./src/', (_, filename) => {
   if(filename.includes('.js')) {
     const minname = filename.split('.').map(e => e == 'js' ? 'min.js' : e).join('.');
     exec(`babili ./src/${filename} -o ./dist/${minname}`).then(() => {

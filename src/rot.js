@@ -476,7 +476,6 @@ each(
     run,
     curry,
     each,
-    type,typeinc,typestr,
     query,queryAll,queryEach,
     DOMcontains,
     arraysEqual,
