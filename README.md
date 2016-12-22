@@ -2,6 +2,10 @@
 
 a small robust and unapologetic view layer library built for the front-end
 
+##### currently in alpha phase and subject to breaking changes
+feel free to fork, raise issues
+constructive criticism is welcome 
+
 ### features
 * lifecycle hooks
 * event management
