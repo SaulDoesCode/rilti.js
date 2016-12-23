@@ -53,7 +53,7 @@ isInput = el => isEl(el) && ['INPUT', 'TEXTAREA'].some(includes(el.tagName)),
 isMap = typeinc('Map'),
 isSet = typeinc('Set'),
 each = (iterable, func) => {
-    if (isFunc(func)) {
+    if (isDef(iterable) && isFunc(func)) {
         if(iterable.forEach && !isEmpty(iterable)) iterable.forEach(func);
         else {
           let i = 0;
@@ -73,18 +73,18 @@ safeExtend = (host, obj) => {
   each(Keys(obj), key => !(key in host) && def(host,key, getdesc(obj, key)));
   return host;
 },
-omitProps = (obj, props) => {
+/*omitProps = (obj, props) => {
   const temp = {};
   each(Keys(obj), key => {
     if(!props.includes(key)) def(temp, key, getdesc(obj, key));
   });
   return temp;
-},
+},*/
 flatten = arr => Array.prototype.reduce.call(arr, (flat, toFlatten) => flat.concat(isArr(toFlatten) ? flatten(toFlatten) : toFlatten), []);
 
 const rename = (obj, keys, newkeys) => {
   each(keys, (key,i) => {
-    def(obj, newkeys[i], getdesc(obj,key));
+    if(newkeys[i]) def(obj, newkeys[i], getdesc(obj,key));
     delete obj[key];
   });
   return obj;
@@ -250,14 +250,12 @@ informer.propHook = (obj,key,hook) => {
 }
 
 const run = fn => doc.readyState != 'complete' ? informer.fromEvent('DOMContentLoaded', true).once(fn) : fn();
-const plugins = {
- methods:{},
- handles:new Set()
-};
-def(plugins,'extend', {
-  value:extend(plugins.methods),
-  enumerable:false
-});
+const plugins = options => safeExtend(rot, options);
+extend(plugins, {
+  methods:{},
+  handles:new Set(),
+  muthandles : new Set(),
+})
 
 const dffstr = html => doc.createRange().createContextualFragment(html || '');
 const domfrag = inner => {
@@ -428,9 +426,6 @@ new MutationObserver(muts => each(muts, mut => {
         if (el.dm) {
           el.dm.lifecycle.mount.inform(el.dm, el);
         }
-        //if (el.attributes) each(el.attributes, attr => {
-            //if (Directives.has(attr.name)) manageAttr(el, attr.name, attr.value, '', true);
-        //});
     });
     if(mut.target.dm  && mut.attributeName != 'style') {
       if (mut.type == 'attributes') {
@@ -439,13 +434,14 @@ new MutationObserver(muts => each(muts, mut => {
         dm.attrupdate.inform(name, dm.getAttr(name), mut.oldValue, dm.hasAttr(name), dm);
       } else mut.target.dm.lifecycle.update.inform('mut', mut, mut.target.dm, mut.target);
     }
+    each(plugins.muthandles, h => h(mut.target,mut.type,mut));
 })).observe(doc, {
     attributes: true,
     childList: true,
     subtree: true
 });
 
-extend(dom,{extend,query,queryAll,queryEach,on,once});
+extend(dom,{extend,query,queryAll,queryEach,on,once, actualize});
 
 each(
   'picture img input list a script table td th tr article aside ul ol li h1 h2 h3 h4 h5 h6 div span pre code section button br label header i style nav menu main menuitem'.split(' '),
