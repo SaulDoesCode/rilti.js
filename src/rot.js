@@ -73,13 +73,6 @@ safeExtend = (host, obj) => {
   each(Keys(obj), key => !(key in host) && def(host,key, getdesc(obj, key)));
   return host;
 },
-/*omitProps = (obj, props) => {
-  const temp = {};
-  each(Keys(obj), key => {
-    if(!props.includes(key)) def(temp, key, getdesc(obj, key));
-  });
-  return temp;
-},*/
 flatten = arr => Array.prototype.reduce.call(arr, (flat, toFlatten) => flat.concat(isArr(toFlatten) ? flatten(toFlatten) : toFlatten), []);
 
 const rename = (obj, keys, newkeys) => {
@@ -101,7 +94,7 @@ const query = (selector, element = doc) => {
 const queryAll = (selector, element = doc) => {
     try {
       if (isStr(element)) element = query(element);
-      if(isNode(element)) return Array.from(element.querySelectorAll(selector));
+      return Array.from(element.querySelectorAll(selector));
     } catch(e) {}
     return false;
 }
@@ -185,7 +178,7 @@ const informer = () => {
     once(handle) {
       return this.handle(true, handle);
     },
-    off:handle => {handles.delete(handle)},
+    off(handle) {handles.delete(handle)},
     get empty() {
       return handles.size == 0;
     },
@@ -193,13 +186,10 @@ const informer = () => {
       return handles.size;
     },
     inform(...args) {
-      if (handles.size != 0) {
-        handles.forEach(hndl => {
-          hndl(...args);
-          if(hndl._once) hndl.off();
-        });
-        this.lastInform = args;
-      }
+      if (handles.size != 0) handles.forEach(hndl => {
+        hndl(...args);
+        if(hndl._once) hndl.off();
+      });
     }
   }
 }
@@ -265,15 +255,12 @@ const domfrag = inner => {
     return dfrag;
 }
 
-const Inner = (node, type) => {
-    if(isNode(node.node)) node = node.node;
-    type = isInput(node) ? 'value' : type;
+const Inner = (node,type) => {
     return function(...args) {
         if (!args.length) return node[type];
-        if (node[type] && node[type].length) node[type] = '';
         each(args, val => {
-            if(isStr(val)) node[type] += val;
-            else if(val.appendTo) val.appendTo(node);
+            if(isStr(val)) val = document.createTextNode(val);
+            if(val.appendTo) val.appendTo(node);
             else if(isNode(val)) node.appendChild(val);
             else if(isObj(val) && val.isInformer) val.on(Inner(node, type));
         });
@@ -391,7 +378,7 @@ function actualize(options, el) {
   if(options.class) el.className = options.class;
   if(options.inner) {
     if(isFunc(options.inner)) options.inner = options.inner(dm, el);
-    isArrlike(options.inner) ? dm.html(...flatten(options.inner)) : dm.html(options.inner);
+    isArr(options.inner) ? dm.html(...flatten(options.inner)) : dm.html(options.inner);
   } else if(options.text) dm.Text(options.text);
   if(options.style) dm.css(options.style);
   if(options.attr) dm.setAttr(options.attr);
