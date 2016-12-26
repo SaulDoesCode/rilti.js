@@ -102,18 +102,16 @@ const queryAll = (selector, element = doc) => {
 const queryEach = (selector, element, func) => {
     if (isFunc(element)) {
         func = element;
-        element = null;
+        element = doc;
     }
-    const list = queryAll(selector, element);
-    if (isArrlike(list)) each(list, func);
-    return list;
+    return each(queryAll(selector, element), func);
 }
 
 const terr = msg => new TypeError(msg);
 const err = msg => new Error(msg);
 const DOMcontains = (descendant, parent = doc) => parent == descendant || Boolean(parent.compareDocumentPosition(descendant) & 16);
 
-let NativeEventTypes = "DOMContentLoaded blur focus focusin focusout load resize scroll unload click dblclick mousedown mouseup mousemove mouseover mouseout mouseenter mouseleave change select submit keydown keypress keyup error contextmenu pointerdown pointerup pointermove pointerover pointerout pointerenter pointerleave touchstart touchend touchmove touchcancel";
+let NativeEventTypes = "DOMContentLoaded hashchange blur focus focusin focusout load resize scroll unload click dblclick mousedown mouseup mousemove mouseover mouseout mouseenter mouseleave change select submit keydown keypress keyup error contextmenu pointerdown pointerup pointermove pointerover pointerout pointerenter pointerleave touchstart touchend touchmove touchcancel";
 const isNativeEvent = evt => NativeEventTypes.includes(evt);
 
 const EventManager = curry((target, type, handle, options = false) => {
@@ -195,12 +193,12 @@ const informer = () => {
 }
 
 informer.fromEvent = function(target, eventtype, once = false, options) {
-    if(isStr(target) && isNativeEvent(target)) {
+    if(isNativeEvent(target)) {
       options = once;
       once = eventtype;
       eventtype = target;
       target = root;
-    } else target = query(target);
+    } else if(isStr(target)) target = query(target);
     if (!target.addEventListener) throw err("informer.fromEvent: target.addEventListener not found");
     if (arguments.length == 1) return informer.fromEvent.bind(null, target);
     if (!isStr(eventtype)) throw terr("informer.fromEvent: eventtype isn't a string");
@@ -239,7 +237,15 @@ informer.propHook = (obj,key,hook) => {
   return inf;
 }
 
-const run = fn => doc.readyState != 'complete' ? informer.fromEvent('DOMContentLoaded', true).once(fn) : fn();
+const runstack = new Set();
+const addtoRunstack = (...args) => each(args, a => runstack.add(a));
+const run = fn => {
+  const go = () => {
+    runstack.forEach(piece => piece.appendTo(doc.body));
+    fn();
+  }
+  doc.readyState != 'complete' ? informer.fromEvent('DOMContentLoaded', true).once(go) : go();
+};
 const plugins = options => safeExtend(rot, options);
 extend(plugins, {
   methods:{},
@@ -259,10 +265,16 @@ const Inner = (node,type) => {
     return function(...args) {
         if (!args.length) return node[type];
         each(args, val => {
-            if(isStr(val)) val = document.createTextNode(val);
-            if(val.appendTo) val.appendTo(node);
-            else if(isNode(val)) node.appendChild(val);
-            else if(isObj(val) && val.isInformer) val.on(Inner(node, type));
+            if(val.appendTo) {
+              if(!DOMcontains(val.node, node)) {
+                val.parent = node.dm;
+                val.lifecycle.mount.inform(val, val.node);
+              }
+              val.appendTo(node);
+            }
+            if(isStr(val)) val = doc.createTextNode(val);
+            if(isNode(val)) node.appendChild(val);
+            if(isObj(val) && val.isInformer) val.on(Inner(node, type));
         });
         return this;
     }
@@ -310,7 +322,7 @@ const domMethods = node => ({
       return this;
   },
   html: Inner(node, 'innerHTML'),
-  Text: Inner(node, 'textContent'),
+  text: Inner(node, 'textContent'),
   on:on(node),
   once:once(node),
   append(...args) {
@@ -372,14 +384,13 @@ const eventActualizer = (fn, dm) => (val, key) => {
 
 function actualize(options, el) {
   if(!isNode(el)) el = isStr(el) ? query(el) : doc.createElement(options.tag);
-  const dm = el.dm || domMethods(el);
-  if(!el.dm) el.dm = dm;
+  const dm = el.dm || (el.dm = domMethods(el));
   dm.oldOptions = options;
   if(options.class) el.className = options.class;
   if(options.inner) {
     if(isFunc(options.inner)) options.inner = options.inner(dm, el);
     isArr(options.inner) ? dm.html(...flatten(options.inner)) : dm.html(options.inner);
-  } else if(options.text) dm.Text(options.text);
+  } else if(options.text) dm.text(options.text);
   if(options.style) dm.css(options.style);
   if(options.attr) dm.setAttr(options.attr);
   if(options.on) each(options.on, eventActualizer(dm.on, dm));
@@ -445,6 +456,8 @@ return {
   def,
   getdesc,
   rename,
+  addtoRunstack,
+  runstack,
   run,
   curry,
   each,
