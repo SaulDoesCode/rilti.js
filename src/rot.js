@@ -214,54 +214,24 @@ informer.fromEvent = function(target, eventtype, once = false, options) {
     return inf;
 }
 
-informer.propHook = (obj,key,hook) => {
-  const inf = informer();
-  const propDesc = getdesc(obj,key);
-  propDesc.enumerable = false;
-  const ikey = "informer-"+key;
-  const g = 'get', s = 'set';
-  def(obj, ikey, propDesc);
-  def(obj, key,{
-    get() {
-      const val = hook ? hook(g, obj[ikey]) : obj[ikey];
-      inf.inform(g, val);
-      return val;
-    },
-    set(val) {
-      const oldval = obj[ikey];
-      const newval = hook ? hook(s, oldval, val) : val;
-      inf.inform(s, oldval, newval);
-      obj[ikey] = newval;
-    }
-  });
-  return inf;
-}
-
-const runstack = new Set();
-const addtoRunstack = (...args) => each(args, a => runstack.add(a));
-const run = fn => {
-  const go = () => {
-    runstack.forEach(piece => piece.appendTo(doc.body));
-    fn();
-  }
-  doc.readyState != 'complete' ? informer.fromEvent('DOMContentLoaded', true).once(go) : go();
-};
-const plugins = options => safeExtend(rot, options);
+const LoadInformer = informer.fromEvent('DOMContentLoaded', true),
+run = fn => doc.readyState != 'complete' ? LoadInformer.once(fn) : fn(),
+render = (...args) => (node = doc.body) => run(() => each(args, a => a.appendTo(node))),
+plugins = options => safeExtend(rot, options);
 extend(plugins, {
   methods:{},
   handles:new Set(),
   muthandles : new Set(),
 })
 
-const dffstr = html => doc.createRange().createContextualFragment(html || '');
-const domfrag = inner => {
+const dffstr = html => doc.createRange().createContextualFragment(html || ''),
+domfrag = inner => {
     if(isStr(inner)) return dffstr(inner);
     const dfrag = doc.createDocumentFragment();
     dfrag.appendChild(inner);
     return dfrag;
-}
-
-const Inner = (node,type) => {
+},
+Inner = (node,type) => {
     return function(...args) {
         if (!args.length) return node[type];
         each(args, val => {
@@ -456,8 +426,7 @@ return {
   def,
   getdesc,
   rename,
-  addtoRunstack,
-  runstack,
+  render,
   run,
   curry,
   each,
