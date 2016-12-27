@@ -34,7 +34,6 @@ Constructive criticism is welcome
 | ``run( {function} )`` | executes a given function when the DOM is loaded |
 | ``curry( {function}, {=arity} )`` | curries a function |
 | ``extend( {host object}, {object} )`` | extends host object with all props of other object |
-| ``rename( {object}, {[...keys]}, {[...newkeys]} )`` | renames keys in an object |
 | ``flatten( {arraylike} )`` | flattens multidimensional arraylike objects |
 | ``informer( )`` | small Observable like notifier/informer objects |
 | ``EventManager( {target}, {type}, {listener}, {=options} )`` | internal method used for managing event listeners |
@@ -51,7 +50,7 @@ isStr,isObj,
 isArr, isArrlike,
 isMap, isSet,
 isEl, isNode, isNodeList,
-isInput, isPrimitive, isNativeEvent,
+isInput, isPrimitive, isNativeEvent
 
 rot.js can work with module loaders, but will simply be global if none are used
 
