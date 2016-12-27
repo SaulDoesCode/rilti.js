@@ -62,7 +62,7 @@ rot.js can work with module loaders, but will simply be global if none are used
   const {div, nav} = dom;
 
   function goHome() {
-    document.location.replace("https://mysite:3000/#home");
+    location.replace("https://mysite:3000/#home");
   }
 
   const navbutton = (inner, click) => div({
