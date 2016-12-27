@@ -104,8 +104,8 @@ rot.js can work with module loaders, but will simply be global if none are used
 ```
 
 #### weight
-* unminified : > 18kb
-* minified : > 11kb
-* minified && gziped : > 5kb
+* unminified : > 15kb
+* minified : > 9kb
+* minified && gziped : > 4.5kb
 
 #### licence = MIT
