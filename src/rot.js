@@ -45,14 +45,14 @@ isInput = el => isEl(el) && 'INPUT TEXTAREA'.includes(el.tagName),
 isMap = typeinc('Map'),
 isSet = typeinc('Set'),
 each = (iterable, func) => {
-    if (isDef(iterable) && isFunc(func)) {
-        if(isArrlike(iterable) && !isEmpty(iterable)) Array.prototype.forEach.call(iterable, func);
-        else {
-          let i = 0;
-          if(isObj(iterable)) for (i in iterable) func(iterable[i], i, iterable);
-          else if (isInt(iterable)) while (iterable != i) func(i += 1);
-        }
+  if (isDef(iterable) && isFunc(func)) {
+    if(isArrlike(iterable) && !isEmpty(iterable)) Array.prototype.forEach.call(iterable, func);
+    else {
+      let i = 0;
+      if(isObj(iterable)) for (i in iterable) func(iterable[i], i, iterable);
+      else if (isInt(iterable)) while (iterable != i) func(i += 1);
     }
+  }
 },
 def = curry(Object.defineProperty),
 getdesc = Object.getOwnPropertyDescriptor,
@@ -69,11 +69,11 @@ flatten = arr => Array.prototype.reduce.call(arr, (flat, toFlatten) => flat.conc
 query = (selector, element = doc) => (isStr(element) ? doc.querySelector(element) : element).querySelector(selector),
 queryAll = (selector, element = doc) => Array.from((isStr(element) ? query(element) : element).querySelectorAll(selector)),
 queryEach = (selector, func, element = doc) => {
-    if (!isFunc(func)) {
-        func = element;
-        element = doc;
-    }
-    each(queryAll(selector, element), func);
+  if (!isFunc(func)) {
+      func = element;
+      element = doc;
+  }
+  each(queryAll(selector, element), func);
 },
 
 terr = msg => new TypeError(msg), err = msg => new Error(msg),
@@ -85,20 +85,22 @@ isNativeEvent = evt => NativeEventTypes.includes(evt),
 EventManager = curry((target, type, handle, options = false) => {
   if(isStr(target)) target = query(target);
   if(!target || !target.addEventListener) throw err('EventManager: Target Invalid');
+  const add = target.addEventListener.bind(target),
+  remove = target.removeEventListener.bind(target);
   return {
     off() {
-        target.removeEventListener(type, handle);
+        remove(type, handle);
         return this;
     },
     on() {
-        target.addEventListener(type, handle, options);
+        add(type, handle, options);
         return this;
     },
     once() {
         this.off();
-        target.addEventListener(type, function hn() {
+        add(type, function hn() {
             handle.apply(this, arguments);
-            target.removeEventListener(type, hn);
+            remove(type, hn);
         }, options);
         return this;
     }
@@ -174,23 +176,23 @@ run = fn => doc.readyState != 'complete' ? LoadInformer.once(fn) : fn(),
 render = (...args) => (node = doc.body) => run(() => each(args, a => a.appendTo(node))),
 dffstr = html => doc.createRange().createContextualFragment(html || ''),
 domfrag = inner => {
-    if(isStr(inner)) return dffstr(inner);
-    const dfrag = doc.createDocumentFragment();
-    dfrag.appendChild(inner);
-    return dfrag;
+  if(isStr(inner)) return dffstr(inner);
+  const dfrag = doc.createDocumentFragment();
+  dfrag.appendChild(inner);
+  return dfrag;
 },
 Inner = (node, type) => (...args) => {
-    if (!args.length) return node[type];
-    for(let val of args) {
-        if(val.appendTo) {
-          if(!DOMcontains(val.node, node)) val.lifecycle.mount.inform(val, val.node, val.parent = node.dm);
-          val.appendTo(node);
-        }
-        if(isStr(val)) val = doc.createTextNode(val);
-        if(isNode(val)) node.appendChild(val);
-        else if(isObj(val) && val.isInformer) val.on(Inner(node, type));
-    }
-    return node.dm;
+  if (!args.length) return node[type];
+  for(let val of args) {
+      if(val.appendTo) {
+        if(!DOMcontains(val.node, node)) val.lifecycle.mount.inform(val, val.node, val.parent = node.dm);
+        val.appendTo(node);
+      }
+      if(isStr(val)) val = doc.createTextNode(val);
+      if(isNode(val)) node.appendChild(val);
+      else if(isObj(val) && val.isInformer) val.on(Inner(node, type));
+  }
+  return node.dm;
 },
 plugins = options => safeExtend(rot, options);
 extend(plugins, {
@@ -298,14 +300,14 @@ eventActualizer = (dm, listen) => {
     else if(val.isInformer) listener = fn(e => val.inform(e, listener, val));
     if(listener) dm.listeners.push(listener);
   }
-}
+},
 
-const actualize = (options, el) => {
+actualize = (options, el) => {
   el = isStr(el) ? query(el) : isNode(el) ? el : doc.createElement(options.tag);
   let dm = el.dm || (el.dm = domMethods(el)),
-  {inner, style, lifecycle} = (dm.options = options);
+  {children, style, lifecycle} = (dm.options = options);
   if(options.class) el.className = options.class;
-  if(inner) isArr(isFunc(inner) ? inner = inner(dm, el) : inner) ? dm.html(...flatten(inner)) : dm.html(inner);
+  if(children) isArr(isFunc(children) ? children = children(dm, el) : children) ? dm.html(...flatten(children)) : dm.html(children);
   if(options.style) dm.css(options.style);
   if(options.attr) dm.setAttr(options.attr);
   if(options.on) each(options.on, eventActualizer(dm, 'on'));
@@ -324,8 +326,9 @@ const actualize = (options, el) => {
   return dm;
 }
 
-const dom = curry((tag, data) => {
-  if(!isObj(data)) data = { inner : data || undef };
+const dom = curry((tag, data, ...children) => {
+  if((isObj(data) && data.node) || isArrlike(data)) data = { children : data || undef };
+  else data.children = children;
   data.tag = tag;
   return actualize(data);
 });
@@ -387,5 +390,4 @@ return {
   isMap,
   isSet
 }
-
 });

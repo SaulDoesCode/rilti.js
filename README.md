@@ -26,7 +26,7 @@ Constructive criticism is welcome
 ### api
 | method | description  |
 |--------|--------------|
-| ``dom( {object} )`` | where the magic happens it creates and defines behavior for elements from given options |
+| ``dom({tag}, {object}, {...children} )`` | where the magic happens it creates and defines behavior for elements from given options |
 | ``DOMcontains( {node}, {=parent node} )`` | determines whether or not the dom or other node contains a specific node |
 | ``query( {string}, {=string/node} )`` | improved alternative to ``document.querySelector``|
 | ``queryAll( {string}, {=string/node} )`` | improved alternative to ``document.querySelectorAll``|
@@ -68,33 +68,32 @@ rot.js can work with module loaders, but will simply be global if none are used
 
   const navbutton = (inner, click) => div({
     class : 'navbar-button',
-    inner,
     on : { click }
-  });
+  }, inner);
 
-  const navbar = nav({
-    class : 'navbar',
-    style : {
-      color : '#fff',
-    },
-    attr : {
-      id : 'mainbar'
-    },
-    props : {
-      get importantThing() {
-        return this.importantPropery;
+  const navbar = nav(
+    {
+      class : 'navbar',
+      style : {
+        color : '#fff',
       },
-      hide() {
-        this.css({
-          display:'none';
-        });
+      attr : {
+        id : 'mainbar'
       },
-    },
-    inner : [
-      'My Company Title',
-      navbutton('home', goHome),
-    ]
-  });
+      props : {
+        get importantThing() {
+          return this.importantPropery;
+        },
+        hide() {
+          this.css({
+            display:'none';
+          });
+        },
+      }
+    },    
+    'My Company Title',
+    navbutton('home', goHome)
+  );
 
   // render your nodes
   rot.render(navbar);
