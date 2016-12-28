@@ -4,12 +4,11 @@
 * @repo SaulDoesCode/rot.js
 * @author Saul van der Walt
 **/
-
-(function (context, definition) {
+((context, factory) => {
   const name = 'rot';
-  if (typeof module != 'undefined' && module.exports) module.exports = definition();
-  else if (typeof define == 'function' && define.amd) define(name, definition);
-  else context[name] = definition();
+  context[name] = factory();
+  if (typeof module != 'undefined' && module.exports) module.exports = factory();
+  else if (typeof define == 'function' && define.amd) define(name, factory);
 })(this, () => {
 "use strict";
 const root = window || global, doc = document, undef = undefined,
@@ -57,11 +56,11 @@ each = (iterable, func) => {
 def = curry(Object.defineProperty),
 getdesc = Object.getOwnPropertyDescriptor,
 extend = curry((host, obj) => {
-  for(const key of Keys(obj)) def(host,key, getdesc(obj, key));
+  for(let key of Keys(obj)) def(host,key, getdesc(obj, key));
   return host;
 }),
 safeExtend = (host, obj) => {
-  for(const key of Keys(obj)) !(key in host) && def(host,key, getdesc(obj, key));
+  for(let key of Keys(obj)) !(key in host) && def(host,key, getdesc(obj, key));
   return host;
 },
 flatten = arr => Array.prototype.reduce.call(arr, (flat, toFlatten) => flat.concat(isArr(toFlatten) ? flatten(toFlatten) : toFlatten), []),
@@ -111,27 +110,20 @@ informer = () => {
   const handles = new Set();
   return {
     isInformer : true,
-    handle(once, handle) {
-        if(isFunc(once)) {
-          handle = once;
-          once = false;
-        }
-        if(!isFunc(handle)) throw terr('informer.handle : ought to be a function');
-
+    handle(once, handle = once) {
+        if(!isFunc(handle)) throw terr('informer.handle: is not a function');
         handle.off = () => {
           handles.delete(handle);
           return handle;
         }
-        handle.on = state  => {
-          handle._once = !!state;
+        handle.on = state => {
+          handle.off().one = !!state;
           handles.add(handle);
           return handle;
         }
-        handle.once = handle.on(true);
-
-        return handle.on(once);
+        handle.once = () => handle.on(true);
+        return handle.on(isBool(once) ? once : false);
     },
-    has:v => handles.has(v),
     on(handle) {
       return this.handle(handle);
     },
@@ -142,13 +134,13 @@ informer = () => {
     get empty() {
       return handles.size < 1;
     },
-    get size() {
-      return handles.size;
+    get handles() {
+      return handles;
     },
     inform() {
-      if (handles.size) for(const hn of handles) {
+      if (handles.size) for(let hn of handles) {
         hn(...arguments);
-        if(hn._once) hn.off();
+        if(hn.one) hn.off();
       }
     }
   }
@@ -158,16 +150,12 @@ lt = t => curry((...args) => EventManager(...args)[t](),3), // listener type
 on = lt('on'),
 once = lt('once');
 
-informer.fromEvent = (target, eventtype, once = false, options) => {
+informer.fromEvent = (target, type, once, options) => {
     if(isStr(target)) target = query(target);
     if (!target.addEventListener) throw err("invalid event target");
-    if (!isStr(eventtype)) throw terr("event type not string");
-    if (isObj(once)) {
-        options = once;
-        once = false;
-    }
+    if (!isStr(type)) throw terr("event type not string");
     const inf = informer(),
-    listener = lt(once ? 'once' : 'on')(target, eventtype, e => inf.inform(e, listener), options);
+    listener = lt(!once ? 'on' : 'once')(target, type, e => inf.inform(e, listener), options);
     return inf;
 }
 
@@ -180,19 +168,6 @@ domfrag = inner => {
   const dfrag = doc.createDocumentFragment();
   dfrag.appendChild(inner);
   return dfrag;
-},
-Inner = (node, type) => (...args) => {
-  if (!args.length) return node[type];
-  for(let val of args) {
-      if(val.appendTo) {
-        if(!DOMcontains(val.node, node)) val.lifecycle.mount.inform(val, val.node, val.parent = node.dm);
-        val.appendTo(node);
-      }
-      if(isStr(val)) val = doc.createTextNode(val);
-      if(isNode(val)) node.appendChild(val);
-      else if(isObj(val) && val.isInformer) val.on(Inner(node, type));
-  }
-  return node.dm;
 },
 plugins = options => safeExtend(rot, options);
 extend(plugins, {
@@ -218,11 +193,11 @@ const domMethods = node => ({
   },
   hasClass:(...args) => args.length == 1 ? node.classList.contains(args[0]) : args.every(c => node.classList.contains(c)),
   addClass() {
-      for(const c of arguments) node.classList.add(c);
+      for(let c of arguments) node.classList.add(c);
       return this;
   },
   removeClass() {
-      for(const c of arguments) node.classList.remove(c);
+      for(let c of arguments) node.classList.remove(c);
       return this;
   },
   toggleClass(Class, state) {
@@ -239,19 +214,29 @@ const domMethods = node => ({
       else throw terr('CSS : Styles is not an object or string pair');
       return this;
   },
-  html: Inner(node, 'innerHTML'),
-  text: Inner(node, 'textContent'),
+  inner(...args) {
+    for(let val of args) {
+        if(val.appendTo) {
+          if(!DOMcontains(val.node, node)) val.lifecycle.mount.inform(val, val.node, val.parent = node.dm);
+          val.appendTo(node);
+        }
+        if(isStr(val)) val = doc.createTextNode(val);
+        if(isNode(val)) node.appendChild(val);
+        else if(val.isInformer) val.on(node.dm.html);
+    }
+    return node.dm;
+  },
   on:on(node),
   once:once(node),
   append() {
       const dfrag = domfrag();
-      for(const val of arguments) val.appendTo ? val.appendTo(dfrag) : dfrag.appendChild(isNode(val) ? val : dffstr(val));
+      for(let val of arguments) val.appendTo ? val.appendTo(dfrag) : dfrag.appendChild(isNode(val) ? val : dffstr(val));
       node.appendChild(domfrag);
       return this;
   },
   prepend() {
       const dfrag = domfrag();
-      for(const val of arguments) val.appendTo ? val.appendTo(dfrag) : dfrag.appendChild(isNode(val) ? val : dffstr(val));
+      for(let val of arguments) val.appendTo ? val.appendTo(dfrag) : dfrag.appendChild(isNode(val) ? val : dffstr(val));
       isFunc(node.prepend) ? node.prepend(domfrag) : node.insertBefore(domfrag, node.firstChild);
       return this;
   },
@@ -302,24 +287,28 @@ eventActualizer = (dm, listen) => {
   }
 },
 
-actualize = (options, el) => {
-  el = isStr(el) ? query(el) : isNode(el) ? el : doc.createElement(options.tag);
-  let dm = el.dm || (el.dm = domMethods(el)),
-  {children, style, lifecycle} = (dm.options = options);
-  if(options.class) el.className = options.class;
-  if(children) isArr(isFunc(children) ? children = children(dm, el) : children) ? dm.html(...flatten(children)) : dm.html(children);
-  if(options.style) dm.css(options.style);
-  if(options.attr) dm.setAttr(options.attr);
-  if(options.on) each(options.on, eventActualizer(dm, 'on'));
-  if(options.once) each(options.once, eventActualizer(dm, 'once'));
-  if(!dm.lifecycle.create) for(const stage of lifecycleStages) {
-      const inf = dm.lifecycle[stage] = informer();
-      if(isObj(lifecycle) && isFunc(lifecycle[stage])) lifecycle[stage] = inf.handle(stage == 'update', lifecycle[stage]);
+isEq = o1 => o2 => o1 === o2,
+
+actualize = (options, el, tag) => {
+  if(!isNode(el)) el = isStr(el) ? query(el) : doc.createElement(tag);
+  let dm = el.dm || (el.dm = domMethods(el)), {attr, lifecycle} = options;
+  for (let key in (dm.options = options)) {
+    let keyis = isEq(key), val = options[key];
+    if(keyis('class')) el.className = val;
+    else if(keyis('children')) isArr(isFunc(val) ? val = children(dm, el) : val) ? dm.inner(...flatten(val)) : dm.inner(val)
+    else if(keyis('style')) dm.css(val);
+    else if(keyis('on') || keyis('once')) each(val, eventActualizer(dm, key));
+    else if(keyis('props') && isObj(val)) extend(dm, val);
+    else if(!(key in plugins.methods || keyis('tag')) && isPrimitive(val)) (!isObj(attr) ? attr = {} : attr)[key] = val;
   }
-  if(isObj(options.props)) extend(dm, options.props);
+  if(attr) dm.setAttr(attr);
+  if(!dm.lifecycle.create) for(let stage of lifecycleStages) {
+      const inf = dm.lifecycle[stage] = informer();
+      if(isDef(lifecycle) && isFunc(lifecycle[stage])) inf.handle(stage == 'update', lifecycle[stage]);
+  }
   if(!dm.plugged) {
     if(plugins.methods) extend(dm, plugins.methods);
-    if(plugins.handles) for(const handle of plugins.handles) handle(options, dm, el);
+    if(plugins.handles) for(let handle of plugins.handles) handle(options, dm, el);
     dm.plugged = true;
   }
   if(!dm.mounted) dm.lifecycle.create.inform(dm, el);
@@ -327,21 +316,18 @@ actualize = (options, el) => {
 }
 
 const dom = curry((tag, data, ...children) => {
-  if((isObj(data) && data.node) || isArrlike(data)) data = { children : data || undef };
-  else data.children = children;
-  data.tag = tag;
-  return actualize(data);
+  (isObj(data) && data.node) || isArrlike(data) ? data = { children : data || undef } : data.children = children;
+  return actualize(data, null, tag);
 });
 
 new MutationObserver(muts => {
-  for(const mut of muts) {
+  for(let mut of muts) {
     const {removedNodes, addedNodes, target, attributeName} = mut;
     let el;
     if (removedNodes.length > 0) for(el of removedNodes) if (el.dm) el.dm.lifecycle.destroy.inform(el.dm, el);
     if (addedNodes.length > 0) for(el of addedNodes) if (el.dm) el.dm.lifecycle.mount.inform(el.dm, el);
-    if(attributeName != 'style' && (el = target.dm))
-      el.attrupdate.inform(attributeName, el.getAttr(attributeName), mut.oldValue, el.hasAttr(attributeName), el);
-    if(plugins.muthandles.size > 0) for(const h of plugins.muthandles) h(target, mut.type, mut);
+    if(attributeName != 'style' && (el = target.dm)) el.attrupdate.inform(attributeName, el.getAttr(attributeName), mut.oldValue, el.hasAttr(attributeName), el);
+    if(plugins.muthandles.size > 0) for(let h of plugins.muthandles) h(target, mut.type, mut);
   }
 }).observe(doc, {
     attributes: true,
@@ -351,7 +337,7 @@ new MutationObserver(muts => {
 
 (dom.extend = extend(dom))({query,queryAll,queryEach,on,once,actualize});
 
-for(const tag of 'picture img input list a script table td th tr article aside ul ol li h1 h2 h3 h4 h5 h6 div span pre code section button br label header i style nav menu main menuitem'.split(' '))
+for(let tag of 'picture img input list a script table td th tr article aside ul ol li h1 h2 h3 h4 h5 h6 div span pre code section button br label header i style nav menu main menuitem'.split(' '))
 dom[tag] = dom(tag);
 
 return {
@@ -384,6 +370,7 @@ return {
   isArrlike,
   isEmpty,
   isEl,
+  isEq,
   isNode,
   isNodeList,
   isInput,
