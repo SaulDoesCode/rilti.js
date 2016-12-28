@@ -101,9 +101,9 @@ rot.js can work with module loaders, but will simply be global if none are used
   rot.run(() => {
     // post dom load code here
 
-    // manually render nodes
+    // you can manually render nodes
     navbar.appendTo(document.body);
-    // or simply
+    // or plainly append the raw node
     document.body.appendChild(navbar.node);
 
     console.log(navbar.importantThing);
