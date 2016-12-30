@@ -164,7 +164,7 @@ run = fn => doc.readyState != 'complete' ? LoadInformer.once(fn) : fn(),
 render = (...args) => (node = doc.body) => run(() => each(args, a => a.appendTo(node))),
 dffstr = html => doc.createRange().createContextualFragment(html || ''),
 domfrag = inner => {
-  if(isStr(inner)) return dffstr(inner);
+  if(isPrimitive(inner)) return dffstr(inner);
   const dfrag = doc.createDocumentFragment();
   dfrag.appendChild(inner);
   return dfrag;
@@ -215,14 +215,23 @@ const domMethods = node => ({
       return this;
   },
   inner(...args) {
-    for(let val of args) {
+    node[isInput(node) ? 'value' : 'innerHTML'] = null;
+    for(let val of flatten(args)) {
         if(val.appendTo) {
-          if(!DOMcontains(val.node, node)) val.lifecycle.mount.inform(val, val.node, val.parent = node.dm);
+          if(!DOMcontains(val.node, node)) {
+            val.lifecycle.mount.inform(val, val.node, val.parent = node.dm);
+            node.dm.children.push(val);
+            val.lifecycle.destroy.once(() => {
+              node.dm.children = node.dm.children.map(el => el != val || el.dm != val || val.node != el);
+            });
+          }
           val.appendTo(node);
         }
-        if(isStr(val)) val = doc.createTextNode(val);
-        if(isNode(val)) node.appendChild(val);
-        else if(val.isInformer) val.on(node.dm.html);
+        if(isPrimitive(val)) val = doc.createTextNode(val);
+        if(isNode(val)) {
+          node.appendChild(val);
+          node.dm.children.push(val);
+        } else if(val.isInformer) val.on(node.dm.html);
     }
     return node.dm;
   },
@@ -241,13 +250,15 @@ const domMethods = node => ({
       return this;
   },
   appendTo(val, within) {
+      if(val.node) val = val.node;
       if (isStr(val)) val = query(val, within);
-      val.appendChild && val.appendChild(node);
+      val.append ? val.append(node) : val.appendChild && val.appendChild(node);
       return this;
   },
   prependTo(val, within) {
+      if(val.node) val = val.node;
       if (isStr(val)) val = query(val, within);
-      isFunc(val.prepend) ? val.prepend(node) : val.insertBefore(node, val.firstChild);
+      val.prepend ? val.prepend(node) : val.insertBefore(node, val.firstChild);
       return this;
   },
   modify(fn) {
@@ -305,7 +316,10 @@ actualize = (options, el, tag) => {
   for (let key in (dm.options = options)) {
     let keyis = isEq(key), val = options[key];
     if(keyis('class')) el.className = val;
-    else if(keyis('children')) isArr(isFunc(val) ? val = children(dm, el) : val) ? dm.inner(...flatten(val)) : dm.inner(val)
+    else if(keyis('children')) {
+      dm.children = [];
+      dm.inner(isFunc(val) ? val(dm, el) : val);
+    }
     else if(keyis('style')) dm.css(val);
     else if(keyis('on') || keyis('once')) each(val, eventActualizer(dm, key));
     else if(keyis('props') && isObj(val)) extend(dm, val);
@@ -319,22 +333,22 @@ actualize = (options, el, tag) => {
   return dm;
 },
 
-dom = curry((tag, data, ...children) => {
-  !isObj(data) ? data = { children : isArrlike(data) ? data : children || undef } : data.children = children;
-  if(isNode(tag)) return actualize(data, tag);
-  return actualize(data, null, tag);
-}),
-
 pluck = (el, within) => {
   (el = isNode(el) ? el : query(el, within)).remove();
   return dom(el);
+},
+
+dom = (tag, data, ...children) => {
+  !isObj(data) ? data = { children : isArrlike(data) || isPrimitive(data) ? data : children || undef } : data.children = data.children ? [data.children, ...children] : children;
+  if(isNode(tag)) return actualize(data, tag);
+  return actualize(data, null, tag);
 }
 
 (dom.extend = extend(dom))({query,queryAll,queryEach,on,once,actualize});
 
 each(
-  'picture img input list a script table td th tr article aside ul ol li h1 h2 h3 h4 h5 h6 div span pre code section button br label header i style nav menu main menuitem'.split(' '),
-  tag => dom[tag] = dom(tag)
+  'picture img input list a script strong table td th tr article aside ul ol li h1 h2 h3 h4 h5 h6 div span pre code section button br label header i style nav menu main menuitem'.split(' '),
+  tag => dom[tag] = dom.bind(null, tag)
 );
 
 new MutationObserver(muts => {
