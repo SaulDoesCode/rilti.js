@@ -258,27 +258,25 @@ const domMethods = node => ({
     return extend(this, obj);
   },
   get mounted() { return DOMcontains(node) },
-  listeners : [],
-  lifecycle:{},
   update(options) {
     this.lifecycle.update.inform('options', options, this.options, this, node);
     return actualize(options, node);
   },
-  attrupdate : informer(),
-  observeAttr(name, handle, once = false) {
-    return this.attrupdate.handle(once, (attr, ...details) => name === attr && handle(attr, ...details));
+  observeAttr(name, handle, once) {
+    return this.lifecycle.attr.handle(!!once, (attr, ...details) => name === attr && handle(attr, ...details));
   }
 }),
 
-lifecycleStages = 'create mount destroy update'.split(' '),
+lifecycleStages = 'create mount destroy update attr'.split(' '),
 
 eventActualizer = (dm, listen) => {
   listen = dm[listen];
+  if(!isArr(dm.listeners)) dm.listeners = [];
+  if(!isEmpty(dm.listeners)) {
+    each(dm.listeners, l => l.off());
+    dm.listeners = [];
+  }
   return (val, key) => {
-    if(!isEmpty(dm.listeners)) {
-      each(dm.listeners, l => l.off());
-      dm.listeners = [];
-    }
     let listener;
     const fn = listen(key);
     if(isFunc(val)) listener = fn(val);
@@ -292,6 +290,18 @@ isEq = o1 => o2 => o1 === o2,
 actualize = (options, el, tag) => {
   if(!isNode(el)) el = isStr(el) ? query(el) : doc.createElement(tag);
   let dm = el.dm || (el.dm = domMethods(el)), {attr, lifecycle} = options;
+  if(!dm.lifecycle) {
+    dm.lifecycle = {};
+    for(let stage of lifecycleStages) {
+        const inf = dm.lifecycle[stage] = informer();
+        if(isObj(lifecycle) && isFunc(lifecycle[stage])) inf.handle(stage == 'update', lifecycle[stage]);
+    }
+  }
+  if(!dm.plugged) {
+    extend(dm, plugins.methods);
+    for(let handle of plugins.handles) handle(options, dm, el);
+    dm.plugged = true;
+  }
   for (let key in (dm.options = options)) {
     let keyis = isEq(key), val = options[key];
     if(keyis('class')) el.className = val;
@@ -299,26 +309,33 @@ actualize = (options, el, tag) => {
     else if(keyis('style')) dm.css(val);
     else if(keyis('on') || keyis('once')) each(val, eventActualizer(dm, key));
     else if(keyis('props') && isObj(val)) extend(dm, val);
-    else if(!(key in plugins.methods || keyis('tag')) && isPrimitive(val)) (!isObj(attr) ? attr = {} : attr)[key] = val;
+    else if(!(key in plugins.methods || keyis('tag'))) {
+      if(key in el) el[key] = val;
+      else if(isPrimitive(val)) (!isObj(attr) ? attr = {} : attr)[key] = val;
+    }
   }
   if(attr) dm.setAttr(attr);
-  if(!dm.lifecycle.create) for(let stage of lifecycleStages) {
-      const inf = dm.lifecycle[stage] = informer();
-      if(isDef(lifecycle) && isFunc(lifecycle[stage])) inf.handle(stage == 'update', lifecycle[stage]);
-  }
-  if(!dm.plugged) {
-    if(plugins.methods) extend(dm, plugins.methods);
-    if(plugins.handles) for(let handle of plugins.handles) handle(options, dm, el);
-    dm.plugged = true;
-  }
   if(!dm.mounted) dm.lifecycle.create.inform(dm, el);
   return dm;
+},
+
+dom = curry((tag, data, ...children) => {
+  !isObj(data) ? data = { children : isArrlike(data) ? data : children || undef } : data.children = children;
+  if(isNode(tag)) return actualize(data, tag);
+  return actualize(data, null, tag);
+}),
+
+pluck = (el, within) => {
+  (el = isNode(el) ? el : query(el, within)).remove();
+  return dom(el);
 }
 
-const dom = curry((tag, data, ...children) => {
-  (isObj(data) && data.node) || isArrlike(data) ? data = { children : data || undef } : data.children = children;
-  return actualize(data, null, tag);
-});
+(dom.extend = extend(dom))({query,queryAll,queryEach,on,once,actualize});
+
+each(
+  'picture img input list a script table td th tr article aside ul ol li h1 h2 h3 h4 h5 h6 div span pre code section button br label header i style nav menu main menuitem'.split(' '),
+  tag => dom[tag] = dom(tag)
+);
 
 new MutationObserver(muts => {
   for(let mut of muts) {
@@ -326,7 +343,7 @@ new MutationObserver(muts => {
     let el;
     if (removedNodes.length > 0) for(el of removedNodes) if (el.dm) el.dm.lifecycle.destroy.inform(el.dm, el);
     if (addedNodes.length > 0) for(el of addedNodes) if (el.dm) el.dm.lifecycle.mount.inform(el.dm, el);
-    if(attributeName != 'style' && (el = target.dm)) el.attrupdate.inform(attributeName, el.getAttr(attributeName), mut.oldValue, el.hasAttr(attributeName), el);
+    if(attributeName != 'style' && (el = target.dm)) el.lifecycle.attr.inform(attributeName, el.getAttr(attributeName), mut.oldValue, el.hasAttr(attributeName), el);
     if(plugins.muthandles.size > 0) for(let h of plugins.muthandles) h(target, mut.type, mut);
   }
 }).observe(doc, {
@@ -335,10 +352,6 @@ new MutationObserver(muts => {
     subtree: true
 });
 
-(dom.extend = extend(dom))({query,queryAll,queryEach,on,once,actualize});
-
-for(let tag of 'picture img input list a script table td th tr article aside ul ol li h1 h2 h3 h4 h5 h6 div span pre code section button br label header i style nav menu main menuitem'.split(' '))
-dom[tag] = dom(tag);
 
 return {
   informer,
