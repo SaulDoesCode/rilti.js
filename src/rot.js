@@ -84,23 +84,24 @@ isNativeEvent = evt => NativeEventTypes.includes(evt),
 EventManager = curry((target, type, handle, options = false) => {
   if(isStr(target)) target = query(target);
   if(!target || !target.addEventListener) throw err('EventManager: Target Invalid');
-  const add = target.addEventListener.bind(target),
-  remove = target.removeEventListener.bind(target);
+  const add = target.addEventListener.bind(target, type),
+  remove = target.removeEventListener.bind(target, type),
+  handler = (once = false) => function wrapper(evt) {
+    handle.call(target, evt, target.dm);
+    if(once) remove(wrapper);
+  }
   return {
     off() {
-        remove(type, handle);
+        remove(handler());
         return this;
     },
     on() {
-        add(type, handle, options);
+        add(handler(), options);
         return this;
     },
     once() {
         this.off();
-        add(type, function hn() {
-            handle.apply(this, arguments);
-            remove(type, hn);
-        }, options);
+        add(handler(true), options);
         return this;
     }
   }
@@ -305,7 +306,9 @@ actualize = (options, el, tag) => {
     dm.lifecycle = {};
     for(let stage of lifecycleStages) {
         const inf = dm.lifecycle[stage] = informer();
-        if(isObj(lifecycle) && isFunc(lifecycle[stage])) inf.handle(stage == 'update', lifecycle[stage]);
+        if(isObj(lifecycle) && isFunc(lifecycle[stage])) inf.handle(stage == 'update', (...args) => {
+          lifecycle[stage].apply(dm, args);
+        });
     }
   }
   if(!dm.plugged) {
