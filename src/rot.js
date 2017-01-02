@@ -162,14 +162,9 @@ informer.fromEvent = (target, type, once, options) => {
 
 const LoadInformer = informer.fromEvent(root, 'DOMContentLoaded', true),
 run = fn => doc.readyState != 'complete' ? LoadInformer.once(fn) : fn(),
-render = (...args) => (node = doc.body) => run(() => each(args, a => a.appendTo(node))),
+render = (...args) => (node = doc.body) => run(() => each(args, a => node.appendChild(isNode(a) ? a : a.node))),
 dffstr = html => doc.createRange().createContextualFragment(html || ''),
-domfrag = inner => {
-  if(isPrimitive(inner)) return dffstr(inner);
-  const dfrag = doc.createDocumentFragment();
-  dfrag.appendChild(inner);
-  return dfrag;
-},
+domfrag = inner => isPrimitive(inner) ? dffstr(inner) : doc.createDocumentFragment(),
 plugins = options => safeExtend(rot, options);
 extend(plugins, {
   methods:{},
@@ -182,7 +177,7 @@ const domMethods = node => ({
   hasAttr:node.hasAttribute.bind(node),
   getAttr:node.getAttribute.bind(node),
   setAttr(attr, val = '') {
-      isObj(attr) ? each(attr, (v,a) => node.setAttribute(a,v)) : node.setAttribute(attr, val);
+      isObj(attr) ? each(attr, (v,a) => node.setAttribute(a, v)) : node.setAttribute(attr, val);
       return this;
   },
   removeAttr(...args) {
@@ -201,8 +196,8 @@ const domMethods = node => ({
       for(let c of arguments) node.classList.remove(c);
       return this;
   },
-  toggleClass(Class, state) {
-      node.classList[(isBool(state) ? state : node.classList.contains(Class)) ? 'remove' : 'add'](Class);
+  toggleClass(Class, state = !node.classList.contains(Class)) {
+      node.classList[state ? 'add' : 'remove'](Class);
       return this;
   },
   replace(val) {
@@ -216,7 +211,7 @@ const domMethods = node => ({
       return this;
   },
   inner(...args) {
-    node[isInput(node) ? 'value' : 'innerHTML'] = null;
+    node[node.isInput ? 'value' : 'innerHTML'] = null;
     for(let val of flatten(args)) {
         if(val.appendTo) {
           if(!DOMcontains(val.node, node)) {
@@ -240,14 +235,20 @@ const domMethods = node => ({
   once:once(node),
   append() {
       const dfrag = domfrag();
-      for(let val of arguments) val.appendTo ? val.appendTo(dfrag) : dfrag.appendChild(isNode(val) ? val : dffstr(val));
-      node.appendChild(domfrag);
+      for(let val of arguments) {
+        if(val.node) val = val.node;
+        dfrag.appendChild(isNode(val) ? val : dffstr(val));
+      }
+      node.appendChild(dfrag);
       return this;
   },
   prepend() {
       const dfrag = domfrag();
-      for(let val of arguments) val.appendTo ? val.appendTo(dfrag) : dfrag.appendChild(isNode(val) ? val : dffstr(val));
-      isFunc(node.prepend) ? node.prepend(domfrag) : node.insertBefore(domfrag, node.firstChild);
+      for(let val of arguments) {
+        if(val.node) val = val.node;
+        dfrag.appendChild(isNode(val) ? val : dffstr(val));
+      }
+      isFunc(node.prepend) ? node.prepend(dfrag) : node.insertBefore(dfrag, node.firstChild);
       return this;
   },
   appendTo(val, within) {
@@ -264,6 +265,10 @@ const domMethods = node => ({
   },
   modify(fn) {
     fn(this, node);
+    return this;
+  },
+  remove(after) {
+    isNum(after) ? setTimeout(() => node.remove(), after) : node.remove();
     return this;
   },
   extend(obj) {
@@ -302,6 +307,7 @@ isEq = o1 => o2 => o1 === o2,
 actualize = (options, el, tag) => {
   if(!isNode(el)) el = isStr(el) ? query(el) : doc.createElement(tag);
   let dm = el.dm || (el.dm = domMethods(el)), {attr, lifecycle} = options;
+  el.isInput = isInput(el);
   if(!dm.lifecycle) {
     dm.lifecycle = {};
     for(let stage of lifecycleStages) {
@@ -321,7 +327,7 @@ actualize = (options, el, tag) => {
     if(keyis('class')) el.className = val;
     else if(keyis('children')) {
       dm.children = [];
-      dm.inner(isFunc(val) ? val(dm, el) : val);
+      if(!isEmpty(val)) dm.inner(isFunc(val) ? val(dm, el) : val);
     }
     else if(keyis('style')) dm.css(val);
     else if(keyis('on') || keyis('once')) each(val, eventActualizer(dm, key));
