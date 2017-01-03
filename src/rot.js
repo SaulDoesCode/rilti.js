@@ -36,7 +36,7 @@ isInt = val => isNum(val) && val % 1 === 0,
 isObj = typeinc('Object'),
 isArr = Array.isArray,
 isArrlike = o => o !== undef && typeof o.length !== 'undefined',
-isEmpty = val => !(isObj(val) ? Keys(val).length : isArrlike(val) ? val.length : val.size),
+isEmpty = val => !(isObj(val) ? Keys(val).length : isArrlike(val) ? val.length : val.size) || isFunc(val),
 isNode = o => o instanceof Node,
 isNodeList = nl => nl instanceof NodeList || (isArrlike(nl) && every(nl, isNode)),
 isEl = typeinc('HTML'),
@@ -45,7 +45,8 @@ isMap = typeinc('Map'),
 isSet = typeinc('Set'),
 each = (iterable, func) => {
   if (isDef(iterable) && isFunc(func)) {
-    if(isArrlike(iterable) && !isEmpty(iterable)) Array.prototype.forEach.call(iterable, func);
+    if(isArrlike(iterable)) iterable = Array.from(iterable);
+    if(iterable.forEach) iterable.forEach(func);
     else {
       let i = 0;
       if(isObj(iterable)) for (i in iterable) func(iterable[i], i, iterable);
@@ -162,7 +163,11 @@ informer.fromEvent = (target, type, once, options) => {
 
 const LoadInformer = informer.fromEvent(root, 'DOMContentLoaded', true),
 run = fn => doc.readyState != 'complete' ? LoadInformer.once(fn) : fn(),
-render = (...args) => (node = doc.body) => run(() => each(args, a => node.appendChild(isNode(a) ? a : a.node))),
+render = (...args) => (node = doc.body) => run(() => {
+  each(flatten(args), arg => {
+    isSet(arg) || isArrlike(arg) ? each(arg, a => node.appendChild(isNode(a) ? a : a.node)) : node.appendChild(isNode(arg) ? arg : arg.node)
+  });
+}),
 dffstr = html => doc.createRange().createContextualFragment(html || ''),
 domfrag = inner => isPrimitive(inner) ? dffstr(inner) : doc.createDocumentFragment(),
 plugins = options => safeExtend(rot, options);
@@ -306,7 +311,7 @@ isEq = o1 => o2 => o1 === o2,
 
 actualize = (options, el, tag) => {
   if(!isNode(el)) el = isStr(el) ? query(el) : doc.createElement(tag);
-  let dm = el.dm || (el.dm = domMethods(el)), {attr, lifecycle} = options;
+  let dm = el.dm || (el.dm = domMethods(el)), {attr = {}, lifecycle} = options;
   el.isInput = isInput(el);
   if(!dm.lifecycle) {
     dm.lifecycle = {};
@@ -334,10 +339,10 @@ actualize = (options, el, tag) => {
     else if(keyis('props') && isObj(val)) extend(dm, val);
     else if(!(key in plugins.methods || keyis('tag'))) {
       if(key in el) el[key] = val;
-      else if(isPrimitive(val)) (!isObj(attr) ? attr = {} : attr)[key] = val;
+      else if(isPrimitive(val)) attr[key] = val;
     }
   }
-  if(attr) dm.setAttr(attr);
+  if(!isEmpty(attr)) dm.setAttr(attr);
   if(!dm.mounted) dm.lifecycle.create.inform(dm, el);
   return dm;
 },

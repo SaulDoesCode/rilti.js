@@ -31,7 +31,7 @@ Constructive criticism is welcome
 | ``query( {string}, {=string/node} )`` | improved alternative to ``document.querySelector``|
 | ``queryAll( {string}, {=string/node} )`` | improved alternative to ``document.querySelectorAll``|
 | ``queryEach( {string}, {=string/node}, {function} )`` | queries nodes returned by selector and iterates over them like ``[].forEach`` would|
-| ``render( {...node}, {=parent/document.body} )`` | renders nodes to document.body or node of your choice |
+| ``render( {...node} )( {=parent/document.body} )`` | renders nodes to document.body or node of your choice |
 | ``run( {function} )`` | executes a given function when the DOM is loaded |
 | ``curry( {function}, {=arity} )`` | curries a function |
 | ``extend( {host object}, {object} )`` | extends host object with all props of other object |
