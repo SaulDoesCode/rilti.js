@@ -164,6 +164,7 @@ informer.fromEvent = (target, type, once, options) => {
 const LoadInformer = informer.fromEvent(root, 'DOMContentLoaded', true),
 run = fn => doc.readyState != 'complete' ? LoadInformer.once(fn) : fn(),
 render = (...args) => (node = doc.body) => run(() => {
+  if(isStr(node)) node = query(node);
   each(flatten(args), arg => {
     isSet(arg) || isArrlike(arg) ? each(arg, a => node.appendChild(isNode(a) ? a : a.node)) : node.appendChild(isNode(arg) ? arg : arg.node)
   });

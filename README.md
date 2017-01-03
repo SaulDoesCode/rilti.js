@@ -12,6 +12,7 @@ Constructive criticism is welcome
 * observe attributes
 * informers (Observable like reactive objects)
 * streamlined element creation
+* minimal set of dom manipulation methods
 * useful methods and utilities
 * no classes no extra fuzz
 * plugins can extend and add any feature
@@ -28,9 +29,9 @@ Constructive criticism is welcome
 |--------|--------------|
 | ``dom({tag}, {object}, {...children} )`` | where the magic happens it creates and defines behavior for elements from given options |
 | ``DOMcontains( {node}, {=parent node} )`` | determines whether or not the dom or other node contains a specific node |
-| ``query( {string}, {=string/node} )`` | improved alternative to ``document.querySelector``|
-| ``queryAll( {string}, {=string/node} )`` | improved alternative to ``document.querySelectorAll``|
-| ``queryEach( {string}, {=string/node}, {function} )`` | queries nodes returned by selector and iterates over them like ``[].forEach`` would|
+| ``dom.query( {string}, {=string/node} )`` | improved alternative to ``document.querySelector``|
+| ``dom.queryAll( {string}, {=string/node} )`` | improved alternative to ``document.querySelectorAll``|
+| ``dom.queryEach( {string}, {=string/node}, {function} )`` | queries nodes returned by selector and iterates over them like ``[].forEach`` would|
 | ``render( {...node} )( {=parent/document.body} )`` | renders nodes to document.body or node of your choice |
 | ``run( {function} )`` | executes a given function when the DOM is loaded |
 | ``curry( {function}, {=arity} )`` | curries a function |
@@ -56,6 +57,8 @@ isInput, isPrimitive, isNativeEvent
 rot.js can work with module loaders, but will simply be global if none are used
 
 #### example time!!!
+
+[rot.js todomvc](https://github.com/SaulDoesCode/rot.js-todomvc)
 
 ```javascript
 
@@ -86,7 +89,7 @@ rot.js can work with module loaders, but will simply be global if none are used
         },
         hide() {
           this.css({
-            display:'none';
+            display:'none'
           });
         },
       }
@@ -96,15 +99,10 @@ rot.js can work with module loaders, but will simply be global if none are used
   );
 
   // render your nodes
-  rot.render(navbar);
+  rot.render(navbar)(document.body);
 
   rot.run(() => {
     // post dom load code here
-
-    // you can manually render nodes
-    navbar.appendTo(document.body);
-    // or plainly append the raw node
-    document.body.appendChild(navbar.node);
 
     console.log(navbar.importantThing);
   });
