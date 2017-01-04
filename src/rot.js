@@ -11,14 +11,16 @@
   else if (typeof define == 'function' && define.amd) define(name, factory);
 })(this, () => {
 "use strict";
-const root = window || global, doc = document, undef = undefined,
-curry = (fn, arity = fn.length) => {
+const curry = (fn, arity = fn.length) => {
   const resolver = (...memory) => (...more) => {
     const local = memory.concat(more);
     return (local.length >= arity ? fn : resolver)(...local);
   }
   return resolver();
 },
+root = window || global || this,
+doc = document,
+undef = void 0,
 Keys = Object.keys,
 every = (arr, fn) => Array.prototype.every.call(arr, fn),
 typestr = toString.call,
@@ -86,67 +88,65 @@ EventManager = curry((target, type, handle, options = false) => {
   if(isStr(target)) target = query(target);
   if(!target || !target.addEventListener) throw err('EventManager: Target Invalid');
   const add = target.addEventListener.bind(target, type),
-  remove = target.removeEventListener.bind(target, type),
-  handler = (once = false) => function wrapper(evt) {
+  remove = target.removeEventListener.bind(target, type);
+  let once = false;
+  function wrapper(evt) {
     handle.call(target, evt, target.dm);
     if(once) remove(wrapper);
   }
   return {
     off() {
-        remove(handler());
+        remove(wrapper);
         return this;
     },
     on() {
-        add(handler(), options);
+        once = false;
+        add(wrapper, options);
         return this;
     },
     once() {
         this.off();
-        add(handler(true), options);
+        once = true;
+        add(wrapper, options);
         return this;
     }
   }
 }, 3),
 
-informer = () => {
-  const handles = new Set();
-  return {
-    isInformer : true,
-    handle(once, handle = once) {
-        if(!isFunc(handle)) throw terr('informer.handle: is not a function');
-        handle.off = () => {
-          handles.delete(handle);
-          return handle;
-        }
-        handle.on = state => {
-          handle.off().one = !!state;
-          handles.add(handle);
-          return handle;
-        }
-        handle.once = () => handle.on(true);
-        return handle.on(isBool(once) ? once : false);
-    },
-    on(handle) {
-      return this.handle(handle);
-    },
-    once(handle) {
-      return this.handle(true, handle);
-    },
-    off(handle) {handles.delete(handle)},
-    get empty() {
-      return handles.size < 1;
-    },
-    get handles() {
-      return handles;
-    },
-    inform() {
-      if (handles.size) for(let hn of handles) {
-        hn(...arguments);
-        if(hn.one) hn.off();
+informer = (handles = new Set) => ({
+  handles,
+  isInformer : true,
+  handle(once, handle = once) {
+      if(!isFunc(handle)) throw terr('informer.handle: is not a function');
+      handle.off = () => {
+        handles.delete(handle);
+        return handle;
       }
+      handle.on = state => {
+        handle.off().one = !!state;
+        handles.add(handle);
+        return handle;
+      }
+      handle.once = handle.on.bind(null, true);
+      return handle.on(isBool(once) ? once : false);
+  },
+  on(handle) {
+    return this.handle(handle);
+  },
+  once(handle) {
+    return this.handle(true, handle);
+  },
+  off(handle) {handles.delete(handle)},
+  get empty() {
+    return handles.size < 1;
+  },
+  inform() {
+    if (handles.size) for(let hn of handles) {
+      hn(...arguments);
+      if(hn.one) hn.off();
     }
   }
-},
+}),
 
 lt = t => curry((...args) => EventManager(...args)[t](),3), // listener type
 on = lt('on'),
@@ -220,20 +220,12 @@ const domMethods = node => ({
     node[node.isInput ? 'value' : 'innerHTML'] = null;
     for(let val of flatten(args)) {
         if(val.appendTo) {
-          if(!DOMcontains(val.node, node)) {
-            val.lifecycle.mount.inform(val, val.node, val.parent = node.dm);
-            node.dm.children.push(val);
-            val.lifecycle.destroy.once(() => {
-              node.dm.children = node.dm.children.map(el => el != val || el.dm != val || val.node != el);
-            });
-          }
+          if(!DOMcontains(val.node, node)) val.lifecycle.mount.inform(val, val.node, val.parent = node.dm);
           val.appendTo(node);
         }
         if(isPrimitive(val)) val = doc.createTextNode(val);
-        if(isNode(val)) {
-          node.appendChild(val);
-          node.dm.children.push(val);
-        } else if(val.isInformer) val.on(node.dm.html);
+        if(isNode(val)) node.appendChild(val);
+        else if(val.isInformer) val.on(node.dm.inner);
     }
     return node.dm;
   },
@@ -318,9 +310,7 @@ actualize = (options, el, tag) => {
     dm.lifecycle = {};
     for(let stage of lifecycleStages) {
         const inf = dm.lifecycle[stage] = informer();
-        if(isObj(lifecycle) && isFunc(lifecycle[stage])) inf.handle(stage == 'update', (...args) => {
-          lifecycle[stage].apply(dm, args);
-        });
+        if(lifecycle && isFunc(lifecycle[stage])) inf.handle(stage == 'update', (...args) => lifecycle[stage].apply(dm, args));
     }
   }
   if(!dm.plugged) {
@@ -329,16 +319,14 @@ actualize = (options, el, tag) => {
     dm.plugged = true;
   }
   for (let key in (dm.options = options)) {
-    let keyis = isEq(key), val = options[key];
-    if(keyis('class')) el.className = val;
-    else if(keyis('children')) {
-      dm.children = [];
+    let val = options[key];
+    if(key === 'class') el.className = val;
+    else if(key === 'children') {
       if(!isEmpty(val)) dm.inner(isFunc(val) ? val(dm, el) : val);
-    }
-    else if(keyis('style')) dm.css(val);
-    else if(keyis('on') || keyis('once')) each(val, eventActualizer(dm, key));
-    else if(keyis('props') && isObj(val)) extend(dm, val);
-    else if(!(key in plugins.methods || keyis('tag'))) {
+    } else if(key === 'style') dm.css(val);
+    else if(key === 'on' || key === 'once') each(val, eventActualizer(dm, key));
+    else if(key === 'props' && isObj(val)) extend(dm, val);
+    else if(!(key in plugins.methods || key === 'tag')) {
       if(key in el) el[key] = val;
       else if(isPrimitive(val)) attr[key] = val;
     }
@@ -354,7 +342,7 @@ pluck = (el, within) => {
 },
 
 dom = (tag, data, ...children) => {
-  !isObj(data) ? data = { children : isArrlike(data) || isPrimitive(data) ? data : children || undef } : data.children = data.children ? [data.children, ...children] : children;
+  !isObj(data) ? data = { children : isArrlike(data) || isPrimitive(data) ? data : children || undef } : data.children = data.children ? [data.children, children] : children;
   if(isNode(tag)) return actualize(data, tag);
   return actualize(data, null, tag);
 }
@@ -381,11 +369,10 @@ new MutationObserver(muts => {
     subtree: true
 });
 
-
 return {
-  informer,
-  EventManager,on,once,
   dom,
+  informer,
+  EventManager,
   plugins,
   extend,
   safeExtend,
