@@ -170,8 +170,8 @@ render = (...args) => node => run(() => {
     isSet(arg) || isArrlike(arg) ? each(arg, a => node.appendChild(isNode(a) ? a : a.node)) : node.appendChild(isNode(arg) ? arg : arg.node)
   });
 }),
-dffstr = html => doc.createRange().createContextualFragment(html || ''),
-domfrag = inner => isPrimitive(inner) ? dffstr(inner) : doc.createDocumentFragment(),
+htmlstr = html => doc.createRange().createContextualFragment(html || ''),
+domfrag = inner => isPrimitive(inner) ? htmlstr(inner) : doc.createDocumentFragment(),
 plugins = options => safeExtend(rot, options);
 extend(plugins, {
   methods:{},
@@ -211,6 +211,10 @@ const domMethods = node => ({
       node.parentNode.replaceChild(val, node);
       return this;
   },
+  clone() {
+    node = node.cloneNode();
+    return Object.assign(this, {});
+  },
   css(styles, prop) {
       if (isObj(styles)) each(styles, (prop, key) => node.style[key] = prop);
       else if (isStr(styles) && isStr(prop)) node.style[styles] = prop;
@@ -236,7 +240,7 @@ const domMethods = node => ({
       const dfrag = domfrag();
       for(let val of arguments) {
         if(val.node) val = val.node;
-        dfrag.appendChild(isNode(val) ? val : dffstr(val));
+        dfrag.appendChild(isNode(val) ? val : htmlstr(val));
       }
       node.appendChild(dfrag);
       return this;
@@ -245,14 +249,14 @@ const domMethods = node => ({
       const dfrag = domfrag();
       for(let val of arguments) {
         if(val.node) val = val.node;
-        dfrag.appendChild(isNode(val) ? val : dffstr(val));
+        dfrag.appendChild(isNode(val) ? val : htmlstr(val));
       }
       isFunc(node.prepend) ? node.prepend(dfrag) : node.insertBefore(dfrag, node.firstChild);
       return this;
   },
   appendTo(val, within) {
-      if(val.node) val = val.node;
       if (isStr(val)) val = query(val, within);
+      else if(val.node) val = val.node;
       val.append ? val.append(node) : val.appendChild && val.appendChild(node);
       return this;
   },
@@ -348,10 +352,10 @@ dom = (tag, data, ...children) => {
   return actualize(data, null, tag);
 }
 
-(dom.extend = extend(dom))({query,queryAll,queryEach,on,once,actualize});
+(dom.extend = extend(dom))({query,queryAll,queryEach,on,once,actualize, html : htmlstr});
 
 each(
-  'picture img input list a script strong table td th tr article aside ul ol li h1 h2 h3 h4 h5 h6 div span pre code section button br label header i style nav menu main menuitem'.split(' '),
+  'picture img input list a script strong table td th tr article aside ul ol li h1 h2 h3 h4 h5 h6 div span pre code section button br label header i style nav menu main menuitem template'.split(' '),
   tag => dom[tag] = dom.bind(null, tag)
 );
 
