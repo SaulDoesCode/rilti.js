@@ -66,7 +66,7 @@ safeExtend = (host, obj) => {
   for(let key of Keys(obj)) !(key in host) && def(host,key, getdesc(obj, key));
   return host;
 },
-flatten = arr => Array.prototype.reduce.call(arr, (flat, toFlatten) => flat.concat(isArr(toFlatten) ? flatten(toFlatten) : toFlatten), []),
+flatten = arr => isArrlike(arr) ? Array.prototype.reduce.call(arr, (flat, toFlatten) => flat.concat(isArr(toFlatten) ? flatten(toFlatten) : toFlatten), []) : [arr],
 
 query = (selector, element = doc) => (isStr(element) ? doc.querySelector(element) : element).querySelector(selector),
 queryAll = (selector, element = doc) => Array.from((isStr(element) ? query(element) : element).querySelectorAll(selector)),
@@ -163,8 +163,9 @@ informer.fromEvent = (target, type, once, options) => {
 
 const LoadInformer = informer.fromEvent(root, 'DOMContentLoaded', true),
 run = fn => doc.readyState != 'complete' ? LoadInformer.once(fn) : fn(),
-render = (...args) => (node = doc.body) => run(() => {
+render = (...args) => node => run(() => {
   if(isStr(node)) node = query(node);
+  if(!isNode(node)) node = doc.body;
   each(flatten(args), arg => {
     isSet(arg) || isArrlike(arg) ? each(arg, a => node.appendChild(isNode(a) ? a : a.node)) : node.appendChild(isNode(arg) ? arg : arg.node)
   });
