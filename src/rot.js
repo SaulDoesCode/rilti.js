@@ -87,6 +87,7 @@ isNativeEvent = evt => NativeEventTypes.includes(evt),
 EventManager = curry((target, type, handle, options = false) => {
   if(isStr(target)) target = query(target);
   if(!target || !target.addEventListener) throw err('EventManager: Target Invalid');
+  let dm = target.dm;
   const add = target.addEventListener.bind(target, type),
   remove = target.removeEventListener.bind(target, type);
   let once = false;
@@ -97,15 +98,18 @@ EventManager = curry((target, type, handle, options = false) => {
   return {
     off() {
         remove(wrapper);
+        if(dm) dm.listeners.delete(this);
         return this;
     },
     on() {
         once = false;
+        if(dm) dm.listeners.add(this);
         add(wrapper, options);
         return this;
     },
     once() {
-        this.off();
+        remove(wrapper);
+        if(dm) dm.listeners.add(this);
         once = true;
         add(wrapper, options);
         return this;
@@ -164,8 +168,9 @@ informer.fromEvent = (target, type, once, options) => {
 const LoadInformer = informer.fromEvent(root, 'DOMContentLoaded', true),
 run = fn => doc.readyState != 'complete' ? LoadInformer.once(fn) : fn(),
 render = (...args) => node => run(() => {
-  if(isStr(node)) node = query(node);
-  if(!isNode(node)) node = doc.body;
+  if(!isDef(node)) node = doc.body;
+  else if(isStr(node)) node = query(node);
+  if(!isNode(node)) err('rot.render: render-to node');
   each(flatten(args), arg => {
     isSet(arg) || isArrlike(arg) ? each(arg, a => node.appendChild(isNode(a) ? a : a.node)) : node.appendChild(isNode(arg) ? arg : arg.node)
   });
@@ -234,6 +239,7 @@ const domMethods = node => ({
     }
     return node.dm;
   },
+  listeners:new Set,
   on:on(node),
   once:once(node),
   append() {
@@ -291,17 +297,11 @@ lifecycleStages = 'create mount destroy update attr'.split(' '),
 
 eventActualizer = (dm, listen) => {
   listen = dm[listen];
-  if(!isArr(dm.listeners)) dm.listeners = [];
-  if(!isEmpty(dm.listeners)) {
-    each(dm.listeners, l => l.off());
-    dm.listeners = [];
-  }
   return (val, key) => {
     let listener;
     const fn = listen(key);
     if(isFunc(val)) listener = fn(val);
     else if(val.isInformer) listener = fn(e => val.inform(e, listener, val));
-    if(listener) dm.listeners.push(listener);
   }
 },
 
@@ -409,6 +409,9 @@ return {
   isNodeList,
   isInput,
   isMap,
-  isSet
+  isSet,
+  get ready() {
+    return doc.readyState != 'complete';
+  }
 }
 });
