@@ -257,31 +257,31 @@ const dom = new Proxy(element => {
   if(isEl(element)) {
     if(ProxiedNodes.has(element)) return ProxiedNodes.get(element);
     const attr = new Proxy({}, {
-      get(obj, key) {
+      get(_, key) {
         if(key == 'has') return name => element.hasAttribute(name);
         return element.getAttribute(key);
       },
-      set(obj, key, val) {
+      set(_, key, val) {
         element.setAttribute(key, val);
         return true;
       },
-      delete(obj, key) {
+      delete(_, key) {
         element.removeAttribute(key);
         return true;
       }
     });
 
     const classes = new Proxy({}, {
-      get(obj, key) {
+      get(_, key) {
         if(key == 'toggle') return (c, state = !element.classList.contains(c)) => state ? element.classList.add(c) : element.classList.remove(c);
         return element.classList.contains(key);
       },
-      set(obj, key, val) {
+      set(_, key, val) {
         if(key == 'toggle') element.classList.contains(key) ? element.classList.remove(val) : element.classList.add(val);
         else element.classList.add(val);
         return true;
       },
-      delete(obj, key) {
+      delete(_, key) {
         element.classList.remove(key);
         return true;
       }
@@ -347,7 +347,7 @@ const dom = new Proxy(element => {
         key in data ? getdata(key) : undef;
       },
       set(el, key, val, prox) {
-        if(key in el) return Reflect.set(el, key);
+        if(key in el) return Reflect.set(el, key, val);
         if(key === 'class' && isStr(val)) el.classList.add(val);
         else if(key === 'html') {
           if(isFunc(val)) val = val(el[inputHTML]);
