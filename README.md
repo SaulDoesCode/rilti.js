@@ -28,19 +28,19 @@ Constructive criticism is welcome
 | method | description  |
 |--------|--------------|
 | ``dom({tag}, {object}, {...children} )`` | where the magic happens it creates and defines behavior for elements from given options |
-| ``DOMcontains( {node}, {=parent node} )`` | determines whether or not the dom or other node contains a specific node |
 | ``dom.query( {string}, {=string/node} )`` | improved alternative to ``document.querySelector``|
 | ``dom.queryAll( {string}, {=string/node} )`` | improved alternative to ``document.querySelectorAll``|
 | ``dom.queryEach( {string}, {=string/node}, {function} )`` | queries nodes returned by selector and iterates over them like ``[].forEach`` would|
+| ``dom.on( {target}, {type}, {listener}, {=options} )`` | generates event listener |
+| ``dom.once( {target}, {type}, {listener}, {=options} )`` | generates event listener that triggers only once |
 | ``render( {...node} )( {=parent/document.body} )`` | renders nodes to document.body or node of your choice |
 | ``run( {function} )`` | executes a given function when the DOM is loaded |
 | ``curry( {function}, {=arity} )`` | curries a function |
 | ``extend( {host object}, {object} )`` | extends host object with all props of other object |
 | ``flatten( {arraylike} )`` | flattens multidimensional arraylike objects |
 | ``informer( )`` | small Observable like notifier/informer objects |
+| ``DOMcontains( {node}, {=parent node} )`` | determines whether or not the dom or other node contains a specific node |
 | ``EventManager( {target}, {type}, {listener}, {=options} )`` | internal method used for managing event listeners |
-| ``on( {target}, {type}, {listener}, {=options} )`` | generates event listener |
-| ``once( {target}, {type}, {listener}, {=options} )`` | generates event listener that triggers only once |
 
 ##### rot also exports a few type testing functions
 usage : ``rot.isX( {any} ) // -> boolean``  
@@ -84,14 +84,12 @@ rot.js can work with module loaders, but will simply be global if none are used
         id : 'mainbar'
       },
       props : {
-        get importantThing() {
-          return this.importantPropery;
+        toggle() {
+          this.class.toggle('hidden');
         },
-        hide() {
-          this.css({
-            display:'none'
-          });
-        },
+        get isToggled() {
+          return this.class.hidden;
+        }
       }
     },    
     'My Company Title',
@@ -103,14 +101,14 @@ rot.js can work with module loaders, but will simply be global if none are used
 
   rot.run(() => {
     // post dom load code here
-
-    console.log(navbar.importantThing);
+    navbar.toggle();
+    console.log(navbar.isToggled);
   });
 ```
 
 #### weight
-* unminified : > 15kb
+* unminified : > 16kb
 * minified : > 9kb
-* minified && gziped : > 4.5kb
+* minified && gziped : > 4.6kb
 
 #### licence = MIT
