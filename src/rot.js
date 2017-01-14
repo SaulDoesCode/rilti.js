@@ -86,6 +86,7 @@ NativeEventTypes = "DOMContentLoaded hashchange blur focus focusin focusout load
 isNativeEvent = evt => NativeEventTypes.includes(evt),
 
 EventManager = curry((target, type, handle, options = false) => {
+  if (!isStr(type)) throw terr("event type not string");
   if(isStr(target)) target = query(target);
   if(!target || !target.addEventListener) throw err('EventManager: Target Invalid');
   const add = target.addEventListener.bind(target, type),
@@ -114,12 +115,13 @@ EventManager = curry((target, type, handle, options = false) => {
         add(wrapper, options);
         if(target.listeners) target.listeners.add(manager);
         return manager;
-    }
+    },
+    activate:state => manager[!!state ? 'once' : 'on']()
   }
   return manager;
-}, 3),
+}, 3);
 
-informer = (handles = new Set) => ({
+const informer = (handles = new Set) => ({
   handles,
   isInformer : true,
   handle(once, handle = once) {
@@ -133,8 +135,8 @@ informer = (handles = new Set) => ({
         handles.add(handle);
         return handle;
       }
-      handle.once = handle.on.bind(null, true);
-      return handle.on(isBool(once) ? once : false);
+      handle.once = handle.on.bind(undef, true);
+      return handle.on(isBool(once) && once);
   },
   on(handle) {
     return this.handle(handle);
@@ -142,29 +144,25 @@ informer = (handles = new Set) => ({
   once(handle) {
     return this.handle(true, handle);
   },
-  off(handle) {handles.delete(handle)},
+  off:handle => handle.off(),
   get empty() {
     return handles.size < 1;
   },
-  inform() {
+  inform(...args) {
     if (handles.size) for(let hn of handles) {
-      hn(...arguments);
+      hn.apply(undef, args);
       if(hn.one) hn.off();
     }
     return this;
   }
 }),
 
-lt = t => curry((...args) => EventManager(...args)[t](),3), // listener type
-on = lt('on'),
-once = lt('once');
+lt = curry((state, ...args) => EventManager(...args).activate(!!state), 4),
+on = lt(false),
+once = lt(true);
 
 informer.fromEvent = (target, type, once, options) => {
-    if(isStr(target)) target = query(target);
-    if (!target.addEventListener) throw err("invalid event target");
-    if (!isStr(type)) throw terr("event type not string");
-    const inf = informer(),
-    listener = lt(!once ? 'on' : 'once')(target, type, e => inf.inform(e, listener), options);
+    const inf = informer(), listener = lt(once, target, type, e => inf.inform(e, listener), options);
     return inf;
 }
 
@@ -192,8 +190,7 @@ domfrag = inner => isPrimitive(inner) ? htmlstr(inner) : doc.createDocumentFragm
 plugins = options => safeExtend(rot, options);
 extend(plugins, {
   methods:{},
-  handles:new Set(),
-  muthandles : new Set(),
+  handles:new Set
 });
 
 const dom_methods = {
@@ -277,15 +274,18 @@ const dom = new Proxy(element => {
 
     const classes = new Proxy({}, {
       get(_, key) {
-        if(key == 'toggle') return (c, state = !element.classList.contains(c)) => state ? element.classList.add(c) : element.classList.remove(c);
+        if(key == 'toggle') return (c, state = !element.classList.contains(c)) => element.classList[state ? 'add' : 'remove'](c);
+        else if(key == 'remove') return c => element.classList.remove(c);
         return element.classList.contains(key);
       },
       set(_, key, val) {
         if(key == 'toggle') element.classList.contains(key) ? element.classList.remove(val) : element.classList.add(val);
+        else if(key == 'remove') element.classList.remove(val);
         else element.classList.add(val);
         return true;
       },
       delete(_, key) {
+        console.log(key);
         element.classList.remove(key);
         return true;
       }
@@ -300,7 +300,7 @@ const dom = new Proxy(element => {
 
     const listeners = new Set;
 
-    const L = fn => new Proxy(fn.bind(null, element), {
+    const L = fn => new Proxy(fn.bind(undef, element), {
       get(fn, key) {
         return fn(key);
       },
@@ -345,7 +345,8 @@ const dom = new Proxy(element => {
         key == 'txt' ? el[textContent] :
         key == 'mounted' ? DOMcontains(element) :
         key == "data" ? data :
-        key in data ? getdata(key) : undef;
+        key in data ? getdata(key) :
+        key in plugins.methods ? plugins.methods[key].bind(el, el, elementProxy) : undef;
       },
       set(el, key, val, prox) {
         if(key in el) return Reflect.set(el, key, val);
@@ -398,17 +399,17 @@ const dom = new Proxy(element => {
 create = (tag, options, ...children) => {
   const el = dom(doc.createElement(tag));
   if(isObj(options)) {
-    let {attr, lifecycle} = options;
+    const {attr, lifecycle} = options;
     if(lifecycle) for(let stage of lifecycleStages) if(isFunc(lifecycle[stage])) el.lifecycle[stage].once((...args) => lifecycle[stage].apply(el, args));
     for(let handle of plugins.handles) handle(options, el);
     each(options, (val, key) => {
-      if(key == 'class') el.className = val;
+      if(key == 'class' || key == 'className') el.className = val;
       else if(key == 'style' || key == 'css') el.css(val);
       else if(key == 'on' || key == 'once') each(val, (handle, type) => el[key][type] = handle);
-      else if(key === 'props' && isObj(val)) el.data = val;
-      else if(!(key in plugins.methods)) {
+      else if((key == 'props' || key == 'data') && isObj(val)) el.data = val;
+      else {
         if(key in el) el[key] = val;
-        else if(attr && isPrimitive(val)) attr[key] = val;
+        else if(isPrimitive(val)) el.attr = val;
       }
     });
     if(attr && !isEmpty(attr)) el.attr = attr;
@@ -430,7 +431,6 @@ new MutationObserver(muts => {
     if (removedNodes.length > 0) for(el of removedNodes) if(isEl(el)) (el = dom(el)).lifecycle.destroy.inform(el);
     if (addedNodes.length > 0) for(el of addedNodes) if(isEl(el)) (el = dom(el)).lifecycle.mount.inform(el);
     if(attributeName != 'style' && isEl(target)) (el = dom(target)).lifecycle.attr.inform(attributeName, el.attr[attributeName], mut.oldValue, el.attr.has(attributeName), el);
-    if(plugins.muthandles.size > 0) for(let h of plugins.muthandles) h(target, mut, mut.type);
   }
 }).observe(doc, {
     attributes: true,
