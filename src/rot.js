@@ -171,14 +171,18 @@ informer.fromEvent = (target, type, once, options) => {
 const LoadInformer = informer.fromEvent(root, 'DOMContentLoaded', true),
 lifecycleStages = 'create mount destroy update attr'.split(' '),
 run = fn => doc.readyState != 'complete' ? LoadInformer.once(fn) : fn(),
-render = (...args) => node => run(() => {
-  if(!isDef(node)) node = doc.body;
-  else if(isStr(node)) node = query(node);
-  if(!isNode(node)) err('rot.render: render-to node');
-  each(flatten(args), arg => {
-    isSet(arg) || isArrlike(arg) ? each(arg, a => node.appendChild(isNode(a) ? a : a.node)) : node.appendChild(isNode(arg) ? arg : arg.node)
-  });
-}),
+render = (...args) => node => {
+    if(isNode(node)) {
+      node = dom(node);
+      each(flatten(args), arg => isSet(arg) || isArrlike(arg) ? each(arg, a => node.append(a)) : node.append(arg));
+    } else run(() => {
+      if(!isDef(node)) node = doc.body;
+      else if(isStr(node)) node = query(node);
+      if(!isNode(node)) throw err('rot.render: invalid render node');
+      node = dom(node);
+      each(flatten(args), arg => isSet(arg) || isArrlike(arg) ? each(arg, a => node.append(a)) : node.append(arg));
+    })
+},
 pluck = (el, within) => {
   (el = isNode(el) ? el : query(el, within)).remove();
   return dom(el);
@@ -287,16 +291,6 @@ const dom = new Proxy(element => {
       }
     });
 
-    const listeners = new Set;
-    const evtProx = {
-      get(fn, key) {
-        return fn(key);
-      },
-      set(fn, key, val) {
-        if(isFunc(val)) return fn(key, val);
-      }
-    }
-
     const lifecycle = {
       create:informer(),
       mount:informer(),
@@ -304,11 +298,18 @@ const dom = new Proxy(element => {
       attr:informer()
     }
 
-    const On = new Proxy(on.bind(null, element), evtProx);
-    const Once = new Proxy(once.bind(null, element), evtProx);
+    const listeners = new Set;
 
-    const data = {};
-    const dataInf = informer();
+    const L = fn => new Proxy(fn.bind(null, element), {
+      get(fn, key) {
+        return fn(key);
+      },
+      set(fn, key, val) {
+        if(isFunc(val)) return fn(key, val);
+      }
+    }), On = L(on), Once = L(once);
+
+    const data = {}, dataInf = informer();
 
     const dhndl = state => (key, fn) => isFunc(key) ? dataInf.handle(state, key) : dataInf.handle(state, (k, val) => {if(key === k) fn(val)});
 
@@ -331,41 +332,45 @@ const dom = new Proxy(element => {
     const elementProxy = new Proxy(element, {
       get(el, key) {
         return key in dom_methods ? dom_methods[key].bind(el, el, elementProxy) :
-        key === 'children' ? Array.from(el.children).map(child => dom(child)) :
+        key == 'children' ? Array.from(el.children).map(child => dom(child)) :
         key in el ? bindIFfn(Reflect.get(el, key)) :
-        key === 'class' ? classes :
-        key === 'attr' ? attr :
-        key === 'pure' ? el :
-        key === 'listeners' ? listeners :
-        key === 'lifecycle' ? lifecycle :
-        key === 'on' ? On :
-        key === 'once' ? Once :
-        key === 'html' ? el[inputHTML] :
-        key === 'txt' ? el[textContent] :
-        key === 'mounted' ? DOMcontains(element) :
-        key === "data" ? data :
+        key == 'class' ? classes :
+        key == 'attr' ? attr :
+        key == 'pure' ? el :
+        key == 'listeners' ? listeners :
+        key == 'lifecycle' ? lifecycle :
+        key == 'on' ? On :
+        key == 'once' ? Once :
+        key == 'html' ? el[inputHTML] :
+        key == 'txt' ? el[textContent] :
+        key == 'mounted' ? DOMcontains(element) :
+        key == "data" ? data :
         key in data ? getdata(key) : undef;
       },
       set(el, key, val, prox) {
         if(key in el) return Reflect.set(el, key, val);
-        if(key === 'class' && isStr(val)) el.classList.add(val);
-        else if(key === 'html') {
+        if(key == 'class' && isStr(val)) {
+          if(val.includes(' ')) val.split(' ').forEach(c => {
+            el.classList.add(c);
+          });
+          else el.classList.add(val);
+        } else if(key == 'html') {
           if(isFunc(val)) val = val(el[inputHTML]);
-          if(val === undef) val = '';
+          if(val == undef) val = '';
           el[inputHTML] = val;
-        } else if(key === 'txt') {
+        } else if(key == 'txt') {
           if(isFunc(val)) val = val(el[textContent]);
-          if(val === undef) val = '';
+          if(val == undef) val = '';
           el[textContent] = val;
-        } else if(key === 'attr' && isObj(val)) each(val, (v, k) => element.setAttribute(k, v));
-        else if(key === 'data' && isObj(val)) for(let prop in val) {
+        } else if(key == 'attr' && isObj(val)) each(val, (v, k) => element.setAttribute(k, v));
+        else if(key == 'data' && isObj(val)) for(let prop in val) {
           const desc = getdesc(val, prop);
           if(desc.get) desc.get = desc.get.bind(prox);
           if(desc.set) desc.set = desc.set.bind(prox);
           if(isFunc(desc.value)) desc.value = desc.value.bind(prox);
           Object.defineProperty(data, prop, desc);
         }
-        else if(key === 'css' && isObj(val)) el.css(val);
+        else if(key == 'css' && isObj(val)) el.css(val);
         else {
           dataInf.inform('set', val).inform('set:'+key, val);
           return Reflect.set(data, key, val);
@@ -373,7 +378,7 @@ const dom = new Proxy(element => {
         return true;
       },
       delete(el, key) {
-        if(key === 'self') el.remove();
+        if(key == 'self') el.remove();
         else data.delete(key);
         return true;
       }
@@ -397,9 +402,9 @@ create = (tag, options, ...children) => {
     if(lifecycle) for(let stage of lifecycleStages) if(isFunc(lifecycle[stage])) el.lifecycle[stage].once((...args) => lifecycle[stage].apply(el, args));
     for(let handle of plugins.handles) handle(options, el);
     each(options, (val, key) => {
-      if(key === 'class') el.class = val;
-      else if(key === 'style' || key === 'css') el.css(val);
-      else if(key === 'on' || key === 'once') each(val, (handle, type) => el[key][type] = handle);
+      if(key == 'class') el.className = val;
+      else if(key == 'style' || key == 'css') el.css(val);
+      else if(key == 'on' || key == 'once') each(val, (handle, type) => el[key][type] = handle);
       else if(key === 'props' && isObj(val)) el.data = val;
       else if(!(key in plugins.methods)) {
         if(key in el) el[key] = val;
@@ -410,6 +415,9 @@ create = (tag, options, ...children) => {
   }
   if(!isEmpty(children)) el.inner(...children);
   if(!el.mounted) el.lifecycle.create.inform(el);
+
+  if(options && options.render) render(el)(options.render);
+  else el.render = (node = doc.body) => render(el)(node);
   return el;
 };
 
@@ -419,10 +427,9 @@ new MutationObserver(muts => {
   for(let mut of muts) {
     const {removedNodes, addedNodes, target, attributeName} = mut;
     let el;
-    if (removedNodes.length > 0) for(el of removedNodes) if(el instanceof Element) (el = dom(el)).lifecycle.destroy.inform(el);
-    if (addedNodes.length > 0) for(el of addedNodes) if(el instanceof Element) (el = dom(el)).lifecycle.mount.inform(el);
-    if(attributeName != 'style' && target instanceof Element) (el = dom(target)).lifecycle.attr.inform(attributeName, el.attr[attributeName], mut.oldValue, el.attr.has(attributeName), el);
-
+    if (removedNodes.length > 0) for(el of removedNodes) if(isEl(el)) (el = dom(el)).lifecycle.destroy.inform(el);
+    if (addedNodes.length > 0) for(el of addedNodes) if(isEl(el)) (el = dom(el)).lifecycle.mount.inform(el);
+    if(attributeName != 'style' && isEl(target)) (el = dom(target)).lifecycle.attr.inform(attributeName, el.attr[attributeName], mut.oldValue, el.attr.has(attributeName), el);
     if(plugins.muthandles.size > 0) for(let h of plugins.muthandles) h(target, mut, mut.type);
   }
 }).observe(doc, {
