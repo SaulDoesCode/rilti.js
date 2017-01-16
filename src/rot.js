@@ -257,7 +257,11 @@ const dom = new Proxy(element => {
   if(isStr(element)) element = query(element);
   if(isEl(element)) {
     if(ProxiedNodes.has(element)) return ProxiedNodes.get(element);
-    const attr = new Proxy({}, {
+    const attr = new Proxy((attr, val) => {
+      if(isObj(attr)) each(attr, (a, v) => element.setAttribute(a,v));
+      else if(isDef(val)) element.setAttribute(attr, val);
+      else return element.hasAttribute(attr);
+    }, {
       get(_, key) {
         if(key == 'has') return name => element.hasAttribute(name);
         return element.getAttribute(key);
@@ -266,26 +270,22 @@ const dom = new Proxy(element => {
         element.setAttribute(key, val);
         return true;
       },
-      delete(_, key) {
+      deleteProperty(_, key) {
         element.removeAttribute(key);
         return true;
       }
     });
 
-    const classes = new Proxy({}, {
+    const classes = new Proxy((c, state) => isDef(state) ? element.classList[!!state ? 'add' : 'remove'](c) : element.classList.contains(c), {
       get(_, key) {
-        if(key == 'toggle') return (c, state = !element.classList.contains(c)) => element.classList[state ? 'add' : 'remove'](c);
-        else if(key == 'remove') return c => element.classList.remove(c);
+        if(key == 'remove') return c => element.classList.remove(c);
         return element.classList.contains(key);
       },
-      set(_, key, val) {
-        if(key == 'toggle') element.classList.contains(key) ? element.classList.remove(val) : element.classList.add(val);
-        else if(key == 'remove') element.classList.remove(val);
-        else element.classList.add(val);
+      set(cls, key, val) {
+        cls(key, val);
         return true;
       },
-      delete(_, key) {
-        console.log(key);
+      deleteProperty(_, key) {
         element.classList.remove(key);
         return true;
       }
@@ -378,10 +378,9 @@ const dom = new Proxy(element => {
         }
         return true;
       },
-      delete(el, key) {
+      deleteProperty(el, key) {
         if(key == 'self') el.remove();
-        else data.delete(key);
-        return true;
+        else return Reflect.deleteProperty(data, key);
       }
     });
     ProxiedNodes.set(element, elementProxy);

@@ -85,7 +85,7 @@ rot.js can work with module loaders, but will simply be global if none are used
       },
       props : {
         toggle() {
-          this.class.toggle('hidden');
+          this.class('hidden', !this.class.hidden);
         },
         get isToggled() {
           return this.class.hidden;
