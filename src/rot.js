@@ -92,7 +92,7 @@ EventManager = curry((target, type, handle, options = false) => {
   const add = target.addEventListener.bind(target, type),
   remove = target.removeEventListener.bind(target, type);
   let once = false;
-  if(isEl(target) && ProxiedNodes.has(target)) target = ProxiedNodes.get(target);
+  if(isEl(target)) target = dom(target);
   function wrapper(evt) {
     handle.call(target, evt, target);
     if(once) remove(wrapper);
@@ -119,56 +119,41 @@ EventManager = curry((target, type, handle, options = false) => {
     activate:state => manager[!!state ? 'once' : 'on']()
   }
   return manager;
-}, 3);
+}, 3),
 
-const informer = (handles = new Set) => ({
-  handles,
-  isInformer : true,
-  handle(once, handle = once) {
-      if(!isFunc(handle)) throw terr('informer.handle: is not a function');
-      handle.off = () => {
-        handles.delete(handle);
-        return handle;
-      }
-      handle.on = state => {
-        handle.off().one = !!state;
-        handles.add(handle);
-        return handle;
-      }
-      handle.once = handle.on.bind(undef, true);
-      return handle.on(isBool(once) && once);
-  },
-  on(handle) {
-    return this.handle(handle);
-  },
-  once(handle) {
-    return this.handle(true, handle);
-  },
-  off:handle => handle.off(),
-  get empty() {
-    return handles.size < 1;
-  },
-  inform(...args) {
-    if (handles.size) for(let hn of handles) {
-      hn.apply(undef, args);
-      if(hn.one) hn.off();
+evtsys = (handles = new Map) => {
+  const mngr = {
+    handle(state, type, handle) {
+      handle.one = !!state;
+      const typeset = (handles.has(type) ? handles : handles.set(type, new Set)).get(type).add(handle);
+      handle.off = () => mngr.off(type, handle);
+      return handle;
+    },
+    on:(type, handle) => mngr.handle(false, type, handle),
+    once:(type, handle) => mngr.handle(true, type, handle),
+    off(type, handle) {
+      if(handles.has(type) && !handles.get(type).delete(handle).size) handles.delete(type);
+    },
+    has:type => handles.has(type),
+    emit(type, ...args) {
+      handles.has(type) && handles.get(type).forEach(handle => {
+        handle(...args);
+        if(handle.one) handle.off();
+      });
     }
-    return this;
-  }
-}),
+  };
+  return mngr;
+},
 
 lt = curry((state, ...args) => EventManager(...args).activate(!!state), 4),
 on = lt(false),
-once = lt(true);
+once = lt(true),
+lifecycleStages = 'create mount destroy attr'.split(' ');
 
-informer.fromEvent = (target, type, once, options) => {
-    const inf = informer(), listener = lt(once, target, type, e => inf.inform(e, listener), options);
-    return inf;
-}
+once(root, 'DOMContentLoaded', () => LoadStack.forEach(fn => fn()));
 
-const LoadInformer = informer.fromEvent(root, 'DOMContentLoaded', true),
-lifecycleStages = 'create mount destroy update attr'.split(' '),
-run = fn => doc.readyState != 'complete' ? LoadInformer.once(fn) : fn(),
+const LoadStack = new Set,
+run = fn => doc.readyState != 'complete' ? LoadStack.add(fn) : fn(),
 render = (...args) => node => {
     if(isNode(node)) {
       node = dom(node);
@@ -205,12 +190,11 @@ const dom_methods = {
     prox.html = '';
     for(let val of flatten(args)) {
         if(val.appendTo) {
-          if(!prox.children.includes(val)) val.lifecycle.mount.inform(val);
+          if(!prox.children.includes(val)) val.inf.emit('mount', val);
           val.appendTo(node);
         } else {
           if(isPrimitive(val)) val = doc.createTextNode(val);
           if(isNode(val)) prox.append(val);
-          else if(val.isInformer) val.on(prox.inner);
         }
     }
     return prox;
@@ -257,10 +241,11 @@ const dom = new Proxy(element => {
   if(isStr(element)) element = query(element);
   if(isEl(element)) {
     if(ProxiedNodes.has(element)) return ProxiedNodes.get(element);
+
     const attr = new Proxy((attr, val) => {
       if(isObj(attr)) each(attr, (a, v) => element.setAttribute(a,v));
       else if(isDef(val)) element.setAttribute(attr, val);
-      else return element.hasAttribute(attr);
+      else return element.getAttribute(attr);
     }, {
       get(_, key) {
         if(key == 'has') return name => element.hasAttribute(name);
@@ -291,16 +276,10 @@ const dom = new Proxy(element => {
       }
     });
 
-    const lifecycle = {
-      create:informer(),
-      mount:informer(),
-      destroy:informer(),
-      attr:informer()
-    }
+    const informer = evtsys(),
+    listeners = new Set,
 
-    const listeners = new Set;
-
-    const L = fn => new Proxy(fn.bind(undef, element), {
+    L = fn => new Proxy(fn.bind(undef, element), {
       get(fn, key) {
         return fn(key);
       },
@@ -309,20 +288,21 @@ const dom = new Proxy(element => {
       }
     }), On = L(on), Once = L(once);
 
-    const data = {}, dataInf = informer();
+    const data = {
+      on:(mode, fn) => informer.on('data:'+mode, fn),
+      once:(mode, fn) => informer.once('data:'+mode, fn),
+      emit(mode, ...args) {
+        informer.emit('data:'+mode, ...args);
+        return data;
+      },
+      isInput : isInput(element)
+    };
 
-    const dhndl = state => (key, fn) => isFunc(key) ? dataInf.handle(state, key) : dataInf.handle(state, (k, val) => {if(key === k) fn(val)});
-
-    data.on = dhndl(false);
-    data.once = dhndl(true);
-
-    data.isInput = isInput(element);
-
-    const bindIFfn = v => isFunc(v) ? v.bind(element) : v;
+    const autobind = v => isFunc(v) ? v.bind(element) : v;
 
     const getdata = key => {
-      const val = bindIFfn(Reflect.get(data, key));
-      dataInf.inform('get', val).inform('get:'+key, val);
+      const val = autobind(Reflect.get(data, key));
+      data.emit('get', val).emit('get:'+key, val);
       return val;
     }
 
@@ -333,12 +313,12 @@ const dom = new Proxy(element => {
       get(el, key) {
         return key in dom_methods ? dom_methods[key].bind(el, el, elementProxy) :
         key == 'children' ? Array.from(el.children).map(child => dom(child)) :
-        key in el ? bindIFfn(Reflect.get(el, key)) :
+        key in el ? autobind(Reflect.get(el, key)) :
         key == 'class' ? classes :
         key == 'attr' ? attr :
         key == 'pure' ? el :
         key == 'listeners' ? listeners :
-        key == 'lifecycle' ? lifecycle :
+        key == 'informer' || key == 'inf' ? informer :
         key == 'on' ? On :
         key == 'once' ? Once :
         key == 'html' ? el[inputHTML] :
@@ -350,12 +330,8 @@ const dom = new Proxy(element => {
       },
       set(el, key, val, prox) {
         if(key in el) return Reflect.set(el, key, val);
-        if(key == 'class' && isStr(val)) {
-          if(val.includes(' ')) val.split(' ').forEach(c => {
-            el.classList.add(c);
-          });
-          else el.classList.add(val);
-        } else if(key == 'html') {
+        if(key == 'class' && isStr(val)) val.includes(' ') ? val.split(' ').forEach(c => el.classList.add(c)) : el.classList.add(val);
+        else if(key == 'html') {
           if(isFunc(val)) val = val(el[inputHTML]);
           if(val == undef) val = '';
           el[inputHTML] = val;
@@ -370,12 +346,8 @@ const dom = new Proxy(element => {
           if(desc.set) desc.set = desc.set.bind(prox);
           if(isFunc(desc.value)) desc.value = desc.value.bind(prox);
           Object.defineProperty(data, prop, desc);
-        }
-        else if(key == 'css' && isObj(val)) el.css(val);
-        else {
-          dataInf.inform('set', val).inform('set:'+key, val);
-          return Reflect.set(data, key, val);
-        }
+        } else if(key == 'css' && isObj(val)) el.css(val);
+        else return Reflect.set(data.emit('set', val).emit('set:'+key, val), key, val);
         return true;
       },
       deleteProperty(el, key) {
@@ -399,7 +371,7 @@ create = (tag, options, ...children) => {
   const el = dom(doc.createElement(tag));
   if(isObj(options)) {
     const {attr, lifecycle} = options;
-    if(lifecycle) for(let stage of lifecycleStages) if(isFunc(lifecycle[stage])) el.lifecycle[stage].once((...args) => lifecycle[stage].apply(el, args));
+    if(lifecycle) for(let stage of lifecycleStages) if(isFunc(lifecycle[stage])) el.inf.once(stage, (...args) => lifecycle[stage].apply(el, args));
     for(let handle of plugins.handles) handle(options, el);
     each(options, (val, key) => {
       if(key == 'class' || key == 'className') el.className = val;
@@ -414,7 +386,7 @@ create = (tag, options, ...children) => {
     if(attr && !isEmpty(attr)) el.attr = attr;
   }
   if(!isEmpty(children)) el.inner(...children);
-  if(!el.mounted) el.lifecycle.create.inform(el);
+  if(!el.mounted) el.inf.emit('create', el);
 
   if(options && options.render) render(el)(options.render);
   else el.render = (node = doc.body) => render(el)(node);
@@ -427,9 +399,9 @@ new MutationObserver(muts => {
   for(let mut of muts) {
     const {removedNodes, addedNodes, target, attributeName} = mut;
     let el;
-    if (removedNodes.length > 0) for(el of removedNodes) if(isEl(el)) (el = dom(el)).lifecycle.destroy.inform(el);
-    if (addedNodes.length > 0) for(el of addedNodes) if(isEl(el)) (el = dom(el)).lifecycle.mount.inform(el);
-    if(attributeName != 'style' && isEl(target)) (el = dom(target)).lifecycle.attr.inform(attributeName, el.attr[attributeName], mut.oldValue, el.attr.has(attributeName), el);
+    if (removedNodes.length > 0) for(el of removedNodes) if(isEl(el)) (el = dom(el)).inf.emit('destroy', el);
+    if (addedNodes.length > 0) for(el of addedNodes) if(isEl(el)) (el = dom(el)).inf.emit('mount', el);
+    if(attributeName != 'style' && isEl(target)) (el = dom(target)).inf.emit('attr:'+attributeName, el.attr[attributeName], mut.oldValue, el.attr.has(attributeName), el);
   }
 }).observe(doc, {
     attributes: true,
@@ -439,7 +411,7 @@ new MutationObserver(muts => {
 
 return {
   dom,
-  informer,
+  evtsys,
   EventManager,
   plugins,
   extend,
