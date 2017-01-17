@@ -286,9 +286,9 @@ const dom = new Proxy(element => {
       set(fn, key, val) {
         if(isFunc(val)) return fn(key, val);
       }
-    }), On = L(on), Once = L(once);
+    }), On = L(on), Once = L(once),
 
-    const data = {
+    data = {
       on:(mode, fn) => informer.on('data:'+mode, fn),
       once:(mode, fn) => informer.once('data:'+mode, fn),
       emit(mode, ...args) {
@@ -296,20 +296,18 @@ const dom = new Proxy(element => {
         return data;
       },
       isInput : isInput(element)
-    };
-
-    const autobind = v => isFunc(v) ? v.bind(element) : v,
-
+    },
+    autobind = v => isFunc(v) ? v.bind(element) : v,
     getdata = key => {
       const val = autobind(Reflect.get(data, key));
       data.emit('get', val).emit('get:'+key, val);
       return val;
-    }
+    },
 
-    const inputHTML = data.isInput ? 'value' : 'innerHTML';
-    const textContent = data.isInput ? 'value' : 'textContent';
+    inputHTML = data.isInput ? 'value' : 'innerHTML',
+    textContent = data.isInput ? 'value' : 'textContent',
 
-    const elementProxy = new Proxy(element, {
+    elementProxy = new Proxy(element, {
       get(el, key) {
         return key in dom_methods ? dom_methods[key].bind(el, el, elementProxy) :
         key == 'children' ? Array.from(el.children).map(child => dom(child)) :
@@ -355,6 +353,7 @@ const dom = new Proxy(element => {
         else return Reflect.deleteProperty(data, key);
       }
     });
+    informer.once('destroy', () => ProxiedNodes.delete(element));
     ProxiedNodes.set(element, elementProxy);
     return elementProxy;
   }
@@ -386,7 +385,7 @@ create = (tag, options, ...children) => {
     if(attr && !isEmpty(attr)) el.attr = attr;
   }
   if(!isEmpty(children)) el.inner(...children);
-  if(!el.mounted) el.inf.emit('create', el);
+  if(!el.tagName.includes('-') && !el.mounted) el.inf.emit('create', el);
 
   if(options && options.render) render(el)(options.render);
   else el.render = (node = doc.body) => render(el)(node);
@@ -399,8 +398,8 @@ new MutationObserver(muts => {
   for(let mut of muts) {
     const {removedNodes, addedNodes, target, attributeName} = mut;
     let el;
-    if (removedNodes.length > 0) for(el of removedNodes) if(isEl(el)) (el = dom(el)).inf.emit('destroy', el);
-    if (addedNodes.length > 0) for(el of addedNodes) if(isEl(el)) (el = dom(el)).inf.emit('mount', el);
+    if (removedNodes.length > 0) for(el of removedNodes) if(isEl(el) && !el.tagName.includes('-')) (el = dom(el)).inf.emit('destroy', el);
+    if (addedNodes.length > 0) for(el of addedNodes) if(isEl(el) && !el.tagName.includes('-')) (el = dom(el)).inf.emit('mount', el);
     if(attributeName != 'style' && isEl(target)) (el = dom(target)).inf.emit('attr:'+attributeName, el.attr[attributeName], mut.oldValue, el.attr.has(attributeName), el);
   }
 }).observe(doc, {
