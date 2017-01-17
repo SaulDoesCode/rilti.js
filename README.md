@@ -38,7 +38,7 @@ Constructive criticism is welcome
 | ``curry( {function}, {=arity} )`` | curries a function |
 | ``extend( {host object}, {object} )`` | extends host object with all props of other object |
 | ``flatten( {arraylike} )`` | flattens multidimensional arraylike objects |
-| ``informer( )`` | small Observable like notifier/informer objects |
+| ``evtsys( )`` | event emitter/ pub sub pattern |
 | ``DOMcontains( {node}, {=parent node} )`` | determines whether or not the dom or other node contains a specific node |
 | ``EventManager( {target}, {type}, {listener}, {=options} )`` | internal method used for managing event listeners |
 
@@ -74,8 +74,7 @@ rot.js can work with module loaders, but will simply be global if none are used
     on : { click }
   }, inner);
 
-  const navbar = nav(
-    {
+  const navbar = nav({
       class : 'navbar',
       style : {
         color : '#fff',
@@ -85,7 +84,7 @@ rot.js can work with module loaders, but will simply be global if none are used
       },
       props : {
         toggle() {
-          this.class('hidden', !this.class.hidden);
+          this.class('hidden');
         },
         get isToggled() {
           return this.class.hidden;

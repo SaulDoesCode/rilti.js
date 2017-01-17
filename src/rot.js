@@ -261,7 +261,7 @@ const dom = new Proxy(element => {
       }
     });
 
-    const classes = new Proxy((c, state) => isDef(state) ? element.classList[!!state ? 'add' : 'remove'](c) : element.classList.contains(c), {
+    const classes = new Proxy((c, state = !element.classList.contains(c)) => element.classList[state ? 'add' : 'remove'](c), {
       get(_, key) {
         if(key == 'remove') return c => element.classList.remove(c);
         return element.classList.contains(key);
@@ -298,9 +298,9 @@ const dom = new Proxy(element => {
       isInput : isInput(element)
     };
 
-    const autobind = v => isFunc(v) ? v.bind(element) : v;
+    const autobind = v => isFunc(v) ? v.bind(element) : v,
 
-    const getdata = key => {
+    getdata = key => {
       const val = autobind(Reflect.get(data, key));
       data.emit('get', val).emit('get:'+key, val);
       return val;
