@@ -125,7 +125,7 @@ evtsys = (handles = new Map) => {
   const mngr = {
     handle(state, type, handle) {
       handle.one = !!state;
-      const typeset = (handles.has(type) ? handles : handles.set(type, new Set)).get(type).add(handle);
+      (handles.has(type) ? handles : handles.set(type, new Set)).get(type).add(handle);
       handle.off = () => mngr.off(type, handle);
       return handle;
     },
@@ -153,7 +153,7 @@ lifecycleStages = 'create mount destroy attr'.split(' ');
 once(root, 'DOMContentLoaded', () => LoadStack.forEach(fn => fn()));
 
 const LoadStack = new Set,
-run = fn => doc.readyState != 'complete' ? LoadStack.add(fn) : fn(),
+run = fn => doc.readyState == 'complete' ? fn() : LoadStack.add(fn),
 render = (...args) => node => {
     if(isNode(node)) {
       node = dom(node);
@@ -279,7 +279,7 @@ const dom = new Proxy(element => {
     const informer = evtsys(),
     listeners = new Set,
 
-    L = fn => new Proxy(fn.bind(undef, element), {
+    L = fn => new Proxy(fn.bind(element, element), {
       get(fn, key) {
         return fn(key);
       },
@@ -329,14 +329,10 @@ const dom = new Proxy(element => {
       set(el, key, val, prox) {
         if(key in el) return Reflect.set(el, key, val);
         if(key == 'class' && isStr(val)) val.includes(' ') ? val.split(' ').forEach(c => el.classList.add(c)) : el.classList.add(val);
-        else if(key == 'html') {
-          if(isFunc(val)) val = val(el[inputHTML]);
+        else if(key == 'html' || key == 'txt') {
+          if(isFunc(val)) val = val(el[key == 'txt' ? textContent : inputHTML]);
           if(val == undef) val = '';
-          el[inputHTML] = val;
-        } else if(key == 'txt') {
-          if(isFunc(val)) val = val(el[textContent]);
-          if(val == undef) val = '';
-          el[textContent] = val;
+          el[key == 'txt' ? textContent : inputHTML] = val;
         } else if(key == 'attr' && isObj(val)) each(val, (v, k) => element.setAttribute(k, v));
         else if(key == 'data' && isObj(val)) for(let prop in val) {
           const desc = getdesc(val, prop);
@@ -390,7 +386,17 @@ create = (tag, options, ...children) => {
   if(options && options.render) render(el)(options.render);
   else el.render = (node = doc.body) => render(el)(node);
   return el;
-};
+},
+router = evtsys(),
+route = (hash, fn) => {
+  if(typeof hash === 'function') {
+    fn = hash;
+    hash = 'default';
+  }
+  if(location.hash === hash) fn();
+  return router.on(hash, fn);
+}
+on(root, 'hashchange', () => router.has(location.hash) ? router.emit(location.hash) : router.emit('default', location.hash));
 
 (dom.extend = extend(dom))({query,queryAll,queryEach,on,once, html : htmlstr});
 
