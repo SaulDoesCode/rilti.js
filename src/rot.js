@@ -389,7 +389,7 @@ create = (tag, options, ...children) => {
 },
 router = evtsys(),
 route = (hash, fn) => {
-  if(typeof hash === 'function') {
+  if(isFunc(hash)) {
     fn = hash;
     hash = 'default';
   }
