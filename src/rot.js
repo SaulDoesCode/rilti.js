@@ -423,6 +423,7 @@ return {
   safeExtend,
   def,
   getdesc,
+  route,
   render,
   run,
   curry,
