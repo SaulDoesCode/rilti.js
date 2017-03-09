@@ -11,17 +11,17 @@
   else if (typeof define == 'function' && define.amd) define(name, factory);
 })(this, () => {
 "use strict";
-const curry = (fn, arity = fn.length) => {
+
+const root = window || global || this,
+doc = document,
+undef = void 0,
+curry = (fn, arity = fn.length) => {
   const resolver = (...memory) => (...more) => {
     const local = memory.concat(more);
     return (local.length >= arity ? fn : resolver)(...local);
   }
   return resolver();
 },
-root = window || global || this,
-doc = document,
-undef = void 0,
-Keys = Object.keys,
 every = (arr, fn) => Array.prototype.every.call(arr, fn),
 typestr = toString.call,
 istype = str => obj => typeof obj === str,
@@ -38,7 +38,7 @@ isInt = val => isNum(val) && val % 1 === 0,
 isObj = typeinc('Object'),
 isArr = Array.isArray,
 isArrlike = o => o !== undef && typeof o.length !== 'undefined',
-isEmpty = val => !(isObj(val) ? Keys(val).length : isArrlike(val) ? val.length : val.size) || isFunc(val),
+isEmpty = val => !(isObj(val) ? Object.keys(val).length : isArrlike(val) ? val.length : val.size) || isFunc(val),
 isNode = o => o instanceof Node,
 isNodeList = nl => nl instanceof NodeList || (isArrlike(nl) && every(nl, isNode)),
 isEl = typeinc('HTML'),
@@ -48,7 +48,7 @@ isSet = typeinc('Set'),
 isEq = curry((o1,o2) => o1 === o2),
 each = (iterable, func) => {
   if (isDef(iterable) && isFunc(func)) {
-    if(isArrlike(iterable)) iterable = Array.from(iterable);
+    if(isArrlike(iterable)) iterable = [...iterable];
     if(iterable.forEach) iterable.forEach(func);
     else {
       let i = 0;
@@ -60,15 +60,14 @@ each = (iterable, func) => {
 def = curry(Object.defineProperty),
 getdesc = Object.getOwnPropertyDescriptor,
 extend = curry((host, obj) => {
-  for(let key of Keys(obj)) def(host,key, getdesc(obj, key));
+  for(let key of Object.keys(obj)) def(host,key, getdesc(obj, key));
   return host;
 }),
 safeExtend = (host, obj) => {
-  for(let key of Keys(obj)) !(key in host) && def(host,key, getdesc(obj, key));
+  for(let key of Object.keys(obj)) !(key in host) && def(host,key, getdesc(obj, key));
   return host;
 },
 flatten = arr => isArrlike(arr) ? Array.prototype.reduce.call(arr, (flat, toFlatten) => flat.concat(isArr(toFlatten) ? flatten(toFlatten) : toFlatten), []) : [arr],
-
 query = (selector, element = doc) => (isStr(element) ? doc.querySelector(element) : element).querySelector(selector),
 queryAll = (selector, element = doc) => Array.from((isStr(element) ? query(element) : element).querySelectorAll(selector)),
 queryEach = (selector, func, element = doc) => {
@@ -78,13 +77,10 @@ queryEach = (selector, func, element = doc) => {
   }
   each(queryAll(selector, element), func);
 },
-
 terr = msg => new TypeError(msg), err = msg => new Error(msg),
 DOMcontains = (descendant, parent = doc) => parent == descendant || Boolean(parent.compareDocumentPosition(descendant) & 16),
-
 NativeEventTypes = "DOMContentLoaded hashchange blur focus focusin focusout load resize scroll unload click dblclick mousedown mouseup mousemove mouseover mouseout mouseenter mouseleave change select submit keydown keypress keyup error contextmenu pointerdown pointerup pointermove pointerover pointerout pointerenter pointerleave touchstart touchend touchmove touchcancel".split(" "),
 isNativeEvent = evt => NativeEventTypes.includes(evt),
-
 EventManager = curry((target, type, handle, options = false) => {
   if (!isStr(type)) throw terr("event type not string");
   if(isStr(target)) target = query(target);
@@ -185,6 +181,7 @@ const dom_methods = {
       if (isObj(styles)) each(styles, (prop, key) => node.style[key] = prop);
       else if (isStr(styles) && isStr(prop)) node.style[styles] = prop;
       else throw terr('CSS : Styles is not an object or string pair');
+      return prox;
   },
   inner(node, prox, ...args) {
     prox.html = '';
@@ -261,9 +258,15 @@ const dom = new Proxy(element => {
       }
     });
 
-    const classes = new Proxy((c, state = !element.classList.contains(c)) => element.classList[state ? 'add' : 'remove'](c), {
+    const classes = new Proxy((c, state = !element.classList.contains(c)) => {
+      element.classList[state ? 'add' : 'remove'](c)
+      return elementProxy;
+    }, {
       get(_, key) {
-        if(key == 'remove') return c => element.classList.remove(c);
+        if(key == 'remove') return c => {
+          element.classList.remove(c);
+          return elementProxy;
+        }
         return element.classList.contains(key);
       },
       set(cls, key, val) {
@@ -279,14 +282,14 @@ const dom = new Proxy(element => {
     const informer = evtsys(),
     listeners = new Set,
 
-    L = fn => new Proxy(fn.bind(element, element), {
+    ProxListener = fn => new Proxy(fn.bind(element, element), {
       get(fn, key) {
         return fn(key);
       },
       set(fn, key, val) {
         if(isFunc(val)) return fn(key, val);
       }
-    }), On = L(on), Once = L(once),
+    }), On = ProxListener(on), Once = ProxListener(once),
 
     data = {
       on:(mode, fn) => informer.on('data:'+mode, fn),
@@ -364,7 +367,10 @@ const dom = new Proxy(element => {
 
 create = (tag, options, ...children) => {
   const el = dom(doc.createElement(tag));
-  if(isObj(options)) {
+  if(isArrlike(options) || isNode(options)) {
+    children = isStr(options) || isNode(options) ? [options] : options;
+    options = null;
+  } else if(isObj(options)) {
     const {attr, lifecycle} = options;
     if(lifecycle) for(let stage of lifecycleStages) if(isFunc(lifecycle[stage])) el.inf.once(stage, (...args) => lifecycle[stage].apply(el, args));
     for(let handle of plugins.handles) handle(options, el);
@@ -383,8 +389,7 @@ create = (tag, options, ...children) => {
   if(!isEmpty(children)) el.inner(...children);
   if(!el.tagName.includes('-') && !el.mounted) el.inf.emit('create', el);
 
-  if(options && options.render) render(el)(options.render);
-  else el.render = (node = doc.body) => render(el)(node);
+  options && options.render ? render(el)(options.render) : el.render = (node = doc.body) => render(el)(node);
   return el;
 },
 router = evtsys(),

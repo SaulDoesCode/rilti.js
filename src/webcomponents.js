@@ -1,4 +1,4 @@
-(root => {
+(() => {
   const {extend, dom, evtsys, isFunc, each} = rot;
 
   rot.Component = (tag, config) => {
@@ -39,7 +39,7 @@
     }
     if(methods) extend(CustomElement.prototype, methods);
 
-    root.customElements.define(tag, CustomElement)
+    window.customElements.define(tag, CustomElement)
   }
 
-})(window);
+})();
