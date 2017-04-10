@@ -10,13 +10,16 @@ Constructive criticism is welcome
 * lifecycle hooks
 * event management
 * observe attributes
-* informers (Observable like reactive objects)
+* tiny built in event system
 * streamlined element creation
 * minimal set of dom manipulation methods
 * useful methods and utilities
 * no classes no extra fuzz
 * plugins can extend and add any feature
 * written and distributed in plain es2015/es6
+
+rot.js harnesses the power of Proxy objects to make some
+amazing behavior possible.
 
 ### planned features
 * managed custom attributes aka directives
@@ -54,15 +57,13 @@ isMap, isSet,
 isEl, isNode, isNodeList,
 isInput, isPrimitive, isNativeEvent
 
-rot.js can work with module loaders, but will simply be global if none are used
-
 #### example time!!!
 
 [rot.js todomvc](https://github.com/SaulDoesCode/rot.js-todomvc)
 
 ```javascript
 
-  const {dom} = rot;
+  const {dom, run, render} = rot;
   const {div, nav} = dom;
 
   function goHome() {
@@ -96,18 +97,36 @@ rot.js can work with module loaders, but will simply be global if none are used
   );
 
   // render your nodes
-  rot.render(navbar)(document.body);
+  render(navbar)("body");
 
-  rot.run(() => {
-    // post dom load code here
+  run(() => {
+    // run post-dom-load code here
     navbar.toggle();
     console.log(navbar.isToggled);
   });
+
+  // create elements with any tag
+  dom['custom-element']({
+    render: ".main > header", // render automatically with render property
+    // manage an element's lifecycle
+    lifecycle: {
+      create() {
+
+      },
+      mount() {
+
+      },
+      destroy() {
+
+      }
+    }
+  });
+
 ```
 
 #### weight
 * unminified : > 16kb
-* minified : > 10kb
+* minified : > 9.5kb
 * minified && gziped : > 4.5kb
 
 #### licence = MIT

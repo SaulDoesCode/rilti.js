@@ -2,7 +2,7 @@
   const {extend, dom, evtsys, isFunc, each} = rot;
 
   rot.Component = (tag, config) => {
-    if(!tag.includes('-')) throw new Error('custom elements must have a hyphenated tag');
+    if(!tag.includes('-')) throw new Error('components must have a hyphenated tag');
     const {create, mount, destroy, attr, props, methods, adopted} = config;
     const attrs = [];
     each(attr, (_, key) => attrs.push(key));

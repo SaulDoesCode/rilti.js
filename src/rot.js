@@ -39,7 +39,7 @@ isObj = typeinc('Object'),
 isArr = Array.isArray,
 isArrlike = o => o !== undef && typeof o.length !== 'undefined',
 isEmpty = val => !(isObj(val) ? Object.keys(val).length : isArrlike(val) ? val.length : val.size) || isFunc(val),
-isNode = o => o instanceof Node,
+isNode = o => o && (o instanceof Node || o.pure instanceof Node),
 isNodeList = nl => nl instanceof NodeList || (isArrlike(nl) && every(nl, isNode)),
 isEl = typeinc('HTML'),
 isInput = el => isEl(el) && 'INPUT TEXTAREA'.includes(el.tagName),
@@ -146,21 +146,26 @@ on = lt(false),
 once = lt(true),
 lifecycleStages = 'create mount destroy attr'.split(' ');
 
-once(root, 'DOMContentLoaded', () => LoadStack.forEach(fn => fn()));
+let ready = false,
+LoadStack = new Set;
+once(root, 'DOMContentLoaded', () => {
+  ready = true;
+  LoadStack.forEach(fn => fn());
+  LoadStack.clear();
+  LoadStack = null;
+});
 
-const LoadStack = new Set,
-run = fn => doc.readyState == 'complete' ? fn() : LoadStack.add(fn),
-render = (...args) => node => {
-    if(isNode(node)) {
-      node = dom(node);
+const run = fn => ready ? fn() : LoadStack.add(fn),
+render = (...args) => (node = 'body') => {
+  if(isNode(node)) {
+    node = dom(node);
+    each(flatten(args), arg => isSet(arg) || isArrlike(arg) ? each(arg, a => node.append(a)) : node.append(arg));
+  } else if(isStr(node)) run(() => {
+      if(!isNode(
+        node = dom(node == 'body' ? doc.body : query(node))
+      )) throw err('rot.render: invalid render node');
       each(flatten(args), arg => isSet(arg) || isArrlike(arg) ? each(arg, a => node.append(a)) : node.append(arg));
-    } else run(() => {
-      if(!isDef(node)) node = doc.body;
-      else if(isStr(node)) node = query(node);
-      if(!isNode(node)) throw err('rot.render: invalid render node');
-      node = dom(node);
-      each(flatten(args), arg => isSet(arg) || isArrlike(arg) ? each(arg, a => node.append(a)) : node.append(arg));
-    })
+  });
 },
 pluck = (el, within) => {
   (el = isNode(el) ? el : query(el, within)).remove();
@@ -221,6 +226,10 @@ const dom_methods = {
   prependTo(node, prox, val) {
       (isStr(val) ? query(val) : val).prepend();
       return prox;
+  },
+  find(node, prox, selector) {
+    let child = query(selector, node);
+    if(isNode(child)) return dom(child);
   },
   modify(node, prox, fn) {
     fn.call(prox, prox, node);
@@ -313,7 +322,7 @@ const dom = new Proxy(element => {
     elementProxy = new Proxy(element, {
       get(el, key) {
         return key in dom_methods ? dom_methods[key].bind(el, el, elementProxy) :
-        key == 'children' ? Array.from(el.children).map(child => dom(child)) :
+        key == 'children' ? Array.prototype.map.call(el.children, child => dom(child)) :
         key in el ? autobind(Reflect.get(el, key)) :
         key == 'class' ? classes :
         key == 'attr' ? attr :
@@ -343,7 +352,7 @@ const dom = new Proxy(element => {
           if(desc.set) desc.set = desc.set.bind(prox);
           if(isFunc(desc.value)) desc.value = desc.value.bind(prox);
           Object.defineProperty(data, prop, desc);
-        } else if(key == 'css' && isObj(val)) el.css(val);
+        } else if(key == 'css' && isObj(val)) prox.css(val);
         else return Reflect.set(data.emit('set', val).emit('set:'+key, val), key, val);
         return true;
       },
@@ -388,8 +397,8 @@ create = (tag, options, ...children) => {
   }
   if(!isEmpty(children)) el.inner(...children);
   if(!el.tagName.includes('-') && !el.mounted) el.inf.emit('create', el);
-
-  options && options.render ? render(el)(options.render) : el.render = (node = doc.body) => render(el)(node);
+  if(options && options.render) render(el)(options.render);
+  else el.render = (node = "body") => render(el)(node);
   return el;
 },
 router = evtsys(),
@@ -456,6 +465,5 @@ return {
   isInput,
   isMap,
   isSet,
-  ready:() => doc.readyState == 'complete'
 }
 });
