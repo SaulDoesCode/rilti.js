@@ -79,8 +79,8 @@ queryEach = (selector, func, element = doc) => {
 },
 terr = msg => new TypeError(msg), err = msg => new Error(msg),
 DOMcontains = (descendant, parent = doc) => parent == descendant || Boolean(parent.compareDocumentPosition(descendant) & 16),
-NativeEventTypes = "DOMContentLoaded hashchange blur focus focusin focusout load resize scroll unload click dblclick mousedown mouseup mousemove mouseover mouseout mouseenter mouseleave change select submit keydown keypress keyup error contextmenu pointerdown pointerup pointermove pointerover pointerout pointerenter pointerleave touchstart touchend touchmove touchcancel".split(" "),
-isNativeEvent = evt => NativeEventTypes.includes(evt),
+//NativeEventTypes = "DOMContentLoaded hashchange blur focus focusin focusout load resize scroll unload click dblclick mousedown mouseup mousemove mouseover mouseout mouseenter mouseleave change select submit keydown keypress keyup error contextmenu pointerdown pointerup pointermove pointerover pointerout pointerenter pointerleave touchstart touchend touchmove touchcancel".split(" "),
+//isNativeEvent = evt => NativeEventTypes.includes(evt),
 EventManager = curry((target, type, handle, options = false) => {
   if (!isStr(type)) throw terr("event type not string");
   if(isStr(target)) target = query(target);
@@ -447,7 +447,7 @@ return {
   isDef,
   isUndef,
   isPrimitive,
-  isNativeEvent,
+  //isNativeEvent,
   isNull,
   isFunc,
   isStr,
