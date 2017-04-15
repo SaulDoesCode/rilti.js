@@ -4,16 +4,9 @@
 * @repo SaulDoesCode/rot.js
 * @author Saul van der Walt
 **/
-((context, factory) => {
-  const name = 'rot';
-  context[name] = factory();
-  if (typeof module != 'undefined' && module.exports) module.exports = factory();
-  else if (typeof define == 'function' && define.amd) define(name, factory);
-})(this, () => {
+var rot = (() => {
 "use strict";
-
-const root = window || global || this,
-doc = document,
+const doc = document,
 undef = void 0,
 curry = (fn, arity = fn.length) => {
   const resolver = (...memory) => (...more) => {
@@ -48,9 +41,11 @@ isSet = typeinc('Set'),
 isEq = curry((o1,o2) => o1 === o2),
 each = (iterable, func) => {
   if (isDef(iterable) && isFunc(func)) {
-    if(isArrlike(iterable)) iterable = [...iterable];
-    if(iterable.forEach) iterable.forEach(func);
-    else {
+    if(isArrlike(iterable)) iterable = Array.from(iterable);
+    if(iterable.forEach) {
+      iterable.forEach(func);
+      return iterable;
+    } else {
       let i = 0;
       if(isObj(iterable)) for (i in iterable) func(iterable[i], i, iterable);
       else if (isInt(iterable)) while (iterable != i) func(i += 1);
@@ -60,11 +55,11 @@ each = (iterable, func) => {
 def = curry(Object.defineProperty),
 getdesc = Object.getOwnPropertyDescriptor,
 extend = curry((host, obj) => {
-  for(let key of Object.keys(obj)) def(host,key, getdesc(obj, key));
+  each(Object.keys(obj), key => def(host,key, getdesc(obj, key)));
   return host;
 }),
 safeExtend = (host, obj) => {
-  for(let key of Object.keys(obj)) !(key in host) && def(host,key, getdesc(obj, key));
+  each(Object.keys(obj), key => !(key in host) && def(host,key, getdesc(obj, key)));
   return host;
 },
 flatten = arr => isArrlike(arr) ? Array.prototype.reduce.call(arr, (flat, toFlatten) => flat.concat(isArr(toFlatten) ? flatten(toFlatten) : toFlatten), []) : [arr],
@@ -148,10 +143,9 @@ lifecycleStages = 'create mount destroy attr'.split(' ');
 
 let ready = false,
 LoadStack = new Set;
-once(root, 'DOMContentLoaded', () => {
+once(window, 'DOMContentLoaded', () => {
   ready = true;
-  LoadStack.forEach(fn => fn());
-  LoadStack.clear();
+  each(LoadStack, fn => fn()).clear();
   LoadStack = null;
 });
 
@@ -173,11 +167,7 @@ pluck = (el, within) => {
 },
 htmlstr = html => doc.createRange().createContextualFragment(html || ''),
 domfrag = inner => isPrimitive(inner) ? htmlstr(inner) : doc.createDocumentFragment(),
-plugins = options => safeExtend(rot, options);
-extend(plugins, {
-  methods:{},
-  handles:new Set
-});
+plugins = extend(options => safeExtend(rot, options), { methods:{}, handles:new Set });
 
 const dom_methods = {
   replace:(node, prox, val) => node.replaceWith ? node.replaceWith(val) : node.parentNode.replaceChild(val, node),
@@ -190,32 +180,26 @@ const dom_methods = {
   },
   inner(node, prox, ...args) {
     prox.html = '';
-    for(let val of flatten(args)) {
+    each(flatten(args), val => {
         if(val.appendTo) {
-          if(!prox.children.includes(val)) val.inf.emit('mount', val);
+          !prox.children.includes(val) && val.inf.emit('mount', val);
           val.appendTo(node);
         } else {
           if(isPrimitive(val)) val = doc.createTextNode(val);
           if(isNode(val)) prox.append(val);
         }
-    }
+    });
     return prox;
   },
   append(node, prox, ...args) {
       const dfrag = domfrag();
-      args.forEach(arg => {
-        if(isNode(arg.pure)) arg = arg.pure;
-        dfrag.appendChild(isNode(arg) ? arg : htmlstr(arg));
-      });
+      each(args, arg => dfrag.appendChild(isNode(arg.pure) ? arg.pure : isNode(arg) ? arg : htmlstr(arg)));
       node.appendChild(dfrag);
       return prox;
   },
   prepend(node, prox, ...args) {
       const dfrag = domfrag();
-      args.forEach(arg => {
-        if(isNode(arg.pure)) arg = arg.pure;
-        dfrag.appendChild(isNode(arg) ? arg : htmlstr(arg));
-      });
+      each(args, arg => dfrag.appendChild(isNode(arg.pure) ? arg.pure : isNode(arg) ? arg : htmlstr(arg)));
       node.prepend(dfrag);
       return prox;
   },
@@ -224,7 +208,7 @@ const dom_methods = {
       return prox;
   },
   prependTo(node, prox, val) {
-      (isStr(val) ? query(val) : val).prepend();
+      (isStr(val) ? query(val) : val).prepend(node);
       return prox;
   },
   find(node, prox, selector) {
@@ -334,13 +318,14 @@ const dom = new Proxy(element => {
         key == 'html' ? el[inputHTML] :
         key == 'txt' ? el[textContent] :
         key == 'mounted' ? DOMcontains(element) :
+        key == 'rect' ? el.getBoundingClientRect() :
         key == "data" ? data :
         key in data ? getdata(key) :
         key in plugins.methods ? plugins.methods[key].bind(el, el, elementProxy) : undef;
       },
       set(el, key, val, prox) {
         if(key in el) return Reflect.set(el, key, val);
-        if(key == 'class' && isStr(val)) val.includes(' ') ? val.split(' ').forEach(c => el.classList.add(c)) : el.classList.add(val);
+        if(key == 'class' && isStr(val)) val.includes(' ') ? each(val.split(' '), c => el.classList.add(c)) : el.classList.add(val);
         else if(key == 'html' || key == 'txt') {
           if(isFunc(val)) val = val(el[key == 'txt' ? textContent : inputHTML]);
           if(val == undef) val = '';
@@ -400,9 +385,15 @@ create = (tag, options, ...children) => {
   if(options && options.render) render(el)(options.render);
   else el.render = (node = "body") => render(el)(node);
   return el;
-},
-router = evtsys(),
+};
+
+let RouterActivate = false;
+const router = evtsys(),
 route = (hash, fn) => {
+  if(!RouterActivate) {
+      RouterActivate = true;
+      on(window, 'hashchange', () => router.has(location.hash) ? router.emit(location.hash) : router.emit('default', location.hash));
+  }
   if(isFunc(hash)) {
     fn = hash;
     hash = 'default';
@@ -410,7 +401,6 @@ route = (hash, fn) => {
   if(location.hash === hash) fn();
   return router.on(hash, fn);
 }
-on(root, 'hashchange', () => router.has(location.hash) ? router.emit(location.hash) : router.emit('default', location.hash));
 
 (dom.extend = extend(dom))({query,queryAll,queryEach,on,once, html : htmlstr});
 
@@ -466,4 +456,4 @@ return {
   isMap,
   isSet,
 }
-});
+})();
