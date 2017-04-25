@@ -8,6 +8,7 @@ var rot = (() => {
 "use strict";
 const doc = document,
 undef = void 0,
+ArrProto = Array.prototype,
 curry = (fn, arity = fn.length) => {
   const resolver = (...memory) => (...more) => {
     const local = memory.concat(more);
@@ -15,7 +16,7 @@ curry = (fn, arity = fn.length) => {
   }
   return resolver();
 },
-every = (arr, fn) => Array.prototype.every.call(arr, fn),
+every = (arr, fn) => ArrProto.every.call(arr, fn),
 typestr = toString.call,
 istype = str => obj => typeof obj === str,
 typeinc = str => obj => toString.call(obj).includes(str),
@@ -31,7 +32,7 @@ isInt = val => isNum(val) && val % 1 === 0,
 isObj = typeinc('Object'),
 isArr = Array.isArray,
 isArrlike = o => o !== undef && typeof o.length !== 'undefined',
-isEmpty = val => !(isObj(val) ? Object.keys(val).length : isArrlike(val) ? val.length : val.size) || isFunc(val),
+isEmpty = val => val !== undef && !(isObj(val) ? Object.keys(val).length : isArrlike(val) ? val.length : val.size) || isFunc(val),
 isNode = o => o && (o instanceof Node || o.pure instanceof Node),
 isNodeList = nl => nl instanceof NodeList || (isArrlike(nl) && every(nl, isNode)),
 isEl = typeinc('HTML'),
@@ -39,6 +40,7 @@ isInput = el => isEl(el) && 'INPUT TEXTAREA'.includes(el.tagName),
 isMap = typeinc('Map'),
 isSet = typeinc('Set'),
 isEq = curry((o1,o2) => o1 === o2),
+test = (match, ...cases) => cases.some(Case => match == Case || (isFunc(Case) && Case(match))),
 each = (iterable, func) => {
   if (isDef(iterable) && isFunc(func)) {
     if(isArrlike(iterable)) iterable = Array.from(iterable);
@@ -62,7 +64,7 @@ safeExtend = (host, obj) => {
   each(Object.keys(obj), key => !(key in host) && def(host,key, getdesc(obj, key)));
   return host;
 },
-flatten = arr => isArrlike(arr) ? Array.prototype.reduce.call(arr, (flat, toFlatten) => flat.concat(isArr(toFlatten) ? flatten(toFlatten) : toFlatten), []) : [arr],
+flatten = arr => isArrlike(arr) ? ArrProto.reduce.call(arr, (flat, toFlatten) => flat.concat(isArr(toFlatten) ? flatten(toFlatten) : toFlatten), []) : [arr],
 query = (selector, element = doc) => (isStr(element) ? doc.querySelector(element) : element).querySelector(selector),
 queryAll = (selector, element = doc) => Array.from((isStr(element) ? query(element) : element).querySelectorAll(selector)),
 queryEach = (selector, func, element = doc) => {
@@ -72,77 +74,71 @@ queryEach = (selector, func, element = doc) => {
   }
   each(queryAll(selector, element), func);
 },
-terr = msg => new TypeError(msg), err = msg => new Error(msg),
+terr = msg => {throw new TypeError(msg)}, err = msg => {throw new Error(msg)},
 DOMcontains = (descendant, parent = doc) => parent == descendant || Boolean(parent.compareDocumentPosition(descendant) & 16),
 //NativeEventTypes = "DOMContentLoaded hashchange blur focus focusin focusout load resize scroll unload click dblclick mousedown mouseup mousemove mouseover mouseout mouseenter mouseleave change select submit keydown keypress keyup error contextmenu pointerdown pointerup pointermove pointerover pointerout pointerenter pointerleave touchstart touchend touchmove touchcancel".split(" "),
 //isNativeEvent = evt => NativeEventTypes.includes(evt),
-EventManager = curry((target, type, handle, options = false) => {
-  if (!isStr(type)) throw terr("event type not string");
-  if(isStr(target)) target = query(target);
-  if(!target || !target.addEventListener) throw err('EventManager: Target Invalid');
-  const add = target.addEventListener.bind(target, type),
-  remove = target.removeEventListener.bind(target, type);
+EventManager = curry((state, target, type, handle, options = false) => {
+  if(test(target, isNode, isStr)) target = dom(target);
+  if(!target.addEventListener) err('not event target');
   let once = false;
-  if(isEl(target)) target = dom(target);
+
   function wrapper(evt) {
     handle.call(target, evt, target);
-    if(once) remove(wrapper);
+    if(once) target.removeEventListener(type, wrapper);
   }
+
+  const remove = () => target.removeEventListener(type, wrapper),
+  add = () => {
+    remove();
+    target.addEventListener(type, wrapper, options);
+  }
+
   const manager = {
     off() {
-        remove(wrapper);
-        if(target.listeners) target.listeners.delete(manager);
-        return manager;
+      remove();
+      return manager;
     },
     on() {
         once = false;
-        add(wrapper, options);
-        if(target.listeners) target.listeners.add(manager);
+        add();
         return manager;
     },
     once() {
-        remove(wrapper);
         once = true;
-        add(wrapper, options);
-        if(target.listeners) target.listeners.add(manager);
+        add();
         return manager;
-    },
-    activate:state => manager[!!state ? 'once' : 'on']()
-  }
-  return manager;
-}, 3),
-
-evtsys = (handles = new Map) => {
-  const mngr = {
-    handle(state, type, handle) {
-      handle.one = !!state;
-      (handles.has(type) ? handles : handles.set(type, new Set)).get(type).add(handle);
-      handle.off = () => mngr.off(type, handle);
-      return handle;
-    },
-    on:(type, handle) => mngr.handle(false, type, handle),
-    once:(type, handle) => mngr.handle(true, type, handle),
-    off(type, handle) {
-      if(handles.has(type) && !handles.get(type).delete(handle).size) handles.delete(type);
-    },
-    has:type => handles.has(type),
-    emit(type, ...args) {
-      handles.has(type) && handles.get(type).forEach(handle => {
-        handle(...args);
-        if(handle.one) handle.off();
-      });
     }
-  };
-  return mngr;
-},
+  }
+  return manager[state]();
+}, 4),
+once = EventManager('once'),
+on = EventManager('on'),
 
-lt = curry((state, ...args) => EventManager(...args).activate(!!state), 4),
-on = lt(false),
-once = lt(true),
+evtsys = (handles = new Map, mngr) => mngr = {
+  handle(state, type, handle) {
+    handle.one = !!state;
+    (handles.has(type) ? handles : handles.set(type, new Set)).get(type).add(handle);
+    handle.off = () => mngr.off(type, handle);
+    return handle;
+  },
+  on:(type, handle) => mngr.handle(false, type, handle),
+  once:(type, handle) => mngr.handle(true, type, handle),
+  off(type, handle) {
+    if(handles.has(type) && !handles.get(type).delete(handle).size) handles.delete(type);
+    return mngr;
+  },
+  has:type => handles.has(type),
+  emit(type, ...args) {
+    handles.has(type) && each(handles.get(type), handle => {
+      handle(...args);
+      if(handle.one) handle.off();
+    });
+  }
+},
 lifecycleStages = 'create mount destroy attr'.split(' ');
 
-let ready = false,
-LoadStack = new Set;
+let LoadStack = new Set, ready = false, RouterActivate = false;
 once(window, 'DOMContentLoaded', () => {
   ready = true;
   each(LoadStack, fn => fn()).clear();
@@ -153,29 +149,28 @@ const run = fn => ready ? fn() : LoadStack.add(fn),
 render = (...args) => (node = 'body') => {
   if(isNode(node)) {
     node = dom(node);
-    each(flatten(args), arg => isSet(arg) || isArrlike(arg) ? each(arg, a => node.append(a)) : node.append(arg));
+    each(flatten(args), arg => test(arg, isSet, isArrlike) ? each(arg, a => node.append(a)) : node.append(arg));
   } else if(isStr(node)) run(() => {
       if(!isNode(
-        node = dom(node == 'body' ? doc.body : query(node))
-      )) throw err('rot.render: invalid render node');
-      each(flatten(args), arg => isSet(arg) || isArrlike(arg) ? each(arg, a => node.append(a)) : node.append(arg));
+        node = dom(node == 'body' ? doc.body : node)
+      )) err('render: invalid target');
+      each(flatten(args), arg => test(arg, isSet, isArrlike) ? each(arg, a => node.append(a)) : node.append(arg));
   });
 },
-pluck = (el, within) => {
-  (el = isNode(el) ? el : query(el, within)).remove();
-  return dom(el);
-},
+refl = Reflect,
+ReflectSet = refl.set.bind(refl),
+ReflectGet = refl.get.bind(refl),
+newProxy = (val, handles) => new Proxy(val, handles),
 htmlstr = html => doc.createRange().createContextualFragment(html || ''),
 domfrag = inner => isPrimitive(inner) ? htmlstr(inner) : doc.createDocumentFragment(),
-plugins = extend(options => safeExtend(rot, options), { methods:{}, handles:new Set });
+plugins = extend(options => safeExtend(rot, options), { methods:{}, handles:new Set }),
 
-const dom_methods = {
+dom_methods = {
   replace:(node, prox, val) => node.replaceWith ? node.replaceWith(val) : node.parentNode.replaceChild(val, node),
   clone:n => dom(n.cloneNode()),
   css(node, prox, styles, prop) {
-      if (isObj(styles)) each(styles, (prop, key) => node.style[key] = prop);
-      else if (isStr(styles) && isStr(prop)) node.style[styles] = prop;
-      else throw terr('CSS : Styles is not an object or string pair');
+      isObj(styles) ? each(styles, (prop, key) => node.style[key] = prop) :
+      isStr(styles) && isStr(prop) ? node.style[styles] = prop : terr('.css("" || {}) only');
       return prox;
   },
   inner(node, prox, ...args) {
@@ -225,57 +220,51 @@ const dom_methods = {
   }
 },
 
-ProxiedNodes = new Map;
+ProxiedNodes = new Map,
 
-const dom = new Proxy(element => {
+dom = newProxy(element => {
   if(isStr(element)) element = query(element);
   if(isEl(element)) {
     if(ProxiedNodes.has(element)) return ProxiedNodes.get(element);
 
-    const attr = new Proxy((attr, val) => {
+    const attr = newProxy((attr, val) => {
       if(isObj(attr)) each(attr, (a, v) => element.setAttribute(a,v));
-      else if(isDef(val)) element.setAttribute(attr, val);
+      else if(isPrimitive(val)) element.setAttribute(attr, val);
       else return element.getAttribute(attr);
     }, {
       get(_, key) {
-        if(key == 'has') return name => element.hasAttribute(name);
-        return element.getAttribute(key);
+        return key == 'has' ? name => element.hasAttribute(name) : element.getAttribute(key);
       },
       set(_, key, val) {
-        element.setAttribute(key, val);
+        if(isPrimitive(val)) element.setAttribute(key, val);
         return true;
       },
       deleteProperty(_, key) {
-        element.removeAttribute(key);
-        return true;
+        return !element.removeAttribute(key);
       }
     });
 
-    const classes = new Proxy((c, state = !element.classList.contains(c)) => {
-      element.classList[state ? 'add' : 'remove'](c)
+    const classes = newProxy((c, state = !element.classList.contains(c)) => {
+      state = state ? 'add' : 'remove';
+      c.includes(' ') ? each(c.split(' '), cls => element.classList[state](cls)) :
+      element.classList[state](c);
       return elementProxy;
     }, {
       get(_, key) {
-        if(key == 'remove') return c => {
-          element.classList.remove(c);
-          return elementProxy;
-        }
         return element.classList.contains(key);
       },
       set(cls, key, val) {
-        cls(key, val);
-        return true;
+        return cls(key, val);
       },
       deleteProperty(_, key) {
-        element.classList.remove(key);
-        return true;
+        return !element.classList.remove(key);
       }
     });
 
     const informer = evtsys(),
     listeners = new Set,
 
-    ProxListener = fn => new Proxy(fn.bind(element, element), {
+    ProxListener = fn => newProxy(fn.bind(element, element), {
       get(fn, key) {
         return fn(key);
       },
@@ -283,19 +272,19 @@ const dom = new Proxy(element => {
         if(isFunc(val)) return fn(key, val);
       }
     }), On = ProxListener(on), Once = ProxListener(once),
-
+    dt = 'data:',
     data = {
-      on:(mode, fn) => informer.on('data:'+mode, fn),
-      once:(mode, fn) => informer.once('data:'+mode, fn),
+      on:(mode, fn) => informer.on(dt+mode, fn),
+      once:(mode, fn) => informer.once(dt+mode, fn),
       emit(mode, ...args) {
-        informer.emit('data:'+mode, ...args);
+        informer.emit(dt+mode, ...args);
         return data;
       },
-      isInput : isInput(element)
+      isInput: isInput(element),
     },
     autobind = v => isFunc(v) ? v.bind(element) : v,
     getdata = key => {
-      const val = autobind(Reflect.get(data, key));
+      const val = autobind(ReflectGet(data, key));
       data.emit('get', val).emit('get:'+key, val);
       return val;
     },
@@ -303,16 +292,16 @@ const dom = new Proxy(element => {
     inputHTML = data.isInput ? 'value' : 'innerHTML',
     textContent = data.isInput ? 'value' : 'textContent',
 
-    elementProxy = new Proxy(element, {
+    elementProxy = newProxy(element, {
       get(el, key) {
         return key in dom_methods ? dom_methods[key].bind(el, el, elementProxy) :
-        key == 'children' ? Array.prototype.map.call(el.children, child => dom(child)) :
-        key in el ? autobind(Reflect.get(el, key)) :
+        key == 'children' ? ArrProto.map.call(el.children, child => dom(child)) :
+        key in el ? autobind(ReflectGet(el, key)) :
         key == 'class' ? classes :
         key == 'attr' ? attr :
         key == 'pure' ? el :
         key == 'listeners' ? listeners :
-        key == 'informer' || key == 'inf' ? informer :
+        test(key, 'informer', 'inf') ? informer :
         key == 'on' ? On :
         key == 'once' ? Once :
         key == 'html' ? el[inputHTML] :
@@ -324,26 +313,20 @@ const dom = new Proxy(element => {
         key in plugins.methods ? plugins.methods[key].bind(el, el, elementProxy) : undef;
       },
       set(el, key, val, prox) {
-        if(key in el) return Reflect.set(el, key, val);
-        if(key == 'class' && isStr(val)) val.includes(' ') ? each(val.split(' '), c => el.classList.add(c)) : el.classList.add(val);
-        else if(key == 'html' || key == 'txt') {
-          if(isFunc(val)) val = val(el[key == 'txt' ? textContent : inputHTML]);
-          if(val == undef) val = '';
-          el[key == 'txt' ? textContent : inputHTML] = val;
-        } else if(key == 'attr' && isObj(val)) each(val, (v, k) => element.setAttribute(k, v));
-        else if(key == 'data' && isObj(val)) for(let prop in val) {
-          const desc = getdesc(val, prop);
-          if(desc.get) desc.get = desc.get.bind(prox);
-          if(desc.set) desc.set = desc.set.bind(prox);
-          if(isFunc(desc.value)) desc.value = desc.value.bind(prox);
-          Object.defineProperty(data, prop, desc);
-        } else if(key == 'css' && isObj(val)) prox.css(val);
-        else return Reflect.set(data.emit('set', val).emit('set:'+key, val), key, val);
+        if(val != undef) {
+          key == 'class' && isStr(val) ? classes(val, true) :
+          test(key, 'html', 'txt') ? el[key == 'txt' ? textContent : inputHTML] = isFunc(val) ? val(prox[key]) : val :
+          key == 'render' && test(val, isNode, isStr) ? render(el)(val) :
+          key in el ? ReflectSet(el, key, val) :
+          key == 'css' && isObj(val) ? prox.css(val) :
+          key == 'attr' && isObj(val) ? attr(val) :
+          ReflectSet(data.emit('set', val).emit('set:'+key, val), key, val);
+        }
         return true;
       },
       deleteProperty(el, key) {
         if(key == 'self') el.remove();
-        else return Reflect.deleteProperty(data, key);
+        else return refl.deleteProperty(data, key);
       }
     });
     informer.once('destroy', () => ProxiedNodes.delete(element));
@@ -351,48 +334,53 @@ const dom = new Proxy(element => {
     return elementProxy;
   }
 }, {
-  get(d, key) {
-    return key in d ? Reflect.get(d, key) : create.bind(undef, key);
-  },
-  set(d, key) {
-    return Reflect.set(d, key);
-  }
+  get:(d, key) => key in d ? ReflectGet(d, key) : create.bind(undef, key),
+  set:(d,key) => ReflectSet(d,key)
 }),
 
 create = (tag, options, ...children) => {
   const el = dom(doc.createElement(tag));
-  if(isArrlike(options) || isNode(options)) {
-    children = isStr(options) || isNode(options) ? [options] : options;
+  if(test(options, isArrlike, isNode)) {
+    children = test(options, isStr, isNode) ? [options] : options;
     options = null;
   } else if(isObj(options)) {
-    const {attr, lifecycle} = options;
-    if(lifecycle) for(let stage of lifecycleStages) if(isFunc(lifecycle[stage])) el.inf.once(stage, (...args) => lifecycle[stage].apply(el, args));
+
     for(let handle of plugins.handles) handle(options, el);
+
     each(options, (val, key) => {
-      if(key == 'class' || key == 'className') el.className = val;
-      else if(key == 'style' || key == 'css') el.css(val);
-      else if(key == 'on' || key == 'once') each(val, (handle, type) => el[key][type] = handle);
-      else if((key == 'props' || key == 'data') && isObj(val)) el.data = val;
-      else {
-        if(key in el) el[key] = val;
-        else if(isPrimitive(val)) el.attr = val;
+      if(key != 'render') {
+        if(key == 'lifecycle') each(lifecycleStages, stage => {
+          if(isFunc(val[stage])) el.inf.once(stage, (...args) => val[stage].apply(el, args));
+        });
+        else if(key == 'attr') el.attr = val;
+        else if(test(key,'class','className')) el.className = val;
+        else if(test(key,'style','css')) el.css(val);
+        else if(test(key,'on', 'once')) each(val, (handle, type) => el[key][type] = handle);
+        else if(test(key,'props','data') && isObj(val)) {
+          let desc;
+          for(let prop in val) {
+              desc = getdesc(val, prop);
+              if(desc.get) desc.get = desc.get.bind(el);
+              if(desc.set) desc.set = desc.set.bind(el);
+              if(isFunc(desc.value)) desc.value = desc.value.bind(el);
+              def(el.data, prop, desc);
+          }
+        } else if(key in el) el[key] = val;
+        else if(isPrimitive(val)) el.attr(key, val);
       }
     });
-    if(attr && !isEmpty(attr)) el.attr = attr;
   }
-  if(!isEmpty(children)) el.inner(...children);
-  if(!el.tagName.includes('-') && !el.mounted) el.inf.emit('create', el);
-  if(options && options.render) render(el)(options.render);
-  else el.render = (node = "body") => render(el)(node);
+  !isEmpty(children) && el.inner(...children);
+  !(el.tagName.includes('-') || el.mounted) && el.inf.emit('create', el);
+  if(options && options.render) el.render = options.render;
   return el;
-};
+},
 
-let RouterActivate = false;
-const router = evtsys(),
+router = evtsys(),
 route = (hash, fn) => {
   if(!RouterActivate) {
       RouterActivate = true;
-      on(window, 'hashchange', () => router.has(location.hash) ? router.emit(location.hash) : router.emit('default', location.hash));
+      on(window, 'hashchange', () => router.emit(router.has(location.hash) ? location.hash : 'default', location.hash));
   }
   if(isFunc(hash)) {
     fn = hash;
@@ -400,28 +388,28 @@ route = (hash, fn) => {
   }
   if(location.hash === hash) fn();
   return router.on(hash, fn);
+},
+mountORdestroy = (stack, type) => {
+  if (stack.length > 0)
+    for(let el of stack)
+      if(isEl(el) && !el.tagName.includes('-')) (el = dom(el)).inf.emit(type , el);
 }
 
-(dom.extend = extend(dom))({query,queryAll,queryEach,on,once, html : htmlstr});
+(dom.extend = extend(dom))({query,queryAll,queryEach,on,once,htmlstr});
 
 new MutationObserver(muts => {
   for(let mut of muts) {
-    const {removedNodes, addedNodes, target, attributeName} = mut;
-    let el;
-    if (removedNodes.length > 0) for(el of removedNodes) if(isEl(el) && !el.tagName.includes('-')) (el = dom(el)).inf.emit('destroy', el);
-    if (addedNodes.length > 0) for(el of addedNodes) if(isEl(el) && !el.tagName.includes('-')) (el = dom(el)).inf.emit('mount', el);
-    if(attributeName != 'style' && isEl(target)) (el = dom(target)).inf.emit('attr:'+attributeName, el.attr[attributeName], mut.oldValue, el.attr.has(attributeName), el);
+    let {removedNodes, addedNodes, target, attributeName} = mut;
+    mountORdestroy(addedNodes, 'mount');
+    mountORdestroy(removedNodes, 'destroy');
+    if(attributeName != 'style' && isEl(target))
+        (target = dom(target)).inf.emit('attr:'+attributeName, target.attr[attributeName], mut.oldValue, target.attr.has(attributeName), target);
   }
-}).observe(doc, {
-    attributes: true,
-    childList: true,
-    subtree: true
-});
+}).observe(doc, {attributes:true, childList:true, subtree:true});
 
 return {
   dom,
   evtsys,
-  EventManager,
   plugins,
   extend,
   safeExtend,

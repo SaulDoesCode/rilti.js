@@ -43,7 +43,6 @@ amazing behavior possible.
 | ``flatten( {arraylike} )`` | flattens multidimensional arraylike objects |
 | ``evtsys( )`` | event emitter/ pub sub pattern |
 | ``DOMcontains( {node}, {=parent node} )`` | determines whether or not the dom or other node contains a specific node |
-| ``EventManager( {target}, {type}, {listener}, {=options} )`` | internal method used for managing event listeners |
 
 ##### rot also exports a few type testing functions
 usage : ``rot.isX( {any} ) // -> boolean``  
@@ -126,7 +125,7 @@ isInput, isPrimitive, isNativeEvent
 
 #### weight
 * unminified : > 16kb
-* minified : > 9.5kb
+* minified : > 9kb
 * minified && gziped : > 4.5kb
 
 #### licence = MIT
