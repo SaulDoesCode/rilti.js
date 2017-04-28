@@ -6,9 +6,8 @@
 **/
 var rot = (() => {
 "use strict";
-const doc = document,
-undef = void 0,
-ArrProto = Array.prototype,
+
+const doc = document, undef = void 0, NULL = null,
 curry = (fn, arity = fn.length) => {
   const resolver = (...memory) => (...more) => {
     const local = memory.concat(more);
@@ -16,13 +15,14 @@ curry = (fn, arity = fn.length) => {
   }
   return resolver();
 },
-every = (arr, fn) => ArrProto.every.call(arr, fn),
+arrMeth = curry((meth, val, ...args) => Array.prototype[meth].apply(val, args), 2),
+isInstance = (o, t) => o instanceof t,
 typestr = toString.call,
-istype = str => obj => typeof obj === str,
+istype = str => obj => typeof obj == str,
 typeinc = str => obj => toString.call(obj).includes(str),
 isDef = o => o !== undef,
 isUndef = o => o === undef,
-isNull = o => o === null,
+isNull = o => o === NULL,
 isFunc = istype('function'),
 isStr = istype('string'),
 isBool = istype('boolean'),
@@ -31,28 +31,22 @@ isPrimitive = s => isStr(s) || isBool(s) || !isNaN(s),
 isInt = val => isNum(val) && val % 1 === 0,
 isObj = typeinc('Object'),
 isArr = Array.isArray,
-isArrlike = o => o !== undef && typeof o.length !== 'undefined',
-isEmpty = val => val !== undef && !(isObj(val) ? Object.keys(val).length : isArrlike(val) ? val.length : val.size) || isFunc(val),
-isNode = o => o && (o instanceof Node || o.pure instanceof Node),
-isNodeList = nl => nl instanceof NodeList || (isArrlike(nl) && every(nl, isNode)),
+isArrlike = o => o && typeof o.length != 'undefined',
+isEmpty = val => (val != undef && val != NULL) && !(isObj(val) ? Object.keys(val).length : isArrlike(val) ? val.length : val.size) || isFunc(val),
+isNode = o => o && (isInstance(o, Node) || isInstance(o.pure, Node)),
+isNodeList = nl => isInstance(nl,NodeList) || (isArrlike(nl) && arrMeth('every',nl,isNode)),
 isEl = typeinc('HTML'),
 isInput = el => isEl(el) && 'INPUT TEXTAREA'.includes(el.tagName),
 isMap = typeinc('Map'),
 isSet = typeinc('Set'),
 isEq = curry((o1,o2) => o1 === o2),
 test = (match, ...cases) => cases.some(Case => match == Case || (isFunc(Case) && Case(match))),
-each = (iterable, func) => {
-  if (isDef(iterable) && isFunc(func)) {
-    if(isArrlike(iterable)) iterable = Array.from(iterable);
-    if(iterable.forEach) {
-      iterable.forEach(func);
-      return iterable;
-    } else {
-      let i = 0;
-      if(isObj(iterable)) for (i in iterable) func(iterable[i], i, iterable);
-      else if (isInt(iterable)) while (iterable != i) func(i += 1);
-    }
-  }
+forEach = 'forEach',
+each = (iterable, func, i = 0) => {
+  isArrlike(iterable) ? arrMeth(forEach,iterable,func) : iterable[forEach] && iterable[forEach](func);
+  if(isObj(iterable)) for (i in iterable) func(iterable[i], i, iterable);
+  if (isInt(iterable)) while (iterable != i) func(i++);
+  return iterable;
 },
 def = curry(Object.defineProperty),
 getdesc = Object.getOwnPropertyDescriptor,
@@ -64,7 +58,7 @@ safeExtend = (host, obj) => {
   each(Object.keys(obj), key => !(key in host) && def(host,key, getdesc(obj, key)));
   return host;
 },
-flatten = arr => isArrlike(arr) ? ArrProto.reduce.call(arr, (flat, toFlatten) => flat.concat(isArr(toFlatten) ? flatten(toFlatten) : toFlatten), []) : [arr],
+flatten = arr => isArrlike(arr) ? arrMeth("reduce", arr, (flat, toFlatten) => flat.concat(isArr(toFlatten) ? flatten(toFlatten) : toFlatten), []) : [arr],
 query = (selector, element = doc) => (isStr(element) ? doc.querySelector(element) : element).querySelector(selector),
 queryAll = (selector, element = doc) => Array.from((isStr(element) ? query(element) : element).querySelectorAll(selector)),
 queryEach = (selector, func, element = doc) => {
@@ -115,7 +109,7 @@ EventManager = curry((state, target, type, handle, options = false) => {
 once = EventManager('once'),
 on = EventManager('on'),
 
-evtsys = (handles = new Map, mngr) => mngr = {
+notifier = (handles = new Map, mngr) => mngr = {
   handle(state, type, handle) {
     handle.one = !!state;
     (handles.has(type) ? handles : handles.set(type, new Set)).get(type).add(handle);
@@ -130,7 +124,7 @@ evtsys = (handles = new Map, mngr) => mngr = {
   },
   has:type => handles.has(type),
   emit(type, ...args) {
-    handles.has(type) && each(handles.get(type), handle => {
+    handles.has(type) && handles.get(type).forEach(handle => {
       handle(...args);
       if(handle.one) handle.off();
     });
@@ -138,32 +132,22 @@ evtsys = (handles = new Map, mngr) => mngr = {
 },
 lifecycleStages = 'create mount destroy attr'.split(' ');
 
-let LoadStack = new Set, ready = false, RouterActivate = false;
+let LoadStack = [], ready = false, RouterActivate = false;
 once(window, 'DOMContentLoaded', () => {
-  ready = true;
-  each(LoadStack, fn => fn()).clear();
-  LoadStack = null;
+  each(LoadStack, fn => fn());
+  ready = false;
 });
 
-const run = fn => ready ? fn() : LoadStack.add(fn),
-render = (...args) => (node = 'body') => {
-  if(isNode(node)) {
-    node = dom(node);
-    each(flatten(args), arg => test(arg, isSet, isArrlike) ? each(arg, a => node.append(a)) : node.append(arg));
-  } else if(isStr(node)) run(() => {
-      if(!isNode(
-        node = dom(node == 'body' ? doc.body : node)
-      )) err('render: invalid target');
-      each(flatten(args), arg => test(arg, isSet, isArrlike) ? each(arg, a => node.append(a)) : node.append(arg));
-  });
-},
-refl = Reflect,
-ReflectSet = refl.set.bind(refl),
-ReflectGet = refl.get.bind(refl),
-newProxy = (val, handles) => new Proxy(val, handles),
-htmlstr = html => doc.createRange().createContextualFragment(html || ''),
-domfrag = inner => isPrimitive(inner) ? htmlstr(inner) : doc.createDocumentFragment(),
+const run = fn => ready ? fn() : LoadStack.push(fn),
+html = html => isNode(html) ? html : doc.createRange().createContextualFragment(html || ''),
+domfrag = inner => isPrimitive(inner) ? html(inner) : doc.createDocumentFragment(),
 plugins = extend(options => safeExtend(rot, options), { methods:{}, handles:new Set }),
+
+render = (...args) => (node = 'body') => {
+  args = flatten(args);
+  if(isNode(node)) dom(node).append(...args);
+  if(isStr(node)) run(() => isNode(node = dom(node == 'body' ? doc.body : node)) ? node.append(...args) : err('render: invalid target'));
+},
 
 dom_methods = {
   replace:(node, prox, val) => node.replaceWith ? node.replaceWith(val) : node.parentNode.replaceChild(val, node),
@@ -188,13 +172,13 @@ dom_methods = {
   },
   append(node, prox, ...args) {
       const dfrag = domfrag();
-      each(args, arg => dfrag.appendChild(isNode(arg.pure) ? arg.pure : isNode(arg) ? arg : htmlstr(arg)));
+      each(args, arg => dfrag.appendChild(isNode(arg.pure) ? arg.pure : html(arg)));
       node.appendChild(dfrag);
       return prox;
   },
   prepend(node, prox, ...args) {
       const dfrag = domfrag();
-      each(args, arg => dfrag.appendChild(isNode(arg.pure) ? arg.pure : isNode(arg) ? arg : htmlstr(arg)));
+      each(args, arg => dfrag.appendChild(isNode(arg.pure) ? arg.pure : html(arg)));
       node.prepend(dfrag);
       return prox;
   },
@@ -206,10 +190,7 @@ dom_methods = {
       (isStr(val) ? query(val) : val).prepend(node);
       return prox;
   },
-  find(node, prox, selector) {
-    let child = query(selector, node);
-    if(isNode(child)) return dom(child);
-  },
+  find:(node, prox, selector) => dom(query(selector, node)),
   modify(node, prox, fn) {
     fn.call(prox, prox, node);
     return prox;
@@ -220,15 +201,15 @@ dom_methods = {
   }
 },
 
-ProxiedNodes = new Map,
+ProxyNodes = new Map,
 
-dom = newProxy(element => {
+dom = new Proxy(element => {
   if(isStr(element)) element = query(element);
   if(isEl(element)) {
-    if(ProxiedNodes.has(element)) return ProxiedNodes.get(element);
+    if(ProxyNodes.has(element)) return ProxyNodes.get(element);
 
-    const attr = newProxy((attr, val) => {
-      if(isObj(attr)) each(attr, (a, v) => element.setAttribute(a,v));
+    const attr = new Proxy((attr, val) => {
+      if(isObj(attr)) each(attr, (v, a) => element.setAttribute(a,v));
       else if(isPrimitive(val)) element.setAttribute(attr, val);
       else return element.getAttribute(attr);
     }, {
@@ -242,35 +223,25 @@ dom = newProxy(element => {
       deleteProperty(_, key) {
         return !element.removeAttribute(key);
       }
-    });
+    }),
 
-    const classes = newProxy((c, state = !element.classList.contains(c)) => {
+    classes = new Proxy((c, state = !element.classList.contains(c)) => {
       state = state ? 'add' : 'remove';
       c.includes(' ') ? each(c.split(' '), cls => element.classList[state](cls)) :
       element.classList[state](c);
       return elementProxy;
     }, {
-      get(_, key) {
-        return element.classList.contains(key);
-      },
-      set(cls, key, val) {
-        return cls(key, val);
-      },
-      deleteProperty(_, key) {
-        return !element.classList.remove(key);
-      }
-    });
+      get:(_, key) => element.classList.contains(key),
+      set:(cls, key, val) => cls(key, val),
+      deleteProperty:(_, key) => !element.classList.remove(key)
+    }),
 
-    const informer = evtsys(),
+    informer = notifier(),
     listeners = new Set,
 
-    ProxListener = fn => newProxy(fn.bind(element, element), {
-      get(fn, key) {
-        return fn(key);
-      },
-      set(fn, key, val) {
-        if(isFunc(val)) return fn(key, val);
-      }
+    ProxListener = fn => new Proxy(fn.bind(element, element), {
+      get:(fn, key) => fn(key),
+      set:(fn, key, val) => fn(key, val)
     }), On = ProxListener(on), Once = ProxListener(once),
     dt = 'data:',
     data = {
@@ -284,7 +255,7 @@ dom = newProxy(element => {
     },
     autobind = v => isFunc(v) ? v.bind(element) : v,
     getdata = key => {
-      const val = autobind(ReflectGet(data, key));
+      const val = autobind(Reflect.get(data, key));
       data.emit('get', val).emit('get:'+key, val);
       return val;
     },
@@ -292,11 +263,11 @@ dom = newProxy(element => {
     inputHTML = data.isInput ? 'value' : 'innerHTML',
     textContent = data.isInput ? 'value' : 'textContent',
 
-    elementProxy = newProxy(element, {
+    elementProxy = new Proxy(element, {
       get(el, key) {
         return key in dom_methods ? dom_methods[key].bind(el, el, elementProxy) :
-        key == 'children' ? ArrProto.map.call(el.children, child => dom(child)) :
-        key in el ? autobind(ReflectGet(el, key)) :
+        key == 'children' ? arrMeth('map', el.children, child => dom(child)) :
+        key in el ? autobind(Reflect.get(el, key)) :
         key == 'class' ? classes :
         key == 'attr' ? attr :
         key == 'pure' ? el :
@@ -317,41 +288,36 @@ dom = newProxy(element => {
           key == 'class' && isStr(val) ? classes(val, true) :
           test(key, 'html', 'txt') ? el[key == 'txt' ? textContent : inputHTML] = isFunc(val) ? val(prox[key]) : val :
           key == 'render' && test(val, isNode, isStr) ? render(el)(val) :
-          key in el ? ReflectSet(el, key, val) :
+          key in el ? Reflect.set(el, key, val) :
           key == 'css' && isObj(val) ? prox.css(val) :
           key == 'attr' && isObj(val) ? attr(val) :
-          ReflectSet(data.emit('set', val).emit('set:'+key, val), key, val);
+          Reflect.set(data.emit('set', val).emit('set:'+key, val), key, val);
         }
         return true;
       },
-      deleteProperty(el, key) {
-        if(key == 'self') el.remove();
-        else return refl.deleteProperty(data, key);
-      }
+      deleteProperty:(el, key) => key == 'self' ? el.remove() : Reflect.deleteProperty(data, key)
     });
-    informer.once('destroy', () => ProxiedNodes.delete(element));
-    ProxiedNodes.set(element, elementProxy);
+    informer.once('destroy', () => ProxyNodes.delete(element));
+    ProxyNodes.set(element, elementProxy);
     return elementProxy;
   }
 }, {
-  get:(d, key) => key in d ? ReflectGet(d, key) : create.bind(undef, key),
-  set:(d,key) => ReflectSet(d,key)
+  get:(d, key) => key in d ? Reflect.get(d, key) : create.bind(undef, key),
+  set:(d,key) => Reflect.set(d,key)
 }),
 
 create = (tag, options, ...children) => {
   const el = dom(doc.createElement(tag));
   if(test(options, isArrlike, isNode)) {
     children = test(options, isStr, isNode) ? [options] : options;
-    options = null;
+    options = NULL;
   } else if(isObj(options)) {
 
     for(let handle of plugins.handles) handle(options, el);
 
     each(options, (val, key) => {
       if(key != 'render') {
-        if(key == 'lifecycle') each(lifecycleStages, stage => {
-          if(isFunc(val[stage])) el.inf.once(stage, (...args) => val[stage].apply(el, args));
-        });
+        if(key == 'lifecycle') each(lifecycleStages, stage => isFunc(val[stage]) && el.inf.once(stage, (...args) => val[stage].apply(el, args)));
         else if(key == 'attr') el.attr = val;
         else if(test(key,'class','className')) el.className = val;
         else if(test(key,'style','css')) el.css(val);
@@ -376,7 +342,7 @@ create = (tag, options, ...children) => {
   return el;
 },
 
-router = evtsys(),
+router = notifier(),
 route = (hash, fn) => {
   if(!RouterActivate) {
       RouterActivate = true;
@@ -392,24 +358,21 @@ route = (hash, fn) => {
 mountORdestroy = (stack, type) => {
   if (stack.length > 0)
     for(let el of stack)
-      if(isEl(el) && !el.tagName.includes('-')) (el = dom(el)).inf.emit(type , el);
+      if(isEl(el) && !el.tagName.includes('-') && ProxyNodes.has(el)) (el = dom(el)).inf.emit(type , el);
 }
 
-(dom.extend = extend(dom))({query,queryAll,queryEach,on,once,htmlstr});
+(dom.extend = extend(dom))({query,queryAll,queryEach,on,once,html});
 
-new MutationObserver(muts => {
-  for(let mut of muts) {
-    let {removedNodes, addedNodes, target, attributeName} = mut;
-    mountORdestroy(addedNodes, 'mount');
-    mountORdestroy(removedNodes, 'destroy');
-    if(attributeName != 'style' && isEl(target))
-        (target = dom(target)).inf.emit('attr:'+attributeName, target.attr[attributeName], mut.oldValue, target.attr.has(attributeName), target);
-  }
-}).observe(doc, {attributes:true, childList:true, subtree:true});
+new MutationObserver(muts => each(muts, ({addedNodes, removedNodes, target, attributeName, oldValue}) => {
+  mountORdestroy(addedNodes, 'mount');
+  mountORdestroy(removedNodes, 'destroy');
+  if(attributeName != 'style' && isEl(target) && ProxyNodes.has(target))
+      (target = dom(target)).inf.emit('attr:'+attributeName, target.attr[attributeName], oldValue, target);
+})).observe(doc, {attributes:true, childList:true, subtree:true});
 
 return {
   dom,
-  evtsys,
+  notifier,
   plugins,
   extend,
   safeExtend,
