@@ -10,16 +10,16 @@ Constructive criticism is welcome
 * lifecycle hooks
 * event management
 * observe attributes
-* tiny built in event system
 * streamlined element creation
-* minimal set of dom manipulation methods
+* Optional web-components plugin
+* dom manipulation methods
+* miniscule built in event system
 * useful methods and utilities
 * no classes no extra fuzz
-* plugins can extend and add any feature
+* plugin hooks: add any feature
 * written and distributed in plain es2015/es6
 
-rot.js harnesses the power of Proxy objects to make some
-amazing behavior possible.
+rot.js harnesses the power of Proxy objects to make some magical behavior possible.
 
 ### planned features
 * managed custom attributes aka directives
@@ -27,21 +27,26 @@ amazing behavior possible.
 * more reactivity and virtualization
 * offer collection of useful optional plugins
 
-### api
+### API
 | method | description  |
 |--------|--------------|
-| ``dom({tag}, {object}, {...children} )`` | where the magic happens it creates and defines behavior for elements from given options |
+| ``dom["any-tag-name"]( {=object}, {...children} )`` | where the magic happens it creates and defines behavior for elements from given options |
+| ``dom( {string/node}, {=string/node} )`` | finds nodes and proxifies them, gives them all the dom manip magic |
 | ``dom.query( {string}, {=string/node} )`` | improved alternative to ``document.querySelector``|
 | ``dom.queryAll( {string}, {=string/node} )`` | improved alternative to ``document.querySelectorAll``|
 | ``dom.queryEach( {string}, {=string/node}, {function} )`` | queries nodes returned by selector and iterates over them like ``[].forEach`` would|
 | ``dom.on( {target}, {type}, {listener}, {=options} )`` | generates event listener |
 | ``dom.once( {target}, {type}, {listener}, {=options} )`` | generates event listener that triggers only once |
+| ``dom.html( {string} )`` | converts strings to html nodes |
 | ``render( {...node} )( {=parent/document.body} )`` | renders nodes to document.body or node of your choice |
 | ``run( {function} )`` | executes a given function when the DOM is loaded |
+| ``route( {=hashString}, {function})`` | detect and respond to location.hash changes |
 | ``curry( {function}, {=arity} )`` | curries a function |
+| ``each( {iterable}, {function} )`` | loop through objects, numbers, array(like)s, sets, maps... |
 | ``extend( {host object}, {object} )`` | extends host object with all props of other object |
+| ``safeExtend( {host object}, {object} )`` | extends host object with all props of other object if they don't conflict with host object |
 | ``flatten( {arraylike} )`` | flattens multidimensional arraylike objects |
-| ``evtsys( )`` | event emitter/ pub sub pattern |
+| ``notifier( =obj )`` | extendable evtsys/pub sub pattern |
 | ``DOMcontains( {node}, {=parent node} )`` | determines whether or not the dom or other node contains a specific node |
 
 ##### rot also exports a few type testing functions
@@ -124,7 +129,7 @@ isInput, isPrimitive, isNativeEvent
 ```
 
 #### weight
-* unminified : > 16kb
+* unminified : > 15kb
 * minified : > 9kb
 * minified && gziped : > 4.5kb
 

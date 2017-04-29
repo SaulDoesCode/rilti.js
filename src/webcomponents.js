@@ -3,8 +3,7 @@
 
   rot.Component = (tag, config) => {
     if(!tag.includes('-')) throw new Error('components must have a hyphenated tag');
-    const {create, mount, destroy, attr, props, methods, adopted} = config;
-    const attrs = [];
+    const {create, mount, destroy, attr, props, methods, adopted} = config, attrs = [];
     each(attr, (_, key) => attrs.push(key));
 
     const CustomElement = class extends HTMLElement {
@@ -13,21 +12,22 @@
         const element = dom(this);
         if(props) each(props, (val,key) => element[key] = val);
         if(isFunc(create)) create.call(element, element);
-        element.inf.emit('create', element);
+        element.data.emit('create', element);
       }
       connectedCallback() {
         const element = dom(this);
         if(isFunc(mount)) mount.call(element, element);
-        element.inf.emit('mount', element);
+        element.data.emit('mount', element);
       }
       disconnectedCallback() {
         const element = dom(this);
         if(isFunc(destroy)) destroy.call(element, element);
-        element.inf.emit('destroy', element);
+        element.data.emit('destroy', element);
       }
       adoptedCallback() {
         const element = dom(this);
         if(isFunc(adopted)) adopted.call(element, element);
+        element.data.emit('adopted', element);
       }
       static get observedAttributes() {
         return attrs;

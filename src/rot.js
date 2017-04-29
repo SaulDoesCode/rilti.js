@@ -67,8 +67,6 @@ queryEach = (selector, func, element = doc) => {
 },
 terr = msg => {throw new TypeError(msg)}, err = msg => {throw new Error(msg)},
 DOMcontains = (descendant, parent = doc) => parent == descendant || Boolean(parent.compareDocumentPosition(descendant) & 16),
-//NativeEventTypes = "DOMContentLoaded hashchange blur focus focusin focusout load resize scroll unload click dblclick mousedown mouseup mousemove mouseover mouseout mouseenter mouseleave change select submit keydown keypress keyup error contextmenu pointerdown pointerup pointermove pointerover pointerout pointerenter pointerleave touchstart touchend touchmove touchcancel".split(" "),
-//isNativeEvent = evt => NativeEventTypes.includes(evt),
 EventManager = curry((state, target, type, handle, options = false) => {
   if(test(target, isNode, isStr)) target = dom(target);
   if(!target.addEventListener) err('not event target');
@@ -204,8 +202,8 @@ render = (...args) => (node = 'body') => {
 
 ProxyNodes = new Map,
 
-dom = new Proxy(element => {
-  if(isStr(element)) element = query(element);
+dom = new Proxy((element, within) => {
+  if(isStr(element)) element = query(element, within);
   if(ProxyNodes.has(element)) return ProxyNodes.get(element);
   if(isNode(element)) {
     const attr = new Proxy((attr, val) => {
@@ -365,7 +363,6 @@ return {
   isDef,
   isUndef,
   isPrimitive,
-  //isNativeEvent,
   isNull,
   isFunc,
   isStr,
