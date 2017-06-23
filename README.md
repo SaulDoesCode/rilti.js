@@ -11,8 +11,8 @@ Constructive criticism is welcome
 * event management
 * observe attributes
 * streamlined element creation
-* Optional web-components plugin
-* dom manipulation methods
+* optional web-components plugin
+* jquery-like dom manipulation methods with proxy magic
 * miniscule built in event system
 * useful methods and utilities
 * no classes no extra fuzz

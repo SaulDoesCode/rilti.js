@@ -134,7 +134,7 @@ route = notifier((hash, fn) => {
     fn = hash;
     hash = 'default';
   }
-  if(location.hash === hash) fn();
+  if(location.hash === hash || (!location.hash && hash == 'default')) fn();
   return route.on(hash, fn);
 }),
 lifecycleStages = ['create','mount','destroy','attr'],
@@ -234,9 +234,7 @@ dom = new Proxy((element, within) => {
       deleteProperty:(cls, key) => cls(key, false)
     }),
 
-    data = notifier({
-      isInput:isInput(element),
-    }),
+    data = notifier({ isInput:isInput(element) }),
 
     autobind = v => isFunc(v) ? v.bind(element) : v,
     getdata = key => {
@@ -325,9 +323,7 @@ create = (tag, options, ...children) => {
 },
 
 mountORdestroy = (stack, type) => {
-  if (stack.length > 0)
-    for(let el of stack)
-      if(isEl(el) && !el.tagName.includes('-') && ProxyNodes.has(el)) (el = dom(el)).data.emit(type , el);
+  if (stack.length > 0) for(let el of stack) if(isEl(el) && !el.tagName.includes('-') && ProxyNodes.has(el)) (el = dom(el)).data.emit(type , el);
 }
 
 let LoadStack = [], ready = false;
@@ -342,7 +338,7 @@ new MutationObserver(muts => each(muts, ({addedNodes, removedNodes, target, attr
   mountORdestroy(addedNodes, 'mount');
   mountORdestroy(removedNodes, 'destroy');
   if(attributeName != 'style' && isEl(target) && ProxyNodes.has(target))
-      (target = dom(target)).data.emit('attr:'+attributeName, target.attr[attributeName], oldValue, target);
+      (target = dom(target)).data.emit('attr:'+attributeName,target, target.attr[attributeName], oldValue);
 })).observe(doc, {attributes:true, childList:true, subtree:true});
 
 return {
