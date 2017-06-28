@@ -148,7 +148,7 @@ dom_methods = {
   replace:(node, prox, val) => node.replaceWith ? node.replaceWith(val) : node.parentNode.replaceChild(val, node),
   clone:n => dom(n.cloneNode()),
   css(node, prox, styles, prop) {
-      isObj(styles) ? each(styles, (prop, key) => node.style[key] = prop) :
+      isObj(styles) ? each(styles, (p, key) => node.style[key] = p) :
       isStr(styles) && isStr(prop) ? node.style[styles] = prop : terr('.css("" || {}) only');
       return prox;
   },
@@ -341,40 +341,5 @@ new MutationObserver(muts => each(muts, ({addedNodes, removedNodes, target, attr
       (target = dom(target)).data.emit('attr:'+attributeName,target, target.attr[attributeName], oldValue);
 })).observe(doc, {attributes:true, childList:true, subtree:true});
 
-return {
-  dom,
-  notifier,
-  plugins,
-  extend,
-  safeExtend,
-  def,
-  getdesc,
-  route,
-  render,
-  run,
-  curry,
-  each,
-  DOMcontains,
-  flatten,
-  isDef,
-  isUndef,
-  isPrimitive,
-  isNull,
-  isFunc,
-  isStr,
-  isBool,
-  isNum,
-  isInt,
-  isObj,
-  isArr,
-  isArrlike,
-  isEmpty,
-  isEl,
-  isEq,
-  isNode,
-  isNodeList,
-  isInput,
-  isMap,
-  isSet,
-}
+return {dom,notifier,plugins,extend,safeExtend,def,getdesc,route,render,run,curry,each,DOMcontains,flatten,isDef,isUndef,isPrimitive,isNull,isFunc,isStr,isBool,isNum,isInt,isObj,isArr,isArrlike,isEmpty,isEl,isEq,isNode,isNodeList,isInput,isMap,isSet}
 })();
