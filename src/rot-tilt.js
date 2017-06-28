@@ -1,8 +1,11 @@
 /**
- * Created by Șandor Sergiu (micku7zu) on 1/27/2017.
+ * Modified and Reduced by Saul van der Walt (SaulDoesCode)
+ * Based on vanilla-tilt.js by Șandor Sergiu (micku7zu)
  * Original idea: https://github.com/gijsroge/tilt.js
  * MIT License.
- * Version 1.4.0
+ *
+ * Code Usage:  Tilt( ElementOrSelector, Settings = {} );
+ * HTML Usage: <div tilt></div> or <div tilt="{glare:1}"></div>
  */
 {
 
@@ -19,7 +22,6 @@ defaultSettings = {
   axis: null,
   glare: false,
   "max-glare": 1,
-  "glare-prerender": false,
   reset: true
 };
 
