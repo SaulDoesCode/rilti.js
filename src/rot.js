@@ -297,7 +297,7 @@ create = (tag, options, ...children) => {
 
     each(options, (val, key) => {
       if(key != 'render') {
-        if(key == 'lifecycle') each(lifecycleStages, stage => isFunc(val[stage]) && el.data.once(stage, val[stage].bind(el)));
+        if(key == 'lifecycle') each(lifecycleStages, stage => isFunc(val[stage]) && el.data[stage == 'attr' ? 'on' : 'once'](stage, val[stage].bind(el)));
         else if(key == 'attr') el.attr = val;
         else if(test(key,'class','className')) el.className = val;
         else if(test(key,'style','css')) el.css(val);
@@ -328,18 +328,42 @@ mountORdestroy = (stack, type) => {
 
 let LoadStack = [], ready = false;
 once(root, 'DOMContentLoaded', () => {
-  each(LoadStack, fn => fn());
   ready = true;
+  each(LoadStack, fn => fn());
+  LoadStack = null;
 });
 
 (dom.extend = extend(dom))({query,queryAll,queryEach,on,once,html});
 
+const observedAttributes = new Map,
+observeAttr = (name, stages) => {
+  let {init, update, destroy} = stages;
+  observedAttributes.set(name, stages);
+  run(() => queryEach(`[${name}]`, el => {
+    el = dom(el);
+    init(el, el.attr[name]);
+    el[name+"_init"] = true;
+  }));
+},
+unobserveAttr = name => observedAttributes.delete(name);
+
 new MutationObserver(muts => each(muts, ({addedNodes, removedNodes, target, attributeName, oldValue}) => {
   mountORdestroy(addedNodes, 'mount');
   mountORdestroy(removedNodes, 'destroy');
-  if(attributeName != 'style' && isEl(target) && ProxyNodes.has(target))
-      (target = dom(target)).data.emit('attr:'+attributeName,target, target.attr[attributeName], oldValue);
+  if(attributeName && (attributeName != 'style' && isEl(target) && ProxyNodes.has(target))) {
+    target = dom(target);
+    if(observedAttributes.has(attributeName)) {
+      let observedAttr = observedAttributes.get(attributeName);
+      if(target.attr.has(attributeName)) {
+          if(!target[attributeName+"_init"]) {
+            observedAttr.init(target, target.attr[attributeName]);
+            target[name+"_init"] = true;
+          } else observedAttr.update && observedAttr.update(target, target.attr[attributeName], oldValue);
+      } else observedAttr.destroy && observedAttr.destroy(target, oldValue);
+    }
+    target.data.emit('attr:'+attributeName,target,target.attr[attributeName],oldValue);
+  }
 })).observe(doc, {attributes:true, childList:true, subtree:true});
 
-return {dom,notifier,plugins,extend,safeExtend,def,getdesc,route,render,run,curry,each,DOMcontains,flatten,isDef,isUndef,isPrimitive,isNull,isFunc,isStr,isBool,isNum,isInt,isObj,isArr,isArrlike,isEmpty,isEl,isEq,isNode,isNodeList,isInput,isMap,isSet}
+return {dom,notifier,observeAttr,unobserveAttr,plugins,extend,safeExtend,def,getdesc,route,render,run,curry,each,DOMcontains,flatten,isDef,isUndef,isPrimitive,isNull,isFunc,isStr,isBool,isNum,isInt,isObj,isArr,isArrlike,isEmpty,isEl,isEq,isNode,isNodeList,isInput,isMap,isSet}
 })();

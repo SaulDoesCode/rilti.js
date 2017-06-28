@@ -33,7 +33,7 @@ window.Tilt = (element, settings = {}) => {
     }
 
     element = dom(element);
-    element.tiltOff && element.tiltOff();
+    if(element.pure.tiltOff) element.pure.tiltOff();
 
     let width = null,
         height = null,
@@ -42,16 +42,7 @@ window.Tilt = (element, settings = {}) => {
         transitionTimeout = null,
         event, updateCall;
 
-    for (const property in defaultSettings) {
-        if (element.hasAttribute("tilt-"+property)) {
-          const attribute = element.getAttribute("tilt-"+property);
-          try {
-            settings[property] = JSON.parse(attribute);
-          } catch (e) {
-            settings[property] = attribute;
-          }
-        } else if(!(property in settings)) settings[property] = defaultSettings[property];
-    }
+    for (const property in defaultSettings) if(!(property in settings)) settings[property] = defaultSettings[property];
 
     const reverse = settings.reverse ? -1 : 1, glare = isSettingTrue(settings.glare);
 
@@ -164,7 +155,7 @@ window.Tilt = (element, settings = {}) => {
       }
     });
 
-    element.tiltOff = () => {
+    element.pure.tiltOff = () => {
       onMouseEnter.off();
       onMouseMove.off();
       onMouseLeave.off();
@@ -173,10 +164,38 @@ window.Tilt = (element, settings = {}) => {
         glareElementWrapper.remove();
       }
       if (updateCall !== null) cancelAnimationFrame(updateCall);
+      element.pure.tiltOff = null;
       return element;
     }
     return element;
 }
 
-  rot.run(() => Tilt(dom.queryAll("[tilt]")));
+  rot.observeAttr('tilt', {
+    init(el, val) {
+      console.log('init');
+      let settings = {};
+      isStr(val) && val.split(";").forEach(setting => {
+        if(setting.includes(":")) {
+          setting = setting.split(":");
+          settings[setting[0]] = setting[1] === "true" ? true : setting[1] === "false" ? false : setting[1];
+        }
+      });
+      Tilt(el, settings);
+    },
+    update(el, val) {
+      console.log('update');
+      let settings = {};
+      isStr(val) && val.split(";").forEach(setting => {
+        if(setting.includes(":")) {
+          setting = setting.split(":");
+          settings[setting[0]] = setting[1] === "true" ? true : setting[1] === "false" ? false : setting[1];
+        }
+      });
+      Tilt(el, settings);
+    },
+    destroy(el) {
+      console.log('destroy');
+      el.tiltOff();
+    }
+  });
 }
