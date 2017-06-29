@@ -147,15 +147,23 @@ isInput, isPrimitive, isNativeEvent
 
 
   // or use the webcomponent.js plugin
-  rot.Component('custom-element', {
+  rot.Component('tick-box', {
     create(element) {
-
+     element.data.on('set:ticked', val => {
+       if(element.attr['data-ticked'] != val.toString()) element.style.backgroundColor = val ? "white" : "dimgrey";
+       else element.attr['data-ticked'] = val;
+     });
+     element.on('click', () => element.ticked = !element.ticked);
     },
     mount(element) {
-
+     element.ticked = element.attr['data-ticked'] == 'true';
     },
     destroy(element) {
-
+     console.log('tick-box is no more :(');
+    },
+    // monitor attributes "attributeChangedCallback"
+    attr: {
+     "data-ticked": (oldValue, value, element) => element.ticked = value == 'true',
     }
   });
 
