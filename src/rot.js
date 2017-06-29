@@ -321,9 +321,19 @@ create = (tag, options, ...children) => {
   if(options && options.render) el.render = options.render;
   return el;
 },
-
+observedAttributes = new Map,
+observeAttr = (name, stages) => {
+  let {init, update, destroy} = stages;
+  observedAttributes.set(name, stages);
+  run(() => queryEach(`[${name}]`, el => {
+    el = dom(el);
+    init(el, el.attr[name]);
+    el[name+"_init"] = true;
+  }));
+},
+unobserveAttr = name => observedAttributes.delete(name),
 mountORdestroy = (stack, type) => {
-  if (stack.length > 0) for(let el of stack) if(isEl(el) && !el.tagName.includes('-') && ProxyNodes.has(el)) (el = dom(el)).data.emit(type , el);
+  if (stack.length > 0) for(let el of stack) if(isEl(el) && !el.isComponent && ProxyNodes.has(el)) (el = dom(el)).data.emit(type , el);
 }
 
 let LoadStack = [], ready = false;
@@ -334,18 +344,6 @@ once(root, 'DOMContentLoaded', () => {
 });
 
 (dom.extend = extend(dom))({query,queryAll,queryEach,on,once,html});
-
-const observedAttributes = new Map,
-observeAttr = (name, stages) => {
-  let {init, update, destroy} = stages;
-  observedAttributes.set(name, stages);
-  run(() => queryEach(`[${name}]`, el => {
-    el = dom(el);
-    init(el, el.attr[name]);
-    el[name+"_init"] = true;
-  }));
-},
-unobserveAttr = name => observedAttributes.delete(name);
 
 new MutationObserver(muts => each(muts, ({addedNodes, removedNodes, target, attributeName, oldValue}) => {
   mountORdestroy(addedNodes, 'mount');

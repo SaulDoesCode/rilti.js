@@ -21,10 +21,12 @@ Constructive criticism is welcome
 
 rot.js harnesses the power of Proxy objects to make some magical behavior possible.
 
+#### Plugins:
+* rot-tilt.js - compact mouse motion based element tilting effect, based on vanilla-tilt.js
+* webcomponents.js - rot.js web component wrapper, rot.Component(tag, config = {create, mount, destroy, adopted, attr, props, methods})
+* work in progress rotified anime.js
+
 ### planned features
-* managed custom attributes aka directives
-* uniform interface for non native events
-* more reactivity and virtualization
 * offer collection of useful optional plugins
 
 ### API
@@ -68,6 +70,7 @@ isInput, isPrimitive, isNativeEvent
 ```javascript
 
   const {dom, run, render} = rot;
+  // pre-tagged element creation methods, custom element names like dom['custom_element-x'] works too
   const {div, nav} = dom;
 
   function goHome() {
@@ -109,10 +112,26 @@ isInput, isPrimitive, isNativeEvent
     console.log(navbar.isToggled);
   });
 
+  // observe attributes
+  rot.observeAttr('customAttr', {
+    init(element, value) {
+
+    },
+    update(element, value, oldValue) {
+
+    },
+    destroy(element, value, oldValue) {
+
+    }
+  });
+  // unobserve Attributes
+  rot.unobserveAttr('customAttr');
+
+
   // create elements with any tag
   dom['custom-element']({
     render: ".main > header", // render automatically with render property
-    // manage an element's lifecycle
+    // manage one element's lifecycle
     lifecycle: {
       create() {
 
@@ -123,6 +142,20 @@ isInput, isPrimitive, isNativeEvent
       destroy() {
 
       }
+    }
+  });
+
+
+  // or use the webcomponent.js plugin
+  rot.Component('custom-element', {
+    create(element) {
+
+    },
+    mount(element) {
+
+    },
+    destroy(element) {
+
     }
   });
 

@@ -1,5 +1,5 @@
 (() => {
-  const {extend, dom, evtsys, isFunc, each} = rot;
+  const {extend, dom, isFunc, each} = rot;
 
   rot.Component = (tag, config) => {
     if(!tag.includes('-')) throw new Error('components must have a hyphenated tag');
@@ -10,6 +10,7 @@
       constructor() {
         super();
         const element = dom(this);
+        element.pure.isComponent = true;
         if(props) each(props, (val,key) => element[key] = val);
         if(isFunc(create)) create.call(element, element);
         element.data.emit('create', element);

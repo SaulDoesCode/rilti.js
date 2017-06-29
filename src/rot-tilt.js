@@ -170,32 +170,18 @@ window.Tilt = (element, settings = {}) => {
     return element;
 }
 
+  const settingDecoder = (val, settings = {}) => {
+    isStr(val) && val.split(";").forEach(setting => {
+      if(setting.includes(":")) {
+        setting = setting.split(":");
+        settings[setting[0]] = setting[1] === "true" ? true : setting[1] === "false" ? false : setting[1];
+      }
+    });
+    return settings;
+  }
   rot.observeAttr('tilt', {
-    init(el, val) {
-      console.log('init');
-      let settings = {};
-      isStr(val) && val.split(";").forEach(setting => {
-        if(setting.includes(":")) {
-          setting = setting.split(":");
-          settings[setting[0]] = setting[1] === "true" ? true : setting[1] === "false" ? false : setting[1];
-        }
-      });
-      Tilt(el, settings);
-    },
-    update(el, val) {
-      console.log('update');
-      let settings = {};
-      isStr(val) && val.split(";").forEach(setting => {
-        if(setting.includes(":")) {
-          setting = setting.split(":");
-          settings[setting[0]] = setting[1] === "true" ? true : setting[1] === "false" ? false : setting[1];
-        }
-      });
-      Tilt(el, settings);
-    },
-    destroy(el) {
-      console.log('destroy');
-      el.tiltOff();
-    }
+    init:(el, val) => Tilt(el, settingDecoder(val)),
+    update:(el, val) => Tilt(el, settingDecoder(val)),
+    destroy:el => el.tiltOff()
   });
 }
