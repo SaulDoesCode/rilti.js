@@ -333,7 +333,7 @@ observeAttr = (name, stages) => {
 },
 unobserveAttr = name => observedAttributes.delete(name),
 mountORdestroy = (stack, type) => {
-  if (stack.length > 0) for(let el of stack) if(isEl(el) && !el.isComponent && ProxyNodes.has(el)) (el = dom(el)).data.emit(type , el);
+  if (stack.length > 0) for(let el of stack) if(isEl(el) && !el.tagName.includes('-') && ProxyNodes.has(el)) (el = dom(el)).data.emit(type , el);
 }
 
 let LoadStack = [], ready = false;
