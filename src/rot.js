@@ -69,7 +69,7 @@ terr = msg => {throw new TypeError(msg)}, err = msg => {throw new Error(msg)},
 DOMcontains = (descendant, parent = doc) => parent == descendant || Boolean(parent.compareDocumentPosition(descendant) & 16),
 EventManager = curry((state, target, type, handle, options = false) => {
   if(test(target, isNode, isStr)) target = dom(target);
-  if(!target.addEventListener) err('not event target');
+  if(!target.addEventListener) err('bad evt target');
   let once = false;
 
   function wrapper(evt) {
@@ -234,6 +234,10 @@ dom = new Proxy((element, within) => {
       deleteProperty:(cls, key) => cls(key, false)
     }),
 
+    eventifier = state => new Proxy(EventManager(state, element), {
+      get:(evtMngr, type) => evtMngr(type),
+    }),
+
     data = notifier({ isInput:isInput(element) }),
 
     autobind = v => isFunc(v) ? v.bind(element) : v,
@@ -254,7 +258,7 @@ dom = new Proxy((element, within) => {
         key == 'class' ? classes :
         key == 'attr' ? attr :
         key == 'pure' ? el :
-        test(key, 'on','once') ? EventManager(key, element) :
+        test(key, 'on','once') ? eventifier(key) :
         key == 'html' ? el[inputHTML] :
         key == 'txt' ? el[textContent] :
         key == 'mounted' ? DOMcontains(element) :

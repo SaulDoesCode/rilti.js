@@ -128,10 +128,10 @@ rot.unobserveAttr('customAttr');
 
 
 // create elements with any tag
-dom['custom-element']({
-  render: ".main > header", // render automatically with render property
-  // manage one element's lifecycle
+dom['randomtag']({
+  render: ".main > header", // render to dom using selectors or nodes
   lifecycle: {
+    // manage the element's lifecycle
     create() {
 
     },
@@ -152,7 +152,7 @@ rot.Component('tick-box', {
      if(element.attr['data-ticked'] != val.toString()) element.style.backgroundColor = val ? "white" : "dimgrey";
      else element.attr['data-ticked'] = val;
    });
-   element.on('click', () => element.ticked = !element.ticked);
+   element.on.click(() => element.ticked = !element.ticked)); // or element.on('click', fn)
   },
   mount(element) {
    element.ticked = element.attr['data-ticked'] == 'true';
