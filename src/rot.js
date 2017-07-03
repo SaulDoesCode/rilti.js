@@ -201,25 +201,23 @@ render = (...args) => (node = 'body') => {
 },
 
 observedAttributes = new Map,
+attrInit = (el,name) => {
+  el[name+"_init"] = true;
+  return el;
+},
 observeAttr = (name, stages) => {
   let {init, update, destroy} = stages;
   observedAttributes.set(name, stages);
-  run(() => queryEach(`[${name}]`, el => {
-    init(el = dom(el), el.attr[name]);
-    el[name+"_init"] = true;
-  }));
+  run(() => queryEach(`[${name}]`, el => init(attrInit(el = dom(el),name), el.attr[name])));
 },
 unobserveAttr = name => observedAttributes.delete(name),
 checkAttr = (name, el, oldValue) => {
   if(observedAttributes.has(name)) {
-      let observedAttr = observedAttributes.get(name);
-      if(el.hasAttribute(name)) {
-          let val = el.getAttribute(name);
-          if(!el[name+"_init"]) {
-            observedAttr.init(el, val);
-            el[name+"_init"] = true;
-          } else observedAttr.update && val != oldValue && observedAttr.update(el, val, oldValue);
-      } else observedAttr.destroy && observedAttr.destroy(el, oldValue);
+      const val = el.getAttribute(name), observedAttr = observedAttributes.get(name);
+      if(isPrimitive(val)) {
+          if(!el[name+"_init"]) observedAttr.init(attrInit(el,name), val);
+          else observedAttr.update && val != oldValue && observedAttr.update(el, val, oldValue);
+      } else observedAttr.destroy && observedAttr.destroy(el, val, oldValue);
   }
 },
 
@@ -349,7 +347,6 @@ once(root, 'DOMContentLoaded', () => {
 });
 
 (dom.extend = extend(dom))({query,queryAll,queryEach,on,once,html});
-
 
 new MutationObserver(muts => each(muts, ({addedNodes, removedNodes, target, attributeName, oldValue}) => {
   mountORdestroy(addedNodes, 'mount');
