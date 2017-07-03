@@ -100,8 +100,7 @@ EventManager = curry((state, target, type, handle, options = false) => {
   }
   return manager[state]();
 }, 4),
-once = EventManager('once'),
-on = EventManager('on'),
+once = EventManager('once'), on = EventManager('on'),
 
 notifier = (mngr = {}, handles = new Map) => extend(mngr, {
   handle(state, type, handle) {
@@ -120,7 +119,7 @@ notifier = (mngr = {}, handles = new Map) => extend(mngr, {
   emit(type, ...args) {
     handles.has(type) && handles.get(type).forEach(handle => {
       handle(...args);
-      if(handle.one) handle.off();
+      handle.one && handle.off();
     });
     return mngr;
   }
@@ -134,7 +133,7 @@ route = notifier((hash, fn) => {
     fn = hash;
     hash = 'default';
   }
-  if(location.hash === hash || (!location.hash && hash == 'default')) fn();
+  if(location.hash == hash || (!location.hash && hash == 'default')) fn();
   return route.on(hash, fn);
 }),
 lifecycleStages = ['create','mount','destroy','attr'],
@@ -143,6 +142,11 @@ run = fn => ready ? fn() : LoadStack.push(fn),
 html = html => isNode(html) ? html : doc.createRange().createContextualFragment(html || ''),
 domfrag = inner => isPrimitive(inner) ? html(inner) : doc.createDocumentFragment(),
 plugins = extend(options => safeExtend(rot, options), { methods:{}, handles:new Set }),
+vpend = args => {
+  const dfrag = domfrag();
+  each(flatten(args), arg => dfrag.appendChild(isNode(arg.pure) ? arg.pure : html(arg)));
+  return dfrag;
+},
 
 dom_methods = {
   replace:(node, prox, val) => node.replaceWith ? node.replaceWith(val) : node.parentNode.replaceChild(val, node),
@@ -166,15 +170,11 @@ dom_methods = {
     return prox;
   },
   append(node, prox, ...args) {
-      const dfrag = domfrag();
-      each(flatten(args), arg => dfrag.appendChild(isNode(arg.pure) ? arg.pure : html(arg)));
-      node.appendChild(dfrag);
+      node.appendChild(vpend(args));
       return prox;
   },
   prepend(node, prox, ...args) {
-      const dfrag = domfrag();
-      each(flatten(args), arg => dfrag.appendChild(isNode(arg.pure) ? arg.pure : html(arg)));
-      node.prepend(dfrag);
+      node.prepend(vpend(args));
       return prox;
   },
   appendTo(node, prox, val) {
@@ -200,27 +200,42 @@ render = (...args) => (node = 'body') => {
   if(isStr(node)) run(() => isNode(node = dom(node == 'body' ? doc.body : node)) ? node.append(args) : err('render: invalid target'));
 },
 
+observedAttributes = new Map,
+observeAttr = (name, stages) => {
+  let {init, update, destroy} = stages;
+  observedAttributes.set(name, stages);
+  run(() => queryEach(`[${name}]`, el => {
+    init(el = dom(el), el.attr[name]);
+    el[name+"_init"] = true;
+  }));
+},
+unobserveAttr = name => observedAttributes.delete(name),
+checkAttr = (name, el, oldValue) => {
+  if(observedAttributes.has(name)) {
+      let observedAttr = observedAttributes.get(name);
+      if(el.hasAttribute(name)) {
+          let val = el.getAttribute(name);
+          if(!el[name+"_init"]) {
+            observedAttr.init(el, val);
+            el[name+"_init"] = true;
+          } else observedAttr.update && val != oldValue && observedAttr.update(el, val, oldValue);
+      } else observedAttr.destroy && observedAttr.destroy(el, oldValue);
+  }
+},
+
 ProxyNodes = new Map,
 
 dom = new Proxy((element, within) => {
   if(isStr(element)) element = query(element, within);
   if(ProxyNodes.has(element)) return ProxyNodes.get(element);
   if(isNode(element)) {
-    const attr = new Proxy((attr, val) => {
-      if(isObj(attr)) each(attr, (v, a) => element.setAttribute(a,v));
-      else if(isPrimitive(val)) element.setAttribute(attr, val);
-      else return element.getAttribute(attr);
-    }, {
-      get(_, key) {
-        return key == 'has' ? name => element.hasAttribute(name) : element.getAttribute(key);
-      },
-      set(_, key, val) {
-        if(isPrimitive(val)) element.setAttribute(key, val);
-        return true;
-      },
-      deleteProperty(_, key) {
-        return !element.removeAttribute(key);
-      }
+    const attr = new Proxy((attr, val) => isObj(attr) ? each(attr, (v, a) => {
+        element.setAttribute(a,v);
+        checkAttr(a, element);
+      }) : isPrimitive(val) ? element.setAttribute(attr, val) : element.getAttribute(attr), {
+      get:(_, key) => key == 'has' ? name => element.hasAttribute(name) : element.getAttribute(key),
+      set:(atr, key, val) => !atr(key, val),
+      deleteProperty:(_, key) => !element.removeAttribute(key)
     }),
 
     classes = new Proxy((c, state = !element.classList.contains(c)) => {
@@ -292,17 +307,13 @@ dom = new Proxy((element, within) => {
 
 create = (tag, options, ...children) => {
   const el = dom(doc.createElement(tag));
-  if(test(options, isArrlike, isNode)) {
-    children = test(options, isStr, isNode) ? [options] : options;
-    options = NULL;
-  } else if(isObj(options)) {
-
+  if(test(options, isArrlike, isNode)) children = test(options, isStr, isNode) ? [options] : options;
+  else if(isObj(options)) {
     for(let handle of plugins.handles) handle(options, el);
-
     each(options, (val, key) => {
       if(key != 'render') {
         if(key == 'lifecycle') each(lifecycleStages, stage => isFunc(val[stage]) && el.data[stage == 'attr' ? 'on' : 'once'](stage, val[stage].bind(el)));
-        else if(key == 'attr') el.attr = val;
+        else if(key == 'attr') el.attr(val);
         else if(test(key,'class','className')) el.className = val;
         else if(test(key,'style','css')) el.css(val);
         else if(test(key,'on','once')) each(val, (handle, type) => el[key](type, handle));
@@ -325,17 +336,7 @@ create = (tag, options, ...children) => {
   if(options && options.render) el.render = options.render;
   return el;
 },
-observedAttributes = new Map,
-observeAttr = (name, stages) => {
-  let {init, update, destroy} = stages;
-  observedAttributes.set(name, stages);
-  run(() => queryEach(`[${name}]`, el => {
-    el = dom(el);
-    init(el, el.attr[name]);
-    el[name+"_init"] = true;
-  }));
-},
-unobserveAttr = name => observedAttributes.delete(name),
+
 mountORdestroy = (stack, type) => {
   if (stack.length > 0) for(let el of stack) if(isEl(el) && !el.tagName.includes('-') && ProxyNodes.has(el)) (el = dom(el)).data.emit(type , el);
 }
@@ -344,25 +345,17 @@ let LoadStack = [], ready = false;
 once(root, 'DOMContentLoaded', () => {
   ready = true;
   each(LoadStack, fn => fn());
-  LoadStack = null;
+  LoadStack = NULL;
 });
 
 (dom.extend = extend(dom))({query,queryAll,queryEach,on,once,html});
+
 
 new MutationObserver(muts => each(muts, ({addedNodes, removedNodes, target, attributeName, oldValue}) => {
   mountORdestroy(addedNodes, 'mount');
   mountORdestroy(removedNodes, 'destroy');
   if(attributeName && (attributeName != 'style' && isEl(target) && ProxyNodes.has(target))) {
-    target = dom(target);
-    if(observedAttributes.has(attributeName)) {
-      let observedAttr = observedAttributes.get(attributeName);
-      if(target.attr.has(attributeName)) {
-          if(!target[attributeName+"_init"]) {
-            observedAttr.init(target, target.attr[attributeName]);
-            target[name+"_init"] = true;
-          } else observedAttr.update && observedAttr.update(target, target.attr[attributeName], oldValue);
-      } else observedAttr.destroy && observedAttr.destroy(target, oldValue);
-    }
+    checkAttr(attributeName, target = dom(target), oldValue);
     target.data.emit('attr:'+attributeName,target,target.attr[attributeName],oldValue);
   }
 })).observe(doc, {attributes:true, childList:true, subtree:true});
