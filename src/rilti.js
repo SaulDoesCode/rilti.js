@@ -1,17 +1,14 @@
 /**
-* rot.js alpha
+* rilti.js alpha
 * @licence MIT
-* @repo SaulDoesCode/rot.js
+* @repo SaulDoesCode/rilti.js
 * @author Saul van der Walt
 **/
-var rot = (() => {
+var rilti = (() => {
 "use strict";
 
-const doc = document, root = window, undef = void 0, NULL = null,
-curry = (fn, arity = fn.length, resolver = (...memory) => (...more) => {
-  const local = memory.concat(more);
-  return (local.length >= arity ? fn : resolver)(...local);
-}) => resolver(),
+const doc = document, root = window, undef = void 0, NULL = null, forEach = 'forEach',
+curry = (fn, arity = fn.length, resolver = (...memory) => (...more) => ((more.length + memory.length) >= arity ? fn : resolver)(...memory.concat(more))) => resolver(),
 arrMeth = curry((meth, val, ...args) => Array.prototype[meth].apply(val, args), 2),
 isInstance = (o, t) => o instanceof t,
 typestr = toString.call,
@@ -38,22 +35,28 @@ isMap = typeinc('Map'),
 isSet = typeinc('Set'),
 isEq = curry((o1,o2) => o1 === o2),
 test = (match, ...cases) => cases.some(Case => match == Case || (isFunc(Case) && Case(match))),
-forEach = 'forEach',
 each = (iterable, func, i = 0) => {
-  isArrlike(iterable) ? arrMeth(forEach,iterable,func) : iterable[forEach] && iterable[forEach](func);
-  if(isObj(iterable)) for (i in iterable) func(iterable[i], i, iterable);
-  if (isInt(iterable)) while (iterable != i) func(i++);
+  if(!isEmpty(iterable)) {
+    isArrlike(iterable) ? arrMeth(forEach, iterable, func) : iterable[forEach] && iterable[forEach](func);
+    if(isObj(iterable)) for (i in iterable) func(iterable[i], i, iterable);
+  } else if (isInt(iterable)) while (iterable != i) func(i++);
   return iterable;
 },
 def = curry(Object.defineProperty),
 getdesc = Object.getOwnPropertyDescriptor,
-extend = curry((host, obj) => {
-  each(Object.keys(obj), key => def(host,key, getdesc(obj, key)));
-  return host;
-}),
-safeExtend = (host, obj) => {
-  each(Object.keys(obj), key => !(key in host) && def(host,key, getdesc(obj, key)));
-  return host;
+extend = curry((host, obj) => (each(Object.keys(obj), key => def(host,key, getdesc(obj, key))), host)),
+safeExtend = (host, obj) => (each(Object.keys(obj), key => !(key in host) && def(host,key, getdesc(obj, key))),host),
+reseat = (host, props) => {
+  if(!isEmpty(props)) {
+    let desc;
+    for(let prop in props) {
+        desc = getdesc(props, prop);
+        if(desc.get) desc.get = desc.get.bind(host);
+        if(desc.set) desc.set = desc.set.bind(host);
+        if(isFunc(desc.value)) desc.value = desc.value.bind(host);
+        def(host, prop, desc);
+    }
+  }
 },
 flatten = arr => isArrlike(arr) ? arrMeth("reduce", arr, (flat, toFlatten) => flat.concat(isArr(toFlatten) ? flatten(toFlatten) : toFlatten), []) : [arr],
 query = (selector, element = doc) => (isStr(element) ? doc.querySelector(element) : element).querySelector(selector),
@@ -67,57 +70,46 @@ queryEach = (selector, func, element = doc) => {
 },
 terr = msg => {throw new TypeError(msg)}, err = msg => {throw new Error(msg)},
 DOMcontains = (descendant, parent = doc) => parent == descendant || Boolean(parent.compareDocumentPosition(descendant) & 16),
-EventManager = curry((state, target, type, handle, options = false) => {
+EventManager = curry((state, target, type, handle, options = false, once) => {
   if(test(target, isNode, isStr)) target = dom(target);
   if(!target.addEventListener) err('bad evt target');
-  let once = false;
 
   function wrapper(evt) {
     handle.call(target, evt, target);
-    if(once) target.removeEventListener(type, wrapper);
+    once && target.removeEventListener(type, wrapper);
   }
 
   const remove = () => target.removeEventListener(type, wrapper),
-  add = () => {
+  add = mode => {
+    once = !!mode;
     remove();
     target.addEventListener(type, wrapper, options);
   },
   manager = {
-    off() {
-      remove();
-      return manager;
-    },
-    on() {
-        once = false;
-        add();
-        return manager;
-    },
-    once() {
-        once = true;
-        add();
-        return manager;
-    }
+    on:() => (add(), manager),
+    once:() => (add(true), manager),
+    off:() => (remove(), manager)
   }
   return manager[state]();
 }, 4),
 once = EventManager('once'), on = EventManager('on'),
-
+notifierHandle = (handles, type, handle, one) => {
+  handle.one = !!one;
+  handle.type = type;
+  handle.off = () => handles.has(type) && !handles.get(type).delete(handle).size && handles.delete(type);
+  (handles.has(type) ? handles : handles.set(type, new Set)).get(type).add(handle);
+  return handle;
+},
 notifier = (mngr = {}, handles = new Map) => extend(mngr, {
-  handle(state, type, handle) {
-    handle.one = !!state;
-    (handles.has(type) ? handles : handles.set(type, new Set)).get(type).add(handle);
-    handle.off = () => mngr.off(type, handle);
-    return handle;
-  },
-  on:(type, handle) => mngr.handle(false, type, handle),
-  once:(type, handle) => mngr.handle(true, type, handle),
+  on:(type, handle) => notifierHandle(handles, type, handle),
+  once:(type, handle) => notifierHandle(handles, type, handle, true),
   off(type, handle) {
     if(handles.has(type) && !handles.get(type).delete(handle).size) handles.delete(type);
     return mngr;
   },
   has:type => handles.has(type),
   emit(type, ...args) {
-    handles.has(type) && handles.get(type).forEach(handle => {
+    handles.has(type) && handles.get(type)[forEach](handle => {
       handle(...args);
       handle.one && handle.off();
     });
@@ -141,7 +133,7 @@ lifecycleStages = ['create','mount','destroy','attr'],
 run = fn => ready ? fn() : LoadStack.push(fn),
 html = html => isNode(html) ? html : doc.createRange().createContextualFragment(html || ''),
 domfrag = inner => isPrimitive(inner) ? html(inner) : doc.createDocumentFragment(),
-plugins = extend(options => safeExtend(rot, options), { methods:{}, handles:new Set }),
+plugins = extend(options => safeExtend(rilti, options), { methods:{}, handles:new Set }),
 vpend = args => {
   const dfrag = domfrag();
   each(flatten(args), arg => dfrag.appendChild(isNode(arg.pure) ? arg.pure : html(arg)));
@@ -150,11 +142,16 @@ vpend = args => {
 
 dom_methods = {
   replace:(node, prox, val) => node.replaceWith ? node.replaceWith(val) : node.parentNode.replaceChild(val, node),
-  clone:n => dom(n.cloneNode()),
+  clone:n => dom(n.cloneNode(true)),
   css(node, prox, styles, prop) {
       isObj(styles) ? each(styles, (p, key) => node.style[key] = p) :
-      isStr(styles) && isStr(prop) ? node.style[styles] = prop : terr('.css("" || {}) only');
+      isStr(styles) && isStr(prop) ? node.style[styles] = prop : terr('"" or {} only)');
       return prox;
+  },
+  attrToggle(node, prox, name, state) {
+    if(!isBool(state)) state = !node.hasAttribute(name);
+    node[state ? 'setAttribute' : 'removeAttribute'](name,'');
+    return prox;
   },
   inner(node, prox, ...args) {
     prox.html = '';
@@ -163,6 +160,7 @@ dom_methods = {
           !prox.children.includes(val) && val.data.emit('mount', val);
           val.appendTo(node);
         } else {
+          if(isFunc(val)) val = val.call(prox, prox);
           if(isPrimitive(val)) val = doc.createTextNode(val);
           if(isNode(val)) prox.append(val);
         }
@@ -225,6 +223,7 @@ ProxyNodes = new Map,
 
 dom = new Proxy((element, within) => {
   if(isStr(element)) element = query(element, within);
+  if(!element || element.pure) return element;
   if(ProxyNodes.has(element)) return ProxyNodes.get(element);
   if(isNode(element)) {
     const attr = new Proxy((attr, val) => isObj(attr) ? each(attr, (v, a) => {
@@ -267,6 +266,7 @@ dom = new Proxy((element, within) => {
       get(el, key) {
         return key in dom_methods ? dom_methods[key].bind(el, el, elementProxy) :
         key == 'children' ? arrMeth('map', el.children, child => dom(child)) :
+        key == 'childNodes' ? arrMeth('map', el.childNodes, child => dom(child)) :
         key in el ? autobind(Reflect.get(el, key)) :
         key == 'class' ? classes :
         key == 'attr' ? attr :
@@ -275,10 +275,10 @@ dom = new Proxy((element, within) => {
         key == 'html' ? el[inputHTML] :
         key == 'txt' ? el[textContent] :
         key == 'mounted' ? DOMcontains(element) :
+        key == 'parent' ? dom(element.parentNode) :
         key == 'rect' ? el.getBoundingClientRect() :
         key == 'data' ? data :
-        key in data ? getdata(key) :
-        key in plugins.methods ? plugins.methods[key].bind(el, el, elementProxy) : undef;
+        key in data ? getdata(key) : key in plugins.methods && plugins.methods[key].bind(el, el, elementProxy);
       },
       set(el, key, val, prox) {
         if(val != undef) {
@@ -294,7 +294,10 @@ dom = new Proxy((element, within) => {
       },
       deleteProperty:(el, key) => key == 'self' ? el.remove() : Reflect.deleteProperty(data, key)
     });
-    data.once('destroy', () => ProxyNodes.delete(element));
+    data.once('destroy', () => {
+      element.isDestroyed = true;
+      ProxyNodes.delete(element.pure);
+    });
     ProxyNodes.set(element, elementProxy);
     return elementProxy;
   }
@@ -305,26 +308,18 @@ dom = new Proxy((element, within) => {
 
 create = (tag, options, ...children) => {
   const el = dom(doc.createElement(tag));
-  if(test(options, isArrlike, isNode)) children = test(options, isStr, isNode) ? [options] : options;
+  if(test(options, isArrlike, isNode)) children = test(options, isStr, isNode) ? [options, ...children] : options;
   else if(isObj(options)) {
     for(let handle of plugins.handles) handle(options, el);
     each(options, (val, key) => {
       if(key != 'render') {
-        if(key == 'lifecycle') each(lifecycleStages, stage => isFunc(val[stage]) && el.data[stage == 'attr' ? 'on' : 'once'](stage, val[stage].bind(el)));
+        if(key == 'lifecycle') each(lifecycleStages, stage => isFunc(val[stage]) && el.data[stage == 'create' ? 'once' : 'on'](stage, val[stage].bind(el)));
         else if(key == 'attr') el.attr(val);
         else if(test(key,'class','className')) el.className = val;
         else if(test(key,'style','css')) el.css(val);
         else if(test(key,'on','once')) each(val, (handle, type) => el[key](type, handle));
-        else if(test(key,'props','data') && isObj(val)) {
-          let desc;
-          for(let prop in val) {
-              desc = getdesc(val, prop);
-              if(desc.get) desc.get = desc.get.bind(el);
-              if(desc.set) desc.set = desc.set.bind(el);
-              if(isFunc(desc.value)) desc.value = desc.value.bind(el);
-              def(el.data, prop, desc);
-          }
-        } else if(key in el) el[key] = val;
+        else if(test(key,'props','data') && isObj(val)) reseat(el,val);
+        else if(isFunc(val) || (key in el)) el[key] = val;
         else if(isPrimitive(val)) el.attr(key, val);
       }
     });
@@ -337,7 +332,25 @@ create = (tag, options, ...children) => {
 
 mountORdestroy = (stack, type) => {
   if (stack.length > 0) for(let el of stack) if(isEl(el) && !el.tagName.includes('-') && ProxyNodes.has(el)) (el = dom(el)).data.emit(type , el);
-}
+},
+txtBind = (prop, val) => el => {
+  if(isPrimitive(val)) el.data[prop] = val
+  const txtNode = doc.createTextNode(el.data[prop]);
+  el.data.on('set:'+prop, val => txtNode.textContent = val);
+  return txtNode;
+},
+intervalManager = (interval, fn, destroySync, intervalID, mngr = ({
+  stop() {
+    clearInterval(intervalID);
+    return mngr;
+  },
+  start() {
+    intervalID = setInterval(fn, interval);
+    isNode(destroySync) && mngr.destroySync(dom(destroySync));
+    return mngr;
+  },
+  destroySync:el => el.data.once('destroy', () => mngr.stop())
+})) => mngr.start();
 
 let LoadStack = [], ready = false;
 once(root, 'DOMContentLoaded', () => {
@@ -346,7 +359,7 @@ once(root, 'DOMContentLoaded', () => {
   LoadStack = NULL;
 });
 
-(dom.extend = extend(dom))({query,queryAll,queryEach,on,once,html});
+(dom.extend = extend(dom))({query,queryAll,queryEach,on,once,html,txtBind});
 
 new MutationObserver(muts => each(muts, ({addedNodes, removedNodes, target, attributeName, oldValue}) => {
   mountORdestroy(addedNodes, 'mount');
@@ -357,5 +370,5 @@ new MutationObserver(muts => each(muts, ({addedNodes, removedNodes, target, attr
   }
 })).observe(doc, {attributes:true, childList:true, subtree:true});
 
-return {dom,notifier,observeAttr,unobserveAttr,plugins,extend,safeExtend,def,getdesc,route,render,run,curry,each,DOMcontains,flatten,isDef,isUndef,isPrimitive,isNull,isFunc,isStr,isBool,isNum,isInt,isObj,isArr,isArrlike,isEmpty,isEl,isEq,isNode,isNodeList,isInput,isMap,isSet}
+return {dom,notifier,observeAttr,unobserveAttr,plugins,intervalManager,extend,safeExtend,reseat,def,getdesc,route,render,run,curry,each,DOMcontains,flatten,isDef,isUndef,isPrimitive,isNull,isFunc,isStr,isBool,isNum,isInt,isObj,isArr,isArrlike,isEmpty,isEl,isEq,isNode,isNodeList,isInput,isMap,isSet}
 })();

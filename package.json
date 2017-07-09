@@ -1,14 +1,11 @@
 {
-  "name": "rot.js",
-  "version": "0.0.5",
+  "name": "rilti.js",
+  "version": "0.1.0",
   "description": "simple small plugable view layer for the front end written in es6 with no apologies",
   "main": "init.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/sauldoescode/rot.js.git"
+    "url": "git+https://github.com/sauldoescode/rilti.js.git"
   },
   "keywords": [
     "es6",
@@ -19,9 +16,9 @@
   "author": "Saul van der Walt",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/sauldoescode/rot.js/issues"
+    "url": "https://github.com/sauldoescode/rilti.js/issues"
   },
-  "homepage": "https://github.com/sauldoescode/rot.js#readme",
+  "homepage": "https://github.com/sauldoescode/rilti.js#readme",
   "devDependencies": {
     "babili": "0.0.9"
   }

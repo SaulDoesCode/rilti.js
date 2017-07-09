@@ -8,8 +8,8 @@
  * HTML Usage: <div tilt></div> or <div tilt="{glare:1}"></div>
  */
 {
-
-const {isNode,isNodeList,isArr,isStr,dom,each} = rot, {on, div} = dom,
+"use strict";
+const {isNode,isNodeList,isArr,isStr,dom,each,observeAttr} = rilti, {on, div} = dom,
 isSettingTrue = setting => setting === "" || setting === true || setting === 1,
 defaultSettings = {
   reverse: false,
@@ -179,7 +179,7 @@ window.Tilt = (element, settings = {}) => {
     });
     return settings;
   }
-  rot.observeAttr('tilt', {
+  observeAttr('tilt', {
     init:(el, val) => Tilt(el, settingDecoder(val)),
     update:(el, val) => Tilt(el, settingDecoder(val)),
     destroy:el => el.tiltOff()

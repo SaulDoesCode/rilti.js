@@ -1,4 +1,4 @@
-# rot.js :rat:
+# rilti.js :rat:
 
 a small robust and unapologetic view layer library built for the front-end
 
@@ -18,12 +18,11 @@ Feel free to fork, raise issues. Constructive criticism is welcome
 * written and distributed in plain es2015/es6
 * plugin hooks: add any feature
 
-rot.js harnesses the power of Proxy objects to make some magical behavior possible.
+rilti.js harnesses the power of Proxy objects to make some magical behavior possible.
 
 #### Plugins:
-* rot-tilt.js - compact mouse motion based element tilting effect, based on vanilla-tilt.js
-* webcomponents.js - rot.js web component wrapper, rot.Component(tag, config = {create, mount, destroy, adopted, attr, props, methods})
-* work in progress rotified anime.js
+* rilti-tilt.js - compact mouse motion based element tilting effect, based on vanilla-tilt.js
+* webcomponents.js - rilti.js web component wrapper, rilti.Component(tag, config = {create, mount, destroy, adopted, attr, props, methods})
 
 #### planned features
 * offer collection of useful optional plugins
@@ -50,8 +49,8 @@ rot.js harnesses the power of Proxy objects to make some magical behavior possib
 | ``notifier( =obj )`` | extendable evtsystem/pub sub pattern |
 | ``DOMcontains( {node}, {=parent node} )`` | determines whether or not the dom or other node contains a specific node |
 
-##### rot also exports a couple of useful type testing functions
-usage : ``rot.isX( {any} ) // -> boolean``  
+##### rilti also exports a couple of useful type testing functions
+usage : ``rilti.isX( {any} ) // -> boolean``  
 isBool, isFunc,
 isDef, isUndef,
 isNull, isEmpty,
@@ -64,11 +63,11 @@ isInput, isPrimitive
 
 #### example time!!!
 
-[rot.js todomvc](https://github.com/SaulDoesCode/rot.js-todomvc)
+[rilti.js todomvc](https://github.com/SaulDoesCode/rilti.js-todomvc)
 
 ```javascript
 
-const {dom, run, render} = rot;
+const {dom, run, render} = rilti;
 // pre-tagged element creation methods, custom element names like dom['custom_element-x'] works too
 const {div, nav} = dom;
 
@@ -112,7 +111,7 @@ run(() => {
 });
 
 // observe attributes
-rot.observeAttr('customAttr', {
+rilti.observeAttr('customAttr', {
   init(element, value) {
 
   },
@@ -124,7 +123,7 @@ rot.observeAttr('customAttr', {
   }
 });
 // unobserve Attributes
-rot.unobserveAttr('customAttr');
+rilti.unobserveAttr('customAttr');
 
 
 // create elements with any tag
@@ -146,31 +145,47 @@ dom['randomtag']({
 
 
 // or use the webcomponent.js plugin
-rot.Component('tick-box', {
-  create(element) {
-   element.data.on('set:ticked', val => {
-     if(element.attr['data-ticked'] != val.toString()) element.style.backgroundColor = val ? "white" : "dimgrey";
-     else element.attr['data-ticked'] = val;
-   });
-   element.on.click(() => element.ticked = !element.ticked)); // or element.on('click', fn)
+rilti.Component('tick-box', {
+  props: {
+    get ticked() {
+      return this.attr['data-ticked'] === 'true';
+    },
+    set ticked(val) {
+      if(!this.disabled) {
+        this.attr['data-ticked'] = val;
+        this.css({
+          backgroundColor: this.ticked ? 'dimgrey' : 'white',
+          border: `1px solid ${this.ticked ? 'white' : 'dimgrey'}`
+        });
+      }
+    }
   },
   mount(element) {
-   element.ticked = element.attr['data-ticked'] == 'true';
+   element.css({
+     display:'block',
+     width:'20px',
+     height: '20px',
+     margin:'5px auto',
+     cursor:'pointer',
+     backgroundColor: this.ticked ? 'dimgrey' : 'white',
+     border: `1px solid ${this.ticked ? 'white' : 'dimgrey'}`
+   }).on.click(() => element.ticked = !element.ticked); // or element.on('click', fn)
   },
   destroy(element) {
    console.log('tick-box is no more :(');
   },
-  // monitor attributes "attributeChangedCallback"
   attr: {
-   "data-ticked": (oldValue, value, element) => element.ticked = value == 'true',
+    disabled(oldValue, value, element) {
+      element.css('cursor', value === 'true' ? 'not-allowed' : '');
+    }
   }
 });
 
 ```
 
 #### weight
-* unminified : > 15kb
-* minified : > 9kb
-* minified && gziped : > 4.5kb
+* unminified : > 20kb
+* minified : > 11kb
+* minified && gziped : > 6kb
 
 #### licence = MIT
