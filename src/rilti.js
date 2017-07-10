@@ -103,18 +103,12 @@ notifierHandle = (handles, type, handle, one) => {
 notifier = (mngr = {}, handles = new Map) => extend(mngr, {
   on:(type, handle) => notifierHandle(handles, type, handle),
   once:(type, handle) => notifierHandle(handles, type, handle, true),
-  off(type, handle) {
-    if(handles.has(type) && !handles.get(type).delete(handle).size) handles.delete(type);
-    return mngr;
-  },
+  off:(type, handle) => ((handles.has(type) && !handles.get(type).delete(handle).size) && handles.delete(type), mngr),
   has:type => handles.has(type),
-  emit(type, ...args) {
-    handles.has(type) && handles.get(type)[forEach](handle => {
-      handle(...args);
-      handle.one && handle.off();
-    });
-    return mngr;
-  }
+  emit:(type, ...args) => (handles.has(type) && handles.get(type)[forEach](handle => {
+    handle(...args);
+    handle.one && handle.off();
+  }), mngr)
 }),
 route = notifier((hash, fn) => {
   if(!route.active) {
@@ -143,16 +137,8 @@ vpend = args => {
 dom_methods = {
   replace:(node, prox, val) => node.replaceWith ? node.replaceWith(val) : node.parentNode.replaceChild(val, node),
   clone:n => dom(n.cloneNode(true)),
-  css(node, prox, styles, prop) {
-      isObj(styles) ? each(styles, (p, key) => node.style[key] = p) :
-      isStr(styles) && isStr(prop) ? node.style[styles] = prop : terr('"" or {} only)');
-      return prox;
-  },
-  attrToggle(node, prox, name, state) {
-    if(!isBool(state)) state = !node.hasAttribute(name);
-    node[state ? 'setAttribute' : 'removeAttribute'](name,'');
-    return prox;
-  },
+  css:(node, prox, styles, prop) => (isObj(styles) ? each(styles, (p, key) => node.style[key] = p) : isStr(styles) && isStr(prop) ? node.style[styles] = prop : terr('"" or {} only)'), prox),
+  attrToggle:(node, prox, name, state = !node.hasAttribute(name)) => (node[state ? 'setAttribute' : 'removeAttribute'](name,''), prox),
   inner(node, prox, ...args) {
     prox.html = '';
     each(flatten(args), val => {
@@ -167,31 +153,12 @@ dom_methods = {
     });
     return prox;
   },
-  append(node, prox, ...args) {
-      node.appendChild(vpend(args));
-      return prox;
-  },
-  prepend(node, prox, ...args) {
-      node.prepend(vpend(args));
-      return prox;
-  },
-  appendTo(node, prox, val) {
-      (isStr(val) ? query(val) : val).appendChild(node);
-      return prox;
-  },
-  prependTo(node, prox, val) {
-      (isStr(val) ? query(val) : val).prepend(node);
-      return prox;
-  },
-  find:(node, prox, selector) => dom(query(selector, node)),
-  modify(node, prox, fn) {
-    fn.call(prox, prox, node);
-    return prox;
-  },
-  remove(node, prox, after) {
-    isNum(after) ? setTimeout(() => node.remove(), after) : node.remove();
-    return prox;
-  }
+  append:(node, prox, ...args) => (node.appendChild(vpend(args)), prox),
+  prepend:(node, prox, ...args) => (node.prepend(vpend(args)), prox),
+  appendTo:(node, prox, val) => ((isStr(val) ? query(val) : val).appendChild(node), prox),
+  prependTo:(node, prox, val) => ((isStr(val) ? query(val) : val).prepend(node), prox),
+  remove:(node, prox, after) => (isNum(after) ? setTimeout(() => node.remove(), after) : node.remove(), prox),
+  find:(node, prox, selector) => dom(query(selector, node))
 },
 render = (...args) => (node = 'body') => {
   if(isNode(node)) dom_methods.append(node, NULL, args);
@@ -199,10 +166,7 @@ render = (...args) => (node = 'body') => {
 },
 
 observedAttributes = new Map,
-attrInit = (el,name) => {
-  el[name+"_init"] = true;
-  return el;
-},
+attrInit = (el,name) => (el[name+"_init"] = true, el),
 observeAttr = (name, stages) => {
   let {init, update, destroy} = stages;
   observedAttributes.set(name, stages);
@@ -220,7 +184,6 @@ checkAttr = (name, el, oldValue) => {
 },
 
 ProxyNodes = new Map,
-
 dom = new Proxy((element, within) => {
   if(isStr(element)) element = query(element, within);
   if(!element || element.pure) return element;
@@ -263,23 +226,22 @@ dom = new Proxy((element, within) => {
     textContent = data.isInput ? 'value' : 'textContent',
 
     elementProxy = new Proxy(element, {
-      get(el, key) {
-        return key in dom_methods ? dom_methods[key].bind(el, el, elementProxy) :
-        key == 'children' ? arrMeth('map', el.children, child => dom(child)) :
-        key == 'childNodes' ? arrMeth('map', el.childNodes, child => dom(child)) :
-        key in el ? autobind(Reflect.get(el, key)) :
-        key == 'class' ? classes :
-        key == 'attr' ? attr :
-        key == 'pure' ? el :
-        test(key, 'on','once') ? eventifier(key) :
-        key == 'html' ? el[inputHTML] :
-        key == 'txt' ? el[textContent] :
-        key == 'mounted' ? DOMcontains(element) :
-        key == 'parent' ? dom(element.parentNode) :
-        key == 'rect' ? el.getBoundingClientRect() :
-        key == 'data' ? data :
-        key in data ? getdata(key) : key in plugins.methods && plugins.methods[key].bind(el, el, elementProxy);
-      },
+      get:(el, key) => key in dom_methods ? dom_methods[key].bind(el, el, elementProxy) :
+          key == 'children' ? arrMeth('map', el.children, child => dom(child)) :
+          key == 'childNodes' ? arrMeth('map', el.childNodes, child => dom(child)) :
+          key in el ? autobind(Reflect.get(el, key)) :
+          key == 'class' ? classes :
+          key == 'attr' ? attr :
+          key == 'pure' ? el :
+          test(key, 'on','once') ? eventifier(key) :
+          key == 'html' ? el[inputHTML] :
+          key == 'txt' ? el[textContent] :
+          key == 'mounted' ? DOMcontains(element) :
+          key == 'parent' ? dom(element.parentNode) :
+          key == 'rect' ? el.getBoundingClientRect() :
+          key == 'data' ? data :
+          key in data ? getdata(key) :
+          key in plugins.methods && plugins.methods[key].bind(el, el, elementProxy),
       set(el, key, val, prox) {
         if(val != undef) {
           key == 'class' && isStr(val) ? classes(val, true) :
@@ -310,7 +272,7 @@ create = (tag, options, ...children) => {
   const el = dom(doc.createElement(tag));
   if(test(options, isArrlike, isNode)) children = test(options, isStr, isNode) ? [options, ...children] : options;
   else if(isObj(options)) {
-    for(let handle of plugins.handles) handle(options, el);
+    each(plugins.handles, handle => handle(options, el));
     each(options, (val, key) => {
       if(key != 'render') {
         if(key == 'lifecycle') each(lifecycleStages, stage => isFunc(val[stage]) && el.data[stage == 'create' ? 'once' : 'on'](stage, val[stage].bind(el)));
@@ -340,10 +302,7 @@ txtBind = (prop, val) => el => {
   return txtNode;
 },
 intervalManager = (interval, fn, destroySync, intervalID, mngr = ({
-  stop() {
-    clearInterval(intervalID);
-    return mngr;
-  },
+  stop:() => (clearInterval(intervalID), mngr),
   start() {
     intervalID = setInterval(fn, interval);
     isNode(destroySync) && mngr.destroySync(dom(destroySync));

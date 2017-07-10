@@ -112,15 +112,9 @@ run(() => {
 
 // observe attributes
 rilti.observeAttr('customAttr', {
-  init(element, value) {
-
-  },
-  update(element, value, oldValue) {
-
-  },
-  destroy(element, value, oldValue) {
-
-  }
+  init(element, value) { ... },
+  update(element, value, oldValue) { ... },
+  destroy(element, value, oldValue) { ... }
 });
 // unobserve Attributes
 rilti.unobserveAttr('customAttr');
@@ -131,15 +125,9 @@ dom['randomtag']({
   render: ".main > header", // render to dom using selectors or nodes
   lifecycle: {
     // manage the element's lifecycle
-    create() {
-
-    },
-    mount() {
-
-    },
-    destroy() {
-
-    }
+    create() { ... },
+    mount() { ... },
+    destroy() { ... }
   }
 });
 
@@ -185,7 +173,7 @@ rilti.Component('tick-box', {
 
 #### weight
 * unminified : > 20kb
-* minified : > 11kb
-* minified && gziped : > 6kb
+* minified : > 10kb
+* minified && gziped : > 5.5kb
 
 #### licence = MIT
