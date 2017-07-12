@@ -170,15 +170,12 @@ window.Tilt = (element, settings = {}) => {
     return element;
 }
 
-  const settingDecoder = (val, settings = {}) => {
-    isStr(val) && val.split(";").forEach(setting => {
-      if(setting.includes(":")) {
-        setting = setting.split(":");
-        settings[setting[0]] = setting[1] === "true" ? true : setting[1] === "false" ? false : setting[1];
-      }
-    });
-    return settings;
-  }
+  const settingDecoder = (val, settings = {}) => (isStr(val) && each(val.split(";"), setting => {
+    if(setting.includes(":")) {
+      setting = setting.split(":");
+      settings[setting[0]] = setting[1] === "true" ? true : setting[1] === "false" ? false : setting[1];
+    }
+  }), settings);
   observeAttr('tilt', {
     init:(el, val) => Tilt(el, settingDecoder(val)),
     update:(el, val) => Tilt(el, settingDecoder(val)),

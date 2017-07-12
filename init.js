@@ -5,8 +5,7 @@ const exec = cmd => new Promise((resolve, reject) => command(cmd, (err, stdout) 
 
 function formatBytes(bytes, decimals) {
     if (bytes == 0) return '0 Bytes';
-    let k = 1000,
-        i = Math.floor(Math.log(bytes) / Math.log(k));
+    let k = 1000, i = Math.floor(Math.log(bytes) / Math.log(k));
     return (bytes / Math.pow(k, i)).toPrecision(decimals + 1 || 3) + ' ' + 'Bytes,KB,MB,GB,TB,PB,EB,ZB,YB'.split(',')[i];
 }
 
