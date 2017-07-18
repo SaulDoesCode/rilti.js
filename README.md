@@ -1,19 +1,19 @@
 # rilti.js :rat:
 
-a small robust and unapologetic view layer library built for the front-end
+a small flavorful and unapologetic view layer library built for the front-end
 
 ##### currently in alpha phase and subject to breaking changes
-Feel free to fork, raise issues. Constructive criticism is welcome
+Feel free to fork or raise issues. Constructive criticism is welcome
 
 ## features
 * lifecycle hooks
 * event management
-* observe attributes
+* create and observe custom attributes
 * streamlined element creation
-* compatible with webcomponents and almost everything else
-* great jquery-like dom manipulation methods using proxy magic
-* powerful yet petite event system
-* useful methods and utilities
+* webcomponents
+* great dom manipulation functions
+* functional pipes
+* powerful yet petite notifier system (pub/sub)
 * no classes no extra fuzz, functional positive
 * written and distributed in plain es2015/es6
 * plugin hooks: add any feature
@@ -22,7 +22,6 @@ rilti.js harnesses the power of Proxy objects to make some magical behavior poss
 
 #### Plugins:
 * rilti-tilt.js - compact mouse motion based element tilting effect, based on vanilla-tilt.js
-* webcomponents.js - rilti.js web component wrapper, rilti.Component(tag, config = {create, mount, destroy, adopted, attr, props, methods})
 
 #### planned features
 * offer collection of useful optional plugins
@@ -30,7 +29,7 @@ rilti.js harnesses the power of Proxy objects to make some magical behavior poss
 ### API
 | method | description  |
 |--------|--------------|
-| ``dom["any-name"]( {=object}, {...children} )`` | where the magic happens, define behavior for elements and see them come to life |
+| ``dom["anytagname"]( {=object}, {...children} )`` | where the magic happens, define behavior for elements and see them come to life |
 | ``dom( {string/node}, {=string/node} )`` | finds nodes and proxifies them, gives them all the dom manip magic |
 | ``dom.query( {string}, {=string/node} )`` | improved alternative to ``document.querySelector``|
 | ``dom.queryAll( {string}, {=string/node} )`` | improved alternative to ``document.querySelectorAll``|
@@ -43,14 +42,74 @@ rilti.js harnesses the power of Proxy objects to make some magical behavior poss
 | ``route( {=hashString}, {function})`` | detect and respond to location.hash changes |
 | ``curry( {function}, {=arity} )`` | curries a function |
 | ``each( {iterable}, {function} )`` | loop through objects, numbers, array(like)s, sets, maps... |
-| ``extend( {host object}, {object} )`` | extends host object with all props of other object |
-| ``safeExtend( {host object}, {object} )`` | extends host object with all props of other object if they don't conflict with host object |
+| ``extend( {host object}, {object}, {=safe bool} )`` | extends host object with all props of other object, won't overwrite if safe is true |
 | ``flatten( {arraylike} )`` | flattens multidimensional arraylike objects |
-| ``notifier( =obj )`` | extendable evtsystem/pub sub pattern |
+| ``notifier( {=obj} )`` | extendable event system /pub sub pattern |
+| ``Component(tag, config = {create, mount, destroy, adopted, attr, props, methods})`` | define custom elements |
 | ``DOMcontains( {node}, {=parent node} )`` | determines whether or not the dom or other node contains a specific node |
 
+### DOM manipulation
+rilti contains a ``domfn`` that contains several useful dom manipulation functions.
+these fucntions will all return the node passed as the first argument unless specified
+otherwise such as with has/get(this/that) type functions
+
+```js
+  const {
+    replace,
+    clone, // (node) clones nodes (and their(+childNodes) event listeners if they were made using ``on || once``)
+    css, // (node, stylePropery, val) || (node, { styleProp:'4em' }) set element.style properties
+    Class, // (node, class, {=state bool}) // add/remove or toggle classes
+    hasClass, // (node, class) -> bool
+    attr, // (node, {attr object/string}, {=val primitive}) // set attrs with objects or string pairs or get attr('type') // -> val
+    removeAttr, // (node, {attr string}) removes attrs
+    hasAttr, // hasAttr(node, {attr string}) -> bool
+    getAttr, // getAttr(node, {attr string}) -> string
+    setAttr, // setAttr(node, {attr string/object}, {=val primitive})
+    attrToggle, // (node, name, state = !node.hasAttribute(name), val = node.getAttribute(name) || '') toggle attrs
+    inner, // (node, childNodes) empties node.innerHTML and appends childNodes
+    emit, // (node, {type string/Event/CustomEvent}) dispatchEvents on node
+    append, prepend, appendTo, prependTo, // (node, {other string/node})
+    remove // (node, {=after number}) // remove node or setTimeout after which to remove
+  } = rilti.domfn;
+
+```
+dom functions that return the node can be piped using rilti.pipe
+```js
+  const {pipe, dom} = rilti, {nav, div, img} = dom;
+
+  pipe(nav())
+  (Class, 'nav-bar') // looks kinda lispy, hey?
+  (css, {
+    position:'fixed',
+    background:'#fff',
+    width:'100%',
+    height:'50px',
+  })
+  (inner,
+    img({src:'/img/logo.jpg'}), div("Home"), div("Blog"), div("About")
+  )
+  // if the first arg of whatever you call this style of doing things
+  // is a bool then the function after it will only execute when it's true
+  (location.hash != '#/specialPage', appendTo, 'body');
+
+  // the above could also be achieved like so
+  const navBar = nav({
+    class: 'nav-bar',
+    css: {
+      position:'fixed',
+      background:'#fff',
+      width:'100%',
+      height:'50px',
+    }
+  },
+    img({src:'/img/logo.jpg'}), div("Home"), div("Blog"), div("About")
+  );
+
+  if(location.hash != '#/specialPage') appendTo(navBar, 'body');
+```
+
 ##### rilti also exports a couple of useful type testing functions
-usage : ``rilti.isX( {any} ) // -> boolean``  
+usage : ``rilti.isX( {any} ) // -> boolean``
 isBool, isFunc,
 isDef, isUndef,
 isNull, isEmpty,
@@ -68,8 +127,8 @@ isInput, isPrimitive
 ```javascript
 
 const {dom, run, render} = rilti;
-// pre-tagged element creation methods, custom element names like dom['custom_element-x'] works too
 const {div, nav} = dom;
+const {Class, hasClass, attr, css} = domfn;
 
 function goHome() {
   location.replace("https://mysite:3000/#home");
@@ -81,28 +140,18 @@ const navbutton = (inner, click) => div({
 }, inner);
 
 const navbar = nav({
+    render:'body',
     class : 'navbar',
-    style : {
-      color : '#fff',
-    },
-    attr : {
-      id : 'mainbar'
-    },
-    props : {
-      toggle() {
-        this.class('hidden');
-      },
-      get isToggled() {
-        return this.class.hidden;
-      }
+    css : { color : '#fff' },
+    attr : { id : 'mainbar' },
+    toggle() { Class(navbar,'hidden') },
+    get isToggled() {
+        return hasClass(navbar, 'hidden');
     }
   },    
   'My Company Title',
   navbutton('home', goHome)
 );
-
-// render your nodes
-render(navbar)("body");
 
 run(() => {
   // run post-dom-load code here
@@ -111,13 +160,13 @@ run(() => {
 });
 
 // observe attributes
-rilti.observeAttr('customAttr', {
+rilti.observeAttr('custom-attr', {
   init(element, value) { ... },
   update(element, value, oldValue) { ... },
   destroy(element, value, oldValue) { ... }
 });
 // unobserve Attributes
-rilti.unobserveAttr('customAttr');
+rilti.unobserveAttr('custom-attr');
 
 
 // create elements with any tag
@@ -131,40 +180,44 @@ dom['randomtag']({
   }
 });
 
+// Web Components
+const {pipe} = rilti;
+const {on} = dom;
+const {css} = domfn;
 
-// or use the webcomponent.js plugin
 rilti.Component('tick-box', {
   props: {
     get ticked() {
-      return this.attr['data-ticked'] === 'true';
+      return attr(this, 'data-ticked') === 'true';
     },
     set ticked(val) {
-      if(!this.disabled) {
-        this.attr['data-ticked'] = val;
-        this.css({
-          backgroundColor: this.ticked ? 'dimgrey' : 'white',
-          border: `1px solid ${this.ticked ? 'white' : 'dimgrey'}`
+      if(!this.disabled) pipe(this)
+        (attr, 'data-ticked', val)
+        (css, {
+          backgroundColor: val ? 'dimgrey' : 'white',
+          border: `1px solid ${val ? 'white' : 'dimgrey'}`
         });
-      }
     }
   },
   mount(element) {
-   element.css({
+   pipe(element)
+   (css, {
      display:'block',
      width:'20px',
      height: '20px',
      margin:'5px auto',
      cursor:'pointer',
-     backgroundColor: this.ticked ? 'dimgrey' : 'white',
-     border: `1px solid ${this.ticked ? 'white' : 'dimgrey'}`
-   }).on.click(() => element.ticked = !element.ticked); // or element.on('click', fn)
+     backgroundColor: element.ticked ? 'dimgrey' : 'white',
+     border: `1px solid ${element.ticked ? 'white' : 'dimgrey'}`
+   })
+   (on, 'click', () => element.ticked = !element.ticked);
   },
   destroy(element) {
    console.log('tick-box is no more :(');
   },
   attr: {
     disabled(oldValue, value, element) {
-      element.css('cursor', value === 'true' ? 'not-allowed' : '');
+      css(element, 'cursor', value === 'true' ? 'not-allowed' : '');
     }
   }
 });
@@ -172,8 +225,8 @@ rilti.Component('tick-box', {
 ```
 
 #### weight
-* unminified : > 20kb
+* unminified : > 18kb
 * minified : > 10kb
-* minified && gziped : > 5.5kb
+* minified && compressed : > 5kb
 
 #### licence = MIT

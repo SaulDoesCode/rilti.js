@@ -9,7 +9,8 @@
  */
 {
 "use strict";
-const {isNode,isNodeList,isArr,isStr,dom,each,observeAttr} = rilti, {on, div} = dom,
+const {isNode,isNodeList,isArr,isStr,domfn,dom,each,observeAttr} = rilti,
+{on, div} = dom, {css} = domfn;
 isSettingTrue = setting => setting === "" || setting === true || setting === 1,
 defaultSettings = {
   reverse: false,
@@ -25,15 +26,14 @@ defaultSettings = {
   reset: true
 };
 
-window.Tilt = (element, settings = {}) => {
+var Tilt = (element, settings = {}) => {
     if(isStr(element)) element = dom.queryAll(element);
     if (!isNode(element)) {
       if(isNodeList(element)) return each(element, el => Tilt(el, settings));
       throw `Can't initialize Tilt because ${element} is not a Node.`;
     }
 
-    element = dom(element);
-    if(element.pure.tiltOff) element.pure.tiltOff();
+    if(element.tiltOff) element.tiltOff();
 
     let width = null,
         height = null,
@@ -78,7 +78,7 @@ window.Tilt = (element, settings = {}) => {
 
       var onWindowResize = on(window, "resize", () => {
         const offset = `${element.offsetWidth * 2}`;
-        glareElement.css = {width:offset,height:offset};
+        css(glareElement, {width:offset,height:offset});
       });
     }
 
@@ -112,7 +112,7 @@ window.Tilt = (element, settings = {}) => {
           rotateY(${settings.axis === "y" ? 0 : tiltX}deg)
           scale3d(${settings.scale},${settings.scale},${settings.scale})`;
 
-        glare && glareElement.css({
+        glare && css(glareElement, {
           transform: `rotate(${angle}deg) translate(-50%, -50%)`,
           opacity: `${percentageY * settings["max-glare"] / 100}`
         });
@@ -120,8 +120,8 @@ window.Tilt = (element, settings = {}) => {
         updateCall = null;
     }
 
-    const onMouseEnter = element.on("mouseenter", () => {
-      const rect = element.rect;
+    const onMouseEnter = on(element, "mouseenter", () => {
+      const rect = element.getBoundingClientRect();
 
       width = element.offsetWidth;
       height = element.offsetHeight;
@@ -131,13 +131,13 @@ window.Tilt = (element, settings = {}) => {
       setTransition();
     });
 
-    const onMouseMove = element.on("mousemove", evt => {
+    const onMouseMove = on(element, "mousemove", evt => {
       if (updateCall !== null) cancelAnimationFrame(updateCall);
       event = evt;
       updateCall = requestAnimationFrame(update);
     });
 
-    const onMouseLeave = element.on("mouseleave", () => {
+    const onMouseLeave = on(element, "mouseleave", () => {
       setTransition();
       if (settings.reset) {
         requestAnimationFrame(() => {
@@ -148,14 +148,14 @@ window.Tilt = (element, settings = {}) => {
           element.style.transform = `perspective(${settings.perspective}px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)`;
         });
 
-        glare && glareElement.css({
+        glare && css(glareElement, {
           transform: 'rotate(180deg) translate(-50%, -50%)',
           opacity: '0'
         });
       }
     });
 
-    element.pure.tiltOff = () => {
+    element.tiltOff = () => {
       onMouseEnter.off();
       onMouseMove.off();
       onMouseLeave.off();
@@ -164,7 +164,7 @@ window.Tilt = (element, settings = {}) => {
         glareElementWrapper.remove();
       }
       if (updateCall !== null) cancelAnimationFrame(updateCall);
-      element.pure.tiltOff = null;
+      element.tiltOff = null;
       return element;
     }
     return element;
