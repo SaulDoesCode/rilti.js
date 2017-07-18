@@ -53,17 +53,16 @@ each = (iterable, func, i = 0) => {
 
 def = Object.defineProperty,
 getdesc = Object.getOwnPropertyDescriptor,
-extend = (host, obj, safe = false) => (!isEmpty(obj) && each(Object.keys(obj), key => !(safe || key in host) && def(host, key, getdesc(obj, key))), host),
+extend = (host, obj, safe = false) => (!isEmpty(obj) && each(Object.keys(obj), key => (!safe || (safe && !(key in host))) && def(host, key, getdesc(obj, key))), host),
 flatten = arr => isArrlike(arr) ? arrMeth("reduce", arr, (flat, toFlatten) => flat.concat(isArr(toFlatten) ? flatten(toFlatten) : toFlatten), []) : [arr],
 
-pipe = curry((val, fn, ...args) => {
+pipe = val => (fn, ...args) => {
   if(isBool(fn) && isFunc(args[0])) {
     if(!fn) return pipe(val);
     fn = args.shift();
   }
-  const nextVal = fn(val, ...args);
-  return pipe(nextVal !== undef ? nextVal : val);
-}, 2),
+  return pipe(fn(val, ...args) || val);
+},
 
 query = (selector, element = doc) => (isStr(element) ? doc.querySelector(element) : element).querySelector(selector),
 queryAll = (selector, element = doc) => Array.from((isStr(element) ? query(element) : element).querySelectorAll(selector)),
