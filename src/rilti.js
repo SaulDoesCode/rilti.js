@@ -46,20 +46,14 @@ isEq = curry((o1,...vals) => vals.every(isFunc(o1) ? i => o1(i) : i => o1 === i)
 each = (iterable, func, i = 0) => {
   if(!isEmpty(iterable)) {
     iterable[forEach] ? iterable[forEach](func) : isArrlike(iterable) && arrMeth(forEach, iterable, func);
-    if(isObj(iterable)) {
-      const keys = Object.keys(iterable), max = keys.length;
-      while(i < max) {
-        func(iterable[keys[i]], keys[i], iterable);
-        i++;
-      }
-    }
+    if(isObj(iterable)) for(i in iterable) func(iterable[i], i, iterable);
   } else if (isInt(iterable)) while (iterable != i) func(i++);
   return iterable;
 },
 
 def = Object.defineProperty,
 getdesc = Object.getOwnPropertyDescriptor,
-extend = curry((host, obj, safe) => (!isEmpty(obj) && each(Object.keys(obj), key => !(safe || key in host) && def(host, key, getdesc(obj, key))), host)),
+extend = (host, obj, safe = false) => (!isEmpty(obj) && each(Object.keys(obj), key => !(safe || key in host) && def(host, key, getdesc(obj, key))), host),
 flatten = arr => isArrlike(arr) ? arrMeth("reduce", arr, (flat, toFlatten) => flat.concat(isArr(toFlatten) ? flatten(toFlatten) : toFlatten), []) : [arr],
 
 pipe = curry((val, fn, ...args) => {
@@ -278,7 +272,9 @@ dom = new Proxy(extend((selector, element = doc) => isNode(selector) ? selector 
 
 mountORdestroy = (stack, type) => {
   const isMount = type === 'mount';
-  if(stack.length > 0) for(let node of stack) if(node.dispatchEvent && !(node.isMounted && isMount)) node.dispatchEvent(isMount ? mountEVT : destroyEVT);
+  if(stack.length > 0) each(stack, node =>
+    (node.dispatchEvent && !(node.isMounted && isMount)) && node.dispatchEvent(isMount ? mountEVT : destroyEVT)
+  );
 },
 
 intervalManager = (interval, fn, destroySync, intervalID, mngr = ({
