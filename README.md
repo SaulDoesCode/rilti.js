@@ -18,8 +18,6 @@ Feel free to fork or raise issues. Constructive criticism is welcome
 * written and distributed in plain es2015/es6
 * plugin hooks: add any feature
 
-rilti.js harnesses the power of Proxy objects to make some magical behavior possible.
-
 #### Plugins:
 * rilti-tilt.js - compact mouse motion based element tilting effect, based on vanilla-tilt.js
 
