@@ -14,20 +14,19 @@ NULL = null,
 forEach = 'forEach',
 InputTypes = 'INPUT TEXTAREA',
 // it's ugly, I know but damnit it's beautiful to me
-curry = (fn, arity = fn.length, resolver = (...memory) => (...more) => ((more.length + memory.length) >= arity ? fn : resolver)(...memory.concat(more))) => resolver(),
+curry = (fn, arity = fn.length, next = (...memory) => (...more) => ((more.length + memory.length) >= arity ? fn : next)(...memory.concat(more))) => next(),
 
 test = (match, ...cases) => cases.some(Case => match == Case || (isFunc(Case) && Case(match))), // irony
 arrMeth = curry((meth, val, ...args) => Array.prototype[meth].apply(val, args), 2),
-istype = str => obj => typeof obj == str,
 typeinc = str => obj => toString.call(obj).indexOf(str) !== -1,
 // all the is this that stuff
 isInstance = (o, t) => o instanceof t,
 isDef = o => o !== undef && o !== NULL,
-isUndef = o => !isDef(o),
+isUndef = o => o === undef || o === NULL,
 isNull = o => o === NULL,
-isFunc = istype('function'),
-isStr = istype('string'),
-isBool = istype('boolean'),
+isFunc = o =>  typeof o =='function',
+isStr =  o => typeof o =='string',
+isBool = o =>  o === true || o === false,
 isNum = o => !isBool(o) && !isNaN(Number(o)),
 isPrimitive = s => isStr(s) || isBool(s) || !isNaN(s),
 isInt = val => isNum(val) && val % 1 === 0,
@@ -56,35 +55,33 @@ getdesc = Object.getOwnPropertyDescriptor,
 extend = (host, obj, safe = false) => (!isEmpty(obj) && each(Object.keys(obj), key => (!safe || (safe && !(key in host))) && def(host, key, getdesc(obj, key))), host),
 flatten = arr => isArrlike(arr) ? arrMeth("reduce", arr, (flat, toFlatten) => flat.concat(isArr(toFlatten) ? flatten(toFlatten) : toFlatten), []) : [arr],
 
-pipe = val => (fn, ...args) => {
-  if(isBool(fn) && isFunc(args[0])) {
-    if(!fn) return pipe(val);
-    fn = args.shift();
-  }
-  return pipe(fn(val, ...args) || val);
-},
+// aren't fuggly one liners just the best
+pipe = val => (fn, ...args) => typeof fn == "function" ? pipe(fn(val, ...args)) : fn === true ? pipe(args.shift()(val, ...args)) : !args.length && !fn ? val : pipe(val),
+composePlain = (f, g) => (...args) => f(g(...args)),
+compose = (...fns) => fns.reduce(composePlain),
 
 query = (selector, element = doc) => (isStr(element) ? doc.querySelector(element) : element).querySelector(selector),
 queryAll = (selector, element = doc) => Array.from((isStr(element) ? query(element) : element).querySelectorAll(selector)),
 queryEach = (selector, func, element = doc) => (!isFunc(func) && ([func, element] = [element, doc]), each(queryAll(selector, element), func)),
 DOMcontains = (descendant, parent = doc) => parent == descendant || Boolean(parent.compareDocumentPosition(descendant) & 16),
 
-terr = msg => {throw new TypeError(msg)}, err = msg => {throw new Error(msg)},
+err = msg => new Error(msg),
+newEVT = t => new CustomEvent(t),
+mountEVT = newEVT('mount'),
+destroyEVT = newEVT('destroy'),
+createEVT = newEVT('create'),
+adoptedEVT = newEVT('adopted'),
 
-mountEVT = new CustomEvent('mount'),
-destroyEVT = new CustomEvent('destroy'),
-createEVT = new CustomEvent('create'),
-adoptedEVT = new CustomEvent('adopted'),
-eventListeners = new Map,
+eventListeners = new Map, // for cloning nodes and odd cases
 
 EventManager = curry((state, target, type, handle, options = false, once) => {
   if(isStr(target)) target = query(target);
-  if(!target.addEventListener) err('bad event target');
+  if(!target.addEventListener) throw err('bad event target');
   if(isNode(target) && !eventListeners.has(target)) {
     eventListeners.set(target, new Set);
     EventManager('once', target, 'destroy', () => eventListeners.delete(target));
   }
-  function handler(evt) {
+  const handler = evt => {
     handle.call(target, evt, target);
     if(once) target.removeEventListener(type, handler);
   }
@@ -92,14 +89,16 @@ EventManager = curry((state, target, type, handle, options = false, once) => {
   const remove = () => {
     target.removeEventListener(type, handler);
     eventListeners.has(target) && eventListeners.get(target).delete(manager);
-  },
-  add = mode => {
+  }
+
+  const add = mode => {
     once = !!mode;
     remove();
     target.addEventListener(type, handler, options);
     eventListeners.has(target) && eventListeners.get(target).add(manager);
-  },
-  manager = {
+  }
+
+  const manager = {
     reseat(newTarget, removeOriginal) {
       if(removeOriginal) remove();
       return EventManager(state, newTarget, type, handle, options, once);
@@ -110,7 +109,9 @@ EventManager = curry((state, target, type, handle, options = false, once) => {
   }
   return manager[state]();
 }, 4),
-once = EventManager('once'), on = EventManager('on'),
+
+once = EventManager('once'),
+on = EventManager('on'),
 
 Nhandler = (handles, N, type, handle, one) => {
   handle.one = !!one;
@@ -177,7 +178,7 @@ domfn = {
     c.indexOf(' ') !== -1 ? each(c.split(' '), cls => node.classList[state](cls)) : node.classList[state](c);
     return node;
   }, 2),
-  hasClass:(node, name) => node.classList.contains(name),
+  hasClass:curry((node, name) => node.classList.contains(name)),
   attr:curry((node, attr, val) => {
     if(node.attributes) {
       if(isObj(attr)) each(attr, (v, a) => {
@@ -208,7 +209,7 @@ domfn = {
 
 render = curry((elements, node = 'body') => {
   if(isNode(node)) append(node, elements);
-  if(isStr(node)) node == 'head' ? append(doc.head, elements) : run(() => isNode(node = node == 'body' ? doc.body : query(node)) ? append(node, elements) : err('render: invalid target'));
+  if(isStr(node)) node == 'head' ? append(doc.head, elements) : run(() => isNode(node = node == 'body' ? doc.body : query(node)) && append(node, elements));
 }, 2),
 
 plugins = extend(options => extend(rilti, options, true), {
@@ -287,7 +288,7 @@ intervalManager = (interval, fn, destroySync, intervalID, mngr = ({
 })) => mngr.start(),
 
 Component = (tag, config) => {
-  if(!tag.includes('-')) return err(tag+" is unhyphenated");
+  if(!tag.includes('-')) throw err(tag+" is unhyphenated");
   const {create, mount, destroy, attr, props, methods, adopted} = config, attrs = [];
   attr && each(attr, (_, key) => attrs.push(key));
 
@@ -337,9 +338,9 @@ once(root, 'DOMContentLoaded', () => {
 new MutationObserver(muts => each(muts, ({addedNodes, removedNodes, target, attributeName, oldValue}) => {
   mountORdestroy(addedNodes, 'mount');
   mountORdestroy(removedNodes, 'destroy');
-  if(attributeName && (attributeName !== 'style')) checkAttr(attributeName, target, oldValue);
+  if(attributeName && attributeName != 'style' && observedAttributes.has(name)) checkAttr(attributeName, target, oldValue);
   //target.emit('attr:'+attributeName,target,target.attr[attributeName],oldValue);
 })).observe(doc, {attributes:true, childList:true, subtree:true});
 
-return {dom,domfn,notifier,pipe,Component,observeAttr,unobserveAttr,plugins,intervalManager,extend,def,getdesc,test,route,render,run,curry,each,DOMcontains,flatten,isDef,isUndef,isPrimitive,isNull,isFunc,isStr,isBool,isNum,isInt,isObj,isArr,isArrlike,isEmpty,isEl,isEq,isNode,isNodeList,isInput,isMap,isSet};
+return {dom,domfn,notifier,pipe,compose,Component,observeAttr,unobserveAttr,plugins,intervalManager,extend,def,getdesc,test,route,render,run,curry,each,DOMcontains,flatten,isDef,isUndef,isPrimitive,isNull,isFunc,isStr,isBool,isNum,isInt,isObj,isArr,isArrlike,isEmpty,isEl,isEq,isNode,isNodeList,isInput,isMap,isSet};
 })();
