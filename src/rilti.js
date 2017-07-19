@@ -17,7 +17,8 @@ InputTypes = 'INPUT TEXTAREA',
 curry = (fn, arity = fn.length, next = (...memory) => (...more) => ((more.length + memory.length) >= arity ? fn : next)(...memory.concat(more))) => next(),
 
 test = (match, ...cases) => cases.some(Case => match == Case || (isFunc(Case) && Case(match))), // irony
-arrMeth = curry((meth, val, ...args) => Array.prototype[meth].apply(val, args), 2),
+arrMeth = (meth, val, ...args) => Array.prototype[meth].apply(val, args),
+arrEach = arrMeth.bind(NULL, forEach),
 typeinc = str => obj => toString.call(obj).indexOf(str) !== -1,
 // all the is this that stuff
 isInstance = (o, t) => o instanceof t,
@@ -44,7 +45,7 @@ isEq = curry((o1,...vals) => vals.every(isFunc(o1) ? i => o1(i) : i => o1 === i)
 
 each = (iterable, func, i = 0) => {
   if(!isEmpty(iterable)) {
-    iterable[forEach] ? iterable[forEach](func) : isArrlike(iterable) && arrMeth(forEach, iterable, func);
+    iterable[forEach] ? iterable[forEach](func) : isArrlike(iterable) && arrEach(iterable, func);
     if(isObj(iterable)) for(i in iterable) func(iterable[i], i, iterable);
   } else if (isInt(iterable)) while (iterable != i) func(i++);
   return iterable;
@@ -55,10 +56,10 @@ getdesc = Object.getOwnPropertyDescriptor,
 extend = (host, obj, safe = false) => (!isEmpty(obj) && each(Object.keys(obj), key => (!safe || (safe && !(key in host))) && def(host, key, getdesc(obj, key))), host),
 flatten = arr => isArrlike(arr) ? arrMeth("reduce", arr, (flat, toFlatten) => flat.concat(isArr(toFlatten) ? flatten(toFlatten) : toFlatten), []) : [arr],
 
-// aren't fuggly one liners just the best
-pipe = val => (fn, ...args) => typeof fn == "function" ? pipe(fn(val, ...args)) : fn === true ? pipe(args.shift()(val, ...args)) : !args.length && !fn ? val : pipe(val),
 composePlain = (f, g) => (...args) => f(g(...args)),
 compose = (...fns) => fns.reduce(composePlain),
+// aren't fuggly one liners just the best
+pipe = val => (fn, ...args) => typeof fn == "function" ? pipe(fn(val, ...args)) : fn === true ? pipe(args.shift()(val, ...args)) : !args.length && !fn ? val : pipe(val),
 
 query = (selector, element = doc) => (isStr(element) ? doc.querySelector(element) : element).querySelector(selector),
 queryAll = (selector, element = doc) => Array.from((isStr(element) ? query(element) : element).querySelectorAll(selector)),
@@ -143,9 +144,16 @@ route = notifier((hash, fn) => {
   if(isFunc(hash)) [fn, hash] = [hash, 'default'];
   if(location.hash == hash || (!location.hash && hash == 'default')) fn();
   return route.on(hash, fn);
-}),
+});
 
-run = fn => ready ? fn() : LoadStack.push(fn),
+let LoadStack = new Set, ready = false;
+once(root, 'DOMContentLoaded', () => {
+  ready = true;
+  each(LoadStack, fn => fn());
+  LoadStack = NULL;
+});
+
+const run = fn => ready ? fn() : LoadStack.add(fn),
 html = html => {
   html = isNode(html) ? html : doc.createRange().createContextualFragment(html || '');
   if(!(html.isCreated || (html.isConnected && !html.isMounted))) html.dispatchEvent(createEVT);
@@ -209,15 +217,8 @@ domfn = {
 
 render = curry((elements, node = 'body') => {
   if(isNode(node)) append(node, elements);
-  if(isStr(node)) node == 'head' ? append(doc.head, elements) : run(() => isNode(node = node == 'body' ? doc.body : query(node)) && append(node, elements));
+  if(isStr(node)) node == 'head' ? append(doc.head, elements) : run(() => isNode(node = node == 'body' ? doc[node] : query(node)) && append(node, elements));
 }, 2),
-
-plugins = extend(options => extend(rilti, options, true), {
-  method(key, method) {
-    if(isFunc(method)) domfn[key] = method;
-  },
-  handles:new Set
-}),
 
 observedAttributes = new Map,
 attrInit = (el,name) => (el[name+"_init"] = true, el),
@@ -238,30 +239,33 @@ checkAttr = (name, el, oldValue) => {
 
 lifecycleStages = ['create','mount','destroy','attr'],
 create = (tag, options, ...children) => {
-  const el = doc.createElement(tag), mutPipe = pipe(el);
-  if(test(options, isArrlike, isNode)) children = test(options, isStr, isNode) ? [options, ...children] : options;
-  else if(isObj(options)) {
-    each(options, (val, key) => {
-      if(key != 'render') {
-        if(key == 'lifecycle') each(lifecycleStages, stage => isFunc(val[stage]) && (stage == 'create' ? once : on)(el, stage, () => val[stage].call(el, el)));
-        else if(test(key,'class','className')) el.className = val;
-        else if(test(key,'style','css') && el.style) domfn.css(el, val);
-        else if(test(key,'on','once')) each(val, (handle, type) => (key == 'once' ? once : on)(el, type, handle));
-        else if(key == 'action') on(el, 'click', val);
-        else if(isFunc(val) || (key in el)) el[key] = val;
-        else if(key == 'attr' || (isPrimitive(val) && !attr(el, key, val))) attr(el, val);
-        else if(isObj(val)) extend(el, val);
+  const el = doc.createElement(tag);
+  if(isNode(options) || isStr(options)) children.unshift(options);
+  else if(isArrlike(options)) children.unshift(...options);
+  if(!isEmpty(children)) append(el, children);
+  if(isObj(options)) {
+    for(const key in options) {
+      const option = options[key];
+      if(key === 'class' || test === 'className') el.className = option;
+      else if(key === 'css' && el.style) domfn.css(el, option);
+      else if(key === 'on' || key === 'once') each(option, (handle, type) => EventManager(key, el, type, handle));
+      else if(key in el) el[key] = option;
+      else if(key === 'attr') attr(el, option);
+      else if(key === 'action') el.action = on(el, 'click', option);
+      else if(isObj(option)) {
+        if(key !== 'lifecycle') extend(el, option);
+        else each(lifecycleStages, stage => {
+          if(isFunc(option[stage])) (stage === 'create' ? once : on)(el, stage, option[stage].bind(el, el))
+        });
       }
-    });
-    each(plugins.handles, handle => handle(options, el));
+    }
+    if(options.render) options.render.appendChild ? options.render.appendChild(el) : render(el, options.render);
   }
-  mutPipe
-  (emit, createEVT)
-  (!isEmpty(children), append, children)
-  (once, 'mount', () => el.isMounted = true);
-
-  if(options && options.render) render(el, options.render);
-  mutPipe((doc.contains(el) || el.isConnected) && !el.isMounted, emit, mountEVT);
+  emit(el, createEVT);
+  if(!el.isMounted && (el.isConnected || doc.contains(el))) {
+    el.isMounted = true;
+    emit(el, mountEVT);
+  } else once(el, 'mount', () => el.isMounted = true);
   return el;
 },
 
@@ -269,13 +273,6 @@ dom = new Proxy(extend((selector, element = doc) => isNode(selector) ? selector 
   get:(d, key) => key in d ? d[key] : create.bind(NULL, key),
   set:(d,key, val) => d[key] = val
 }),
-
-mountORdestroy = (stack, type) => {
-  const isMount = type === 'mount';
-  if(stack.length > 0) each(stack, node =>
-    (node.dispatchEvent && !(node.isMounted && isMount)) && node.dispatchEvent(isMount ? mountEVT : destroyEVT)
-  );
-},
 
 intervalManager = (interval, fn, destroySync, intervalID, mngr = ({
   stop:() => (clearInterval(intervalID), mngr),
@@ -295,9 +292,7 @@ Component = (tag, config) => {
   const CustomElement = class extends HTMLElement {
     constructor() {
       super();
-      const element = this;
-      element.isComponent = true;
-      extend(element, props);
+      const element = extend(this, props);
       if(isFunc(create)) create.call(element, element);
       emit(element, createEVT);
     }
@@ -317,30 +312,22 @@ Component = (tag, config) => {
       emit(element, adoptedEVT);
     }
     static get observedAttributes() { return attrs; }
-    attributeChangedCallback(attrName, oldVal, newVal) {
-      if(oldVal !== newVal) {
-        const element = this;
-        attr[attrName].call(element, oldVal, newVal, element);
-      }
+    attributeChangedCallback(attrname, oldval, newval) {
+      if(oldVal !== newVal) attr[attrname].call(this, newval, oldval, this);
     }
   }
   if(methods) extend(CustomElement.prototype, methods);
   customElements.define(tag, CustomElement);
-}
+},
 
-let LoadStack = [], ready = false;
-once(root, 'DOMContentLoaded', () => {
-  ready = true;
-  each(LoadStack, fn => fn());
-  LoadStack = NULL;
-});
+mountORdestroy = (stack, type) => stack.length > 0 && each(stack, node => (node.dispatchEvent && !node.isMounted) && node.dispatchEvent(type));
 
 new MutationObserver(muts => each(muts, ({addedNodes, removedNodes, target, attributeName, oldValue}) => {
-  mountORdestroy(addedNodes, 'mount');
-  mountORdestroy(removedNodes, 'destroy');
-  if(attributeName && attributeName != 'style' && observedAttributes.has(name)) checkAttr(attributeName, target, oldValue);
+  mountORdestroy(addedNodes, mountEVT);
+  mountORdestroy(removedNodes, destroyEVT);
+  if(attributeName && attributeName != 'style') checkAttr(attributeName, target, oldValue);
   //target.emit('attr:'+attributeName,target,target.attr[attributeName],oldValue);
 })).observe(doc, {attributes:true, childList:true, subtree:true});
 
-return {dom,domfn,notifier,pipe,compose,Component,observeAttr,unobserveAttr,plugins,intervalManager,extend,def,getdesc,test,route,render,run,curry,each,DOMcontains,flatten,isDef,isUndef,isPrimitive,isNull,isFunc,isStr,isBool,isNum,isInt,isObj,isArr,isArrlike,isEmpty,isEl,isEq,isNode,isNodeList,isInput,isMap,isSet};
+return {dom,domfn,notifier,pipe,compose,Component,observeAttr,unobserveAttr,intervalManager,extend,def,getdesc,test,route,render,run,curry,each,DOMcontains,flatten,isDef,isUndef,isPrimitive,isNull,isFunc,isStr,isBool,isNum,isInt,isObj,isArr,isArrlike,isEmpty,isEl,isEq,isNode,isNodeList,isInput,isMap,isSet};
 })();

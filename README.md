@@ -16,7 +16,6 @@ Feel free to fork or raise issues. Constructive criticism is welcome
 * powerful yet petite notifier system (pub/sub)
 * no classes no extra fuzz, functional positive
 * written and distributed in plain es2015/es6
-* plugin hooks: add any feature
 
 #### Plugins:
 * rilti-tilt.js - compact mouse motion based element tilting effect, based on vanilla-tilt.js
@@ -45,6 +44,20 @@ Feel free to fork or raise issues. Constructive criticism is welcome
 | ``notifier( {=obj} )`` | extendable event system /pub sub pattern |
 | ``Component(tag, config = {create, mount, destroy, adopted, attr, props, methods})`` | define custom elements |
 | ``DOMcontains( {node}, {=parent node} )`` | determines whether or not the dom or other node contains a specific node |
+
+##### rilti also exports a couple of useful type testing functions
+usage : ``rilti.isX( {any} ) // -> boolean``
+isBool, isFunc,
+isDef, isUndef,
+isNull, isEmpty,
+isNum, isInt,
+isStr,isObj,
+isArr, isArrlike,
+isMap, isSet,
+isEl, isNode, isNodeList,
+isInput, isPrimitive
+
+#### example time!!!
 
 ### DOM manipulation
 rilti contains a ``domfn`` that contains several useful dom manipulation functions.
@@ -105,20 +118,6 @@ dom functions that return the node can be piped using rilti.pipe
 
   if(location.hash != '#/specialPage') appendTo(navBar, 'body');
 ```
-
-##### rilti also exports a couple of useful type testing functions
-usage : ``rilti.isX( {any} ) // -> boolean``
-isBool, isFunc,
-isDef, isUndef,
-isNull, isEmpty,
-isNum, isInt,
-isStr,isObj,
-isArr, isArrlike,
-isMap, isSet,
-isEl, isNode, isNodeList,
-isInput, isPrimitive
-
-#### example time!!!
 
 [rilti.js todomvc](https://github.com/SaulDoesCode/rilti.js-todomvc)
 
