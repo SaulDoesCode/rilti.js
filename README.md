@@ -1,4 +1,4 @@
-# rilti.js :dizzy:
+# :dizzy: rilti.js :dizzy:
 
 a small flavorful and unapologetic view layer library built for the front-end
 
@@ -129,7 +129,7 @@ dom functions that return the node can be piped using rilti.pipe
 <script src="/rilti/dist/rilti.min.js"></script>
 <script>
   const testRilti = (count = 10000) => {
-    const each = rilti.each, div = rilti.dom.span;
+    const each = rilti.each, span = rilti.dom.span;
     const start = performance.now();
 
     each(count, i => {
