@@ -43,11 +43,24 @@ isSet = typeinc('Set'),
 isInput = el => isEl(el) && InputTypes.indexOf(el.tagName) !== -1,
 isEq = curry((o1,...vals) => vals.every(isFunc(o1) ? i => o1(i) : i => o1 === i), 2),
 
+yieldloop = (count, fn, done, chunksize = 60, i = 0) => {
+    const chunk = () => {
+      const end = Math.min(i + chunksize, count);
+      while(i < end) {
+        fn(i);
+        ++i;
+      }
+      if (i < count) setTimeout(chunk, 0);
+      else if(done) done();
+    }
+    chunk();
+},
+
 each = (iterable, func, i = 0) => {
   if(!isEmpty(iterable)) {
     iterable[forEach] ? iterable[forEach](func) : isArrlike(iterable) && arrEach(iterable, func);
     if(isObj(iterable)) for(i in iterable) func(iterable[i], i, iterable);
-  } else if (isInt(iterable)) while (iterable != i) func(i++);
+  } else if (isInt(iterable)) yieldloop(iterable, func);
   return iterable;
 },
 
@@ -114,6 +127,20 @@ EventManager = curry((state, target, type, handle, options = false, once) => {
 once = EventManager('once'),
 on = EventManager('on'),
 
+debounce = (func, wait, immediate) => {
+	let timeout;
+	return (...args) => {
+		const later = () => {
+			timeout = null;
+			if (!immediate) func(...args);
+		},
+    callNow = immediate && !timeout;
+		clearTimeout(timeout);
+		timeout = setTimeout(later, wait);
+		if(callNow) func(...args);
+	}
+},
+
 Nhandler = (handles, N, type, handle, one) => {
   handle.one = !!one;
   handle.type = type;
@@ -128,10 +155,13 @@ notifier = (host = {}) => {
     once:(type, handle) => Nhandler(handles, N, type, handle, true),
     off:(type, handle) => ((handles.has(type) && !handles.get(type).delete(handle).size) && handles.delete(type), N),
     hasListener:type => handles.has(type),
-    emit:(type, ...args) => (each(handles.get(type), handle => {
-      handle(...args);
-      handle.one && handle.off();
-    }), N)
+    emit(type, ...args) {
+      if(handles.has(type)) handles.get(type).forEach(handle => {
+          handle(...args);
+          handle.one && handle.off();
+      });
+      return N;
+    }
   });
   return N;
 },
@@ -329,5 +359,5 @@ new MutationObserver(muts => each(muts, ({addedNodes, removedNodes, target, attr
   //target.emit('attr:'+attributeName,target,target.attr[attributeName],oldValue);
 })).observe(doc, {attributes:true, childList:true, subtree:true});
 
-return {dom,domfn,notifier,pipe,compose,Component,observeAttr,unobserveAttr,intervalManager,extend,def,getdesc,test,route,render,run,curry,each,DOMcontains,flatten,isDef,isUndef,isPrimitive,isNull,isFunc,isStr,isBool,isNum,isInt,isObj,isArr,isArrlike,isEmpty,isEl,isEq,isNode,isNodeList,isInput,isMap,isSet};
+return {dom,domfn,notifier,pipe,compose,yieldloop,debounce,Component,observeAttr,unobserveAttr,intervalManager,extend,def,getdesc,test,route,render,run,curry,each,DOMcontains,flatten,isDef,isUndef,isPrimitive,isNull,isFunc,isStr,isBool,isNum,isInt,isObj,isArr,isArrlike,isEmpty,isEl,isEq,isNode,isNodeList,isInput,isMap,isSet};
 })();

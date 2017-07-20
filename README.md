@@ -1,4 +1,4 @@
-# rilti.js :rat:
+# rilti.js :dizzy:
 
 a small flavorful and unapologetic view layer library built for the front-end
 
@@ -9,12 +9,12 @@ Feel free to fork or raise issues. Constructive criticism is welcome
 * lifecycle hooks
 * event management
 * create and observe custom attributes
-* streamlined element creation
-* webcomponents
+* fast and streamlined element creation
 * great dom manipulation functions
-* functional pipes
+* functional pipes & composition
 * powerful yet petite notifier system (pub/sub)
-* no classes no extra fuzz, functional positive
+* webcomponents
+* no classes, no this, no extra fuzz, functional positive
 * written and distributed in plain es2015/es6
 
 #### Plugins:
@@ -37,7 +37,9 @@ Feel free to fork or raise issues. Constructive criticism is welcome
 | ``render( {...node} )( {=parent/document.body} )`` | renders nodes to document.body or node of your choice |
 | ``run( {function} )`` | executes a given function when the DOM is loaded |
 | ``route( {=hashString}, {function})`` | detect and respond to location.hash changes |
-| ``curry( {function}, {=arity} )`` | curries a function |
+| ``curry( {functions} )`` | curries a function |
+| ``compose( {...functions} )`` | compose functions, compose(fn1,fn2,fn3)(val) // -> result |
+| ``pipe( val )`` | pipe is a little different but still cool, ``pipe(5)((a,b) => a+b, 5)((a,b) => a+b, 5)() // -> 15`` |
 | ``each( {iterable}, {function} )`` | loop through objects, numbers, array(like)s, sets, maps... |
 | ``extend( {host object}, {object}, {=safe bool} )`` | extends host object with all props of other object, won't overwrite if safe is true |
 | ``flatten( {arraylike} )`` | flattens multidimensional arraylike objects |
@@ -120,6 +122,40 @@ dom functions that return the node can be piped using rilti.pipe
 ```
 
 [rilti.js todomvc](https://github.com/SaulDoesCode/rilti.js-todomvc)
+
+#### see how fast rilti.js renders your elements
+
+```html
+<script src="/rilti/dist/rilti.min.js"></script>
+<script>
+  const testRilti = (count = 10000) => {
+    const each = rilti.each, div = rilti.dom.span;
+    const start = performance.now();
+
+    each(count, i => {
+
+      span({
+        render: document.body,
+        css: {
+          background:'#fff',
+          width:'100px',
+          height:'100px',
+          color: 'dimgrey',
+          textAlign: 'center',
+          margin:'5px',
+          padding:'4px',
+          float:'left',
+          boxShadow:'0 1px 4px hsla(0,0%,0%,.3)'
+        }
+      }, "damn daniel, back at it again with those white spans");
+
+    });
+
+    console.log(`That took ${performance.now() - start}ms`);
+  }
+  testRilti(); // -> usually only a few milliseconds on my i5 machine
+</script>
+```
 
 ```javascript
 
