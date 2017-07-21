@@ -20,6 +20,7 @@
   },
   "homepage": "https://github.com/sauldoescode/rilti.js#readme",
   "devDependencies": {
-    "babili": "0.0.9"
+    "babili": "0.0.9",
+    "ws": "^3.0.0"
   }
 }

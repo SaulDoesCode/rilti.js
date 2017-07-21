@@ -1,0 +1,131 @@
+@import "/rilti-site/normalize.css";
+body {
+  font-family: "Nunito", "Roboto", "Oxygen", "Ubuntu", "Segoe UI", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", "Helvetica", "Arial", sans-serif !important;
+  background: hsl(0, 0%, 30%);
+  color: hsl(0, 0%, 45%);
+  direction: rtl;
+}
+
+ul {
+  padding-left: 18px !important;
+}
+
+li>ul {
+  margin-top: 4px !important;
+}
+
+li {
+  margin-bottom: 6px !important;
+}
+
+.sidebar {
+  position: fixed;
+  display: block;
+  text-align: center;
+  left: 0;
+  top: 0;
+  height: 100%;
+  min-width: 160px;
+  width: 11vw;
+  overflow: visible;
+  overflow-y: auto;
+  background: #fff;
+  box-shadow: 0 0 8px hsla(0, 0%, 0%, .3);
+  direction: ltr;
+}
+
+.sidebar a {
+  text-decoration: none;
+  color: dimgrey;
+  font-weight: bold;
+}
+
+.sidebar hr {
+  width: 60%;
+  margin-top: -1vh;
+  margin-bottom: 1.5vh;
+  border-style: solid;
+  border-color: #ff2875;
+}
+
+.sidebar-header {
+  display: block;
+  height: 9mm;
+  line-height: 9mm;
+  width: 86%;
+  margin: .6vh auto;
+  font-size: 1.5rem;
+  font-weight: bold;
+  text-shadow: 0 1px 3px hsla(0, 0%, 0%, .2);
+  color: hsl(0, 0%, 100%);
+  /*background-image: linear-gradient(to right, #F32C52 0%, #EA384D 51%, #F32C52 100%);*/
+  background: hsl(0,0%,30%);
+  cursor: pointer;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  user-select: none;
+  border-radius: 3px;
+  transition: all 140ms ease-in;
+}
+.sidebar-header:hover {
+  background-position: right center;
+}
+
+.sidebar-header>span, .sidebar-button > span {
+  color:  #f91f53;
+  text-shadow: 0 1px 3px hsla(0, 0%, 0%, .2);
+}
+
+.sidebar-button {
+  display: block;
+  width: 81%;
+  height: 8mm;
+  line-height: 8mm;
+  margin: .8vh auto;
+  text-align: left;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  user-select: none;
+  box-sizing: border-box;
+  background: hsl(165, 12%, 93%);
+  color:hsl(95,73%,51%);
+  border-radius: 3px;
+  transition: all 100ms ease-out;
+}
+
+.sidebar-button.hidden {
+  display: none;
+}
+
+.sidebar-button::first-letter, .sidebar-button > span {
+  margin-left: 9%;
+}
+
+.sidebar-button::after {
+  font-family: "Consolas", "Courier New", "Lucida Console";
+}
+
+.sidebar-button:hover::after, .sidebar-button.selected::after {
+  content: "()";
+}
+
+.sidebar-button.selected::after {
+  color: #fff;
+}
+
+.sidebar-button:hover {
+  background: hsl(165, 12%, 91%);
+  border-right: 4px solid hsla(349,86%,48%,.6);
+  box-shadow: 0 1px 3px hsla(0, 0%, 0%, .2);
+}
+.sidebar-button.selected > span {
+  color:#fff;
+}
+
+.sidebar-button.selected {
+  color:#8dfb37;
+  background: #ff0054;
+  margin: 1.2vh auto;
+  text-shadow: 0 1px 3px hsla(0, 0%, 0%, .2);
+  box-shadow: 0 1px 3px hsla(0, 0%, 0%, .2);
+}

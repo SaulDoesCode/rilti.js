@@ -172,7 +172,7 @@ route = notifier((hash, fn) => {
       on(root, 'hashchange', () => route.emit(route.hasListener(location.hash) ? location.hash : 'default', location.hash));
   }
   if(isFunc(hash)) [fn, hash] = [hash, 'default'];
-  if(location.hash == hash || (!location.hash && hash == 'default')) fn();
+  if(location.hash === hash || hash === 'default') fn(location.hash);
   return route.on(hash, fn);
 });
 
@@ -299,12 +299,14 @@ create = (tag, options, ...children) => {
   return el;
 },
 
-dom = new Proxy(extend((selector, element = doc) => isNode(selector) ? selector : query(selector, element), {query,queryAll,queryEach,on,once,html}), {
+dom = new Proxy(
+  extend((selector, element = doc) => isNode(selector) ? selector : query(selector, element), {query,queryAll,queryEach,on,once,html,domfrag}),
+{
   get:(d, key) => key in d ? d[key] : create.bind(NULL, key),
   set:(d,key, val) => d[key] = val
 }),
 
-intervalManager = (interval, fn, destroySync, intervalID, mngr = ({
+repeater = (interval, fn, destroySync, intervalID, mngr = ({
   stop:() => (clearInterval(intervalID), mngr),
   start() {
     intervalID = setInterval(fn, interval);
@@ -359,5 +361,5 @@ new MutationObserver(muts => each(muts, ({addedNodes, removedNodes, target, attr
   //target.emit('attr:'+attributeName,target,target.attr[attributeName],oldValue);
 })).observe(doc, {attributes:true, childList:true, subtree:true});
 
-return {dom,domfn,notifier,pipe,compose,yieldloop,debounce,Component,observeAttr,unobserveAttr,intervalManager,extend,def,getdesc,test,route,render,run,curry,each,DOMcontains,flatten,isDef,isUndef,isPrimitive,isNull,isFunc,isStr,isBool,isNum,isInt,isObj,isArr,isArrlike,isEmpty,isEl,isEq,isNode,isNodeList,isInput,isMap,isSet};
+return {dom,domfn,notifier,pipe,compose,yieldloop,debounce,Component,observeAttr,unobserveAttr,repeater,extend,def,getdesc,test,route,render,run,create,curry,each,DOMcontains,flatten,isDef,isUndef,isPrimitive,isNull,isFunc,isStr,isBool,isNum,isInt,isObj,isArr,isArrlike,isEmpty,isEl,isEq,isNode,isNodeList,isInput,isMap,isSet};
 })();
