@@ -1,168 +1,235 @@
 {
 "use strict";
-const {notifier, each, pipe, dom, domfn, run, render, route} = rilti;
-const {div, h1, header, footer, span, nav, p, a, domfrag} = dom;
-const {Class} = domfn;
+// get all the functions needed
+const {notifier, each, pipe, compose, curry, dom, domfn, run, render, route, isFunc, isStr, isEmpty} = rilti;
+// generating all the tags used
+const {queryEach, div, h1, header, footer, span, nav, p, a ,b, domfrag, html, ul, li, pre, code} = dom;
+// dom manip functions
+const {Class, hasClass} = domfn;
 
-const SideBarContent = domfrag();
-const sbButtons = new Map;
+const smoothScrollSetting = { block: 'start', behavior: 'smooth' };
 
-const Dot = '.';
-const dotInStr = str => str.includes(Dot);
-const cleanHash = (str = location.hash) => str === location.hash || str[0] === '#' ? str.slice(2) : str;
-var splitter = (str = location.hash, splitStr = Dot) => cleanHash(str).split(splitStr);
-const joinN = (arr, n = 2, withWhat = Dot) => arr.filter((val, i) => i <= (n - 1)).join(withWhat);
-const isHeader = str => sbButtons.has(str);
-var getHeader = (splitHash = splitter(location.hash)) => {
-  if(splitHash.length === 1 && isHeader(splitHash[0])) return splitHash[0];
-  else if(splitHash.length >= 2) {
-    const temp = joinN(splitHash, 2, Dot);
-    if(isHeader(temp)) return temp;
-    else if(isHeader(splitHash[0])) return splitHash[0];
-  }
-  return "";
-}
-const hashHasHeader = headerName => headerName === getHeader();
+// The Bridge: central "App" object / message center
+const hub = notifier();
 
-const hub = notifier({
-  toggleHeader(name, state) {
-    hub.emit('colapse:'+name, state);
-  }
-});
+const toggleSection = (name, state) => hub.emit('colapse:'+name, state);
 
-const sbHeader =  (name, closed = !hashHasHeader(name)) => {
-  const buttonSubjects = new Map;
-  sbButtons.set(name, buttonSubjects);
+// temporarily render sidebar content to a dom fragment
+// to reduce rendering granularity for performance
+const sidebarContent = domfrag();
 
-  const originalName = name;
-  const hasDot = dotInStr(name);
+var activeButton;
+var activeSection;
 
-  if(hasDot) {
-    name = splitter(name);
-    const first = name.shift();
-    name = [first, span(Dot), ...name];
-  }
-
-  const toggleButtons = (state = !closed) => {
-    closed = state;
-    if(state && hashHasHeader(originalName)) location.hash = "";
-    each(buttonSubjects, btn => Class(btn, 'hidden', state));
-  }
-
-  hub.on('colapse:'+originalName, toggleButtons);
-
-  header({
-    render:SideBarContent,
-    class:"sidebar-header",
-    action() {
-      if(!hashHasHeader(originalName)) {
-        location.hash = '#/'+originalName;
-      } else toggleButtons();
+const sbHeader = (section, name, ...buttons) => {
+  div({
+    render:sidebarContent,
+    class:'sidebar-section',
+    lifecycle : {
+      mount(el) {
+        hub.on('colapse:'+name, state => {
+          Class(el, 'open', state);
+          if(hasClass(el, 'open') && name !== activeSection) {
+            if(isStr(activeSection)) toggleSection(activeSection, false);
+            activeSection = name;
+          }
+        });
+      }
     }
-  }, name);
+  },
+    div({
+      class:'sidebar-header',
+      action(e, el) {
+        toggleSection(name);
+        location.hash = '#/'+section;
+        if(activeButton) {
+          Class(activeButton, 'selected', false);
+          activeButton = null;
+        }
+      }
+    }, name),
 
-  return originalName;
+    buttons.map(btn => {
+      if(isStr(btn)) {
+        const href = `#/${section}.${btn}`;
+        const linkBtn = a({ class: 'sidebar-button', href }, span('.'), btn);
+
+        route(href, () => {
+          if(activeButton) Class(activeButton, 'selected', false);
+          activeButton = Class(linkBtn, 'selected', true);
+          if(activeSection !== name) toggleSection(name, true);
+        });
+
+        return linkBtn;
+      }
+      return btn;
+    })
+
+  );
 }
 
-const sbButton = (underHeader, name, href = `#/${underHeader}.${name}`) => {
-  const btn = a({
-    render: SideBarContent,
-    class:`sidebar-button hidden`,
-    href
-  }, name.includes('[') ? span(name.slice(1,10)) : [span('.'), name]);
+const sbSubheader = name => div({ class: 'sidebar-subheader' }, name);
 
-  if(sbButtons.has(underHeader)) sbButtons.get(underHeader).set(name, btn);
+sbHeader('rilti', 'rilti',
+  'notifier',
+  'each',
+  'pipe',
+  'compose',
+  'curry',
+  'flatten',
+  'run',
+  'render',
+  'route',
+  'repeater'
+);
 
-  return underHeader;
-}
+sbHeader('rilti.domfn', '.domfn',
+'replace',
+'clone',
+'css',
+'Class',
+'hasClass',
+'attr',
+'removeAttr',
+'hasAttr',
+'getAttr',
+'setAttr',
+'attrToggle',
+'inner',
+'emit',
+'append',
+'prepend',
+'appendTo',
+'prependTo',
+'remove'
+);
 
-pipe("rilti")
-(sbHeader)
-(sbButton, "notifier")
-(sbButton, "each")
-(sbButton, "pipe")
-(sbButton, "compose")
-(sbButton, "create")
-(sbButton, "run")
-(sbButton, "render")
-(sbButton, "repeter")
-(sbButton, "route")
-(sbButton, "isBool")
-(sbButton, "isFunc")
-(sbButton, "isDef")
-(sbButton, "isUndef")
-(sbButton, "isNull")
-(sbButton, "isEmpty")
-(sbButton, "isNum")
-(sbButton, "isInt")
-(sbButton, "isStr")
-(sbButton, "isObj")
-(sbButton, "isArr")
-(sbButton, "isArrlike")
-(sbButton, "isMap")
-(sbButton, "isSet")
-(sbButton, "isEl")
-(sbButton, "isNode")
-(sbButton, "isNodeList")
-(sbButton, "isInput")
-(sbButton, "isPrimitive");
+sbHeader('rilti.dom', '.dom',
+'dom',
+'query',
+'queryAll',
+'queryEach',
+'create',
+"anyTag",
+'domfrag',
+'html',
+'on',
+'once'
+);
 
-pipe("rilti.domfn")
-(sbHeader)
-(sbButton, "replace")
-(sbButton, "clone")
-(sbButton, "css")
-(sbButton, "Class")
-(sbButton, "hasClass")
-(sbButton, "attr")
-(sbButton, "removeAttr")
-(sbButton, "hasAttr")
-(sbButton, "getAttr")
-(sbButton, "setAttr")
-(sbButton, "attrToggle")
-(sbButton, "inner")
-(sbButton, "emit")
-(sbButton, "append")
-(sbButton, "prepend")
-(sbButton, "appendTo")
-(sbButton, "prependTo")
-(sbButton, "remove");
+sbHeader('rilti', '.isX',
+  'isBool',
+  'isFunc',
+  'isDef',
+  'isUndef',
+  'isNull',
+  'isEmpty',
+  'isNum',
+  'isInt',
+  'isStr',
+  'isObj',
+  'isArr',
+  'isArrlike',
+  'isMap',
+  'isSet',
+  'isIterator',
+  'isEl',
+  'isNode',
+  'isNodeList',
+  'isInput',
+  'isPrimitive'
+);
 
-pipe("rilti.dom")
-(sbHeader)
-(sbButton, "['any-tag']")
-(sbButton, "dom")
-(sbButton, "html")
-(sbButton, "domfrag")
-(sbButton, "create")
-(sbButton, "query")
-(sbButton, "queryAll")
-(sbButton, "queryEach")
-(sbButton, "on")
-(sbButton, "once");
+render(sidebarContent, '.sidebar');
 
-render(SideBarContent, '.sidebar');
+const main = dom.main({render:'body'});
 
-const selectRightButton = (headerName, btnName) => {
-  if(sbButtons.has(headerName)) {
-    hub.toggleHeader(headerName, false);
-    each(sbButtons.get(headerName), (btn, name) => {
-      Class(btn, 'selected', name === btnName);
-    });
+const infoCard = (href, title, exampleCode, ...description) => div({
+    render:main,
+    class:'info-card',
+    lifecycle: {
+      mount(el) {
+        route(href, hash => {
+          el.scrollIntoView(smoothScrollSetting);
+        });
+      }
+    }
+  },
+  header(a({href: '#/'+href}, title)),
+  pre(
+    code({class:'hljs javascript'}, exampleCode)
+  ),
+  div({class:'content'}, description)
+);
+
+infoCard('rilti.notifier', 'notifier',
+`const pubsub = rilti.notifier(); // make notifier
+
+pubsub.on('coffee', type => {
+ console.log(type + ' is just so good!!');
+});
+
+pubsub.emit('coffee', 'americano');
+
+// each event handle returns the handle function
+// with these added control functions
+handle.on();
+handle.once();
+handle.off();
+
+const taskHandler = pubsub.on('task', val => {
+  if(val === 'complete') {
+    taskHandler.off();
+    console.log('Task completed!');
+  } else if(rilti.isNum(val)) {
+    console.log('Task is '+val+'% done');
   }
-}
-
-let lastActive;
-route(() => {
-  const cleanedHash = cleanHash();
-  const activeHeader = getHeader();
-  const btnName = cleanedHash.slice(activeHeader.length + 1);
-  if(lastActive && lastActive !== activeHeader) hub.toggleHeader(lastActive, true);
-  selectRightButton(activeHeader, btnName);
-  lastActive = activeHeader;
 });
 
-run(() => {
-  console.info(`Loaded in ${performance.now() - commence}ms`);
+`,
+  p(`notifier is an event emitter or pub/sub pattern,
+  it allows you to listen and trigger events and also pass values to listeners from the point of emission.`)
+);
+
+infoCard('rilti.each', 'each',
+`const {each} = rilti; // get function
+
+// loop through arrays or arraylike objects
+each([1,2,3], (value, index, array) => {
+  console.log('#'+value);
+}); //-> [1,2,3]
+
+// loop over a number
+each(5000, num => console.log('#'+num)); //-> 5000
+
+each({a:1, b:2, c:3}, (val, key, obj) => {
+  console.log("obj."+key+" = "+val);
 });
+// *logs out*
+//  obj.a = 1
+//  obj.b = 2
+//  obj.c = 3
+//-> obj
+`,
+div("each is a simple loop function"),
+div("each can loop through:"),
+ul({
+  css:{
+    textAlign:'left',
+    marginLeft:'2%'
+  }
+},
+  [
+   "maps, sets",
+   "arraylikes",
+   "objects",
+   "ints: using chunking technique to stop total blockage with heavy workloads",
+   "iterators: any raw iterator or object with a .entries method"
+ ].map(v => li(b(v)))
+)
+);
+
+  run(() => {
+    console.info(`Loaded in ${performance.now() - commence}ms`);
+  });
 }

@@ -5,6 +5,7 @@ const zlib = require('zlib');
 const path = require('path');
 const WebSocket = require('ws');
 const {PassThrough} = require('stream');
+const brotliCompress = require('iltorb').compressStream;
 const command = require('child_process').exec;
 
 const exec = cmd => new Promise((resolve, reject) => command(cmd, (err, stdout) => err ? reject(err) : resolve(stdout)));
@@ -30,8 +31,42 @@ fs.watch('./src/', (type, filename) => {
   }
 });
 
-const wss = new WebSocket.Server({ port: 2021 });
-const changeNotifier = new (require('events'))();
+const wss = new WebSocket.Server({ port: 2021 }),
+
+curry = (
+  fn,
+  arity = fn.length,
+  next = (...memory) => (...more) => ((more.length + memory.length) >= arity ? fn : next)(...memory.concat(more))
+) => next(),
+
+deleteHandle = (handles, type, handle) => ((handles.has(type) && !handles.get(type).delete(handle).size) && handles.delete(type), handle),
+addHandle = (handles, type, handle) => ((handles.has(type) ? handles : handles.set(type, new Set)).get(type).add(handle), handle),
+handleMaker = (handles, one = false) => (type, handle) => {
+  handle.one = one;
+  handle.type = type;
+  handle.off = () => deleteHandle(handles, type, handle);
+  handle.on = () => addHandle(handles, type, handle.off());
+  handle.once = () => (handle.one === true, handle.on());
+  return addHandle(handles, type, handle);
+},
+
+notifier = (host = {}) => {
+  const handles = new Map;
+
+  host.on = handleMaker(handles);
+  host.once = handleMaker(handles, true);
+  host.off = curry(deleteHandle)(handles);
+  host.hastype = type => handles.has(isFunc(type) ? type.type : type);
+  host.emit = (type, ...args) => {
+    if(handles.has(type)) handles.get(type).forEach(handle => {
+        handle(...args);
+        if(handle.one) handle.off();
+    });
+    return host;
+  }
+  return host;
+},
+changeNotifier = notifier();
 
 fs.watch('./rilti-site/', (type, filename) => {
   if(type === 'change') changeNotifier.emit('update');
@@ -39,7 +74,7 @@ fs.watch('./rilti-site/', (type, filename) => {
 
 wss.on('connection', ws => {
   //ws.on('message', msg => {});
-  changeNotifier.once('update', () => ws.send('reload', err => console.warn("WSS: eish man, ws.send hit a snag")));
+  changeNotifier.once('update', () => ws.send('reload', () => {}));
 });
 
 const mimeType = {
@@ -59,10 +94,20 @@ const mimeType = {
   '.ttf': 'aplication/font-sfnt'
 }
 
+const sendFileStream = (useBrolti, res, location) => fs.createReadStream(location).pipe(useBrolti ? brotliCompress() : zlib.createGzip()).pipe(res);
+const send404 = res => {
+  res.statusCode = 404;
+  res.setHeader('Content-Encoding', 'utf8');
+  res.setHeader('Content-type', 'text/html');
+  res.end(`Error getting the file: it doesn't seem to exist.`);
+}
+
 http.createServer((req, res) => {
 
-  res.setHeader('Content-Encoding', 'gzip');
-  res.setHeader('Cache-Control', 'must-revalidate');
+  const AcceptsBrotli = req.headers['accept-encoding'].includes('br');
+
+  res.setHeader('Content-Encoding', AcceptsBrotli ? 'br' : 'gzip');
+  res.setHeader('Cache-Control', 'max-age=86400,must-revalidate');
   // CORS: SuperOpen - come and get it mode
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST');
@@ -72,7 +117,7 @@ http.createServer((req, res) => {
   // parse URL
   if(req.url == '/') {
       res.setHeader('Content-type', 'text/html');
-      fs.createReadStream('./rilti-site/main.html').pipe(zlib.createGzip()).pipe(res);
+      sendFileStream(AcceptsBrotli, res, './rilti-site/main.html');
   } else {
 
     const parsedUrl = url.parse(req.url);
@@ -80,13 +125,8 @@ http.createServer((req, res) => {
     let pathname = `.${parsedUrl.pathname}`;
     // maps file extention to MIME types
     fs.exists(pathname, exist => {
-      if(!exist) {
-        // if the file is not found, return 404
-        res.statusCode = 404;
-        res.end(`File ${pathname} not found!`);
-        return;
-      }
-      // if is a directory, then look for index.html
+      if(!exist) return send404(res);
+
       if (fs.statSync(pathname).isDirectory()) {
         let temp = pathname + '/main.html';
         if(fs.existsSync(temp)) pathname = temp;
@@ -98,23 +138,22 @@ http.createServer((req, res) => {
       }
 
       // read file from file system
-      if(!fs.existsSync(pathname)) {
-        res.statusCode = 404;
-        res.setHeader('Content-Encoding', 'utf8');
-        res.end(`Error getting the file: it doesn't seem to exist.`);
-      } else {
-        const ext = path.parse(pathname).ext;
-        // if the file is found, set Content-type and send data
-        res.setHeader('Content-type', mimeType[ext] || 'text/plain');
+      if(!fs.existsSync(pathname)) return send404(res);
 
-        fs.createReadStream(pathname).pipe(zlib.createGzip()).pipe(res);
-        //console.log(`${pathname} retrieved`);
-      }
+      res.setHeader('Content-type', mimeType[path.parse(pathname).ext] || 'text/plain');
+      sendFileStream(AcceptsBrotli, res, pathname);
     });
   }
 
 }).listen(2020);
 console.log(`Server listening on port 2020\n`);
+
+
+
+
+
+
+
 
 
 const streamConfig = (id, stream, data = null, pos = 0, ended = false) => ({id, stream, data, pos, ended});

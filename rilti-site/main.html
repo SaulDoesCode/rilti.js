@@ -1,48 +1,58 @@
 <!doctype html>
 <html>
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Rilti.js</title>
-    <link rel="shortcut icon" href="/rilti-site/rilti-favicon.png" type="image/x-icon">
-    <link rel="stylesheet" href="/rilti-site/main.css">
-    <script type="application/javascript" src="/src/rilti.js"></script>
-    <script type="application/javascript" src="/rilti-site/main.js" async></script>
-  </head>
-  <body>
-    <nav class="sidebar">
-      <h1>rilti.js</h1>
-      <hr>
-    </nav>
 
-  </body>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <script>
     var commence = performance.now();
-    let timesConnected = 0;
-    function ReloadOnChange(tried = 0) {
-      //console.log(`Dev Server: connection attempt ${tried}...`);
-      const ws = new WebSocket(`ws://${location.hostname}:2021/`);
-      ws.onerror = err => console.error("Dev Server: connection failed :(");
-      ws.onopen = msg => {
-        console.info(`Dev Server Connection ${tried != 0 ? 'R' : ''}established ${tried != 0 ? 'phew...' : ':D' }, succesful connection ${++timesConnected}`);
-        let totalConnectionsEver = (parseInt(localStorage.getItem('WSconnectionCount')) || 0) + timesConnected;
-        localStorage.setItem('WSconnectionCount', totalConnectionsEver);
-        console.log('Total WebSocket connections ever', totalConnectionsEver);
-      }
-      ws.onmessage = msg => {
-        if(msg.data === 'reload') location.reload();
-        else console.log(msg.data, msg);
-      }
-      ws.onclose = () => {
-        ws.close();
-        if(tried != 6) ReloadOnChange(tried + 1);
-        else {
-          console.warn("Dev Server Error: not reachable");
-          console.info("Will attempt reconnect in 1 minute");
-          setTimeout(ReloadOnChange, 60000);
-        }
+  </script>
+  <title>Rilti.js</title>
+  <link rel="shortcut icon" href="/rilti-site/rilti-favicon.png" type="image/x-icon">
+  <link rel="stylesheet" href="/rilti-site/main.css">
+  <script src="/src/rilti.js"></script>
+  <script src="/rilti-site/smoothscroll.js"></script>
+  <script src="/rilti-site/main.js"></script>
+  <script src="/rilti-site/highlight.pack.js"></script>
+</head>
+
+<body>
+  <nav class="sidebar">
+    <h1>rilti.js</h1>
+    <hr>
+    <a href="https://github.com/SaulDoesCode/rilti.js">github</a>
+    <hr>
+    </nav>
+</body>
+<script>
+  let timesConnected = 0;
+
+  function ReloadOnChange(tried = 0) {
+    //console.log(`Dev Server: connection attempt ${tried}...`);
+    const ws = new WebSocket(`ws://${location.hostname}:2021/`);
+    ws.onerror = err => console.error("Dev Server: connection failed :(");
+    ws.onopen = msg => {
+      console.info(`Dev Server Connection ${tried != 0 ? 'R' : ''}established ${tried != 0 ? 'phew...' : ':D' }, succesful connection ${++timesConnected}`);
+      let totalConnectionsEver = (parseInt(localStorage.getItem('WSconnectionCount')) || 0) + timesConnected;
+      localStorage.setItem('WSconnectionCount', totalConnectionsEver);
+      console.log('Total WebSocket connections ever', totalConnectionsEver);
+    }
+    ws.onmessage = msg => {
+      if (msg.data === 'reload') location.reload();
+      else console.log(msg.data, msg);
+    }
+    ws.onclose = () => {
+      ws.close();
+      if (tried != 6) ReloadOnChange(tried + 1);
+      else {
+        console.warn("Dev Server Error: not reachable");
+        console.info("Will attempt reconnect in 1 minute");
+        setTimeout(ReloadOnChange, 60000);
       }
     }
-    ReloadOnChange();
-  </script>
+  }
+  ReloadOnChange();
+  hljs.initHighlightingOnLoad();
+</script>
+
 </html>
