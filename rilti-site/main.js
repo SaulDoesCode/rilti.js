@@ -132,7 +132,7 @@ const infoCard = (href, title, exampleCode, ...description) => div({
     lifecycle: {
       mount(el) {
         const thisCardLink = '#/'+href;
-        on(el, 'mouseover', () => location.hash = thisCard);
+        on(el, 'mouseover', () => location.hash = thisCardLink);
         route(href, hash => {
           el.scrollIntoView(smoothScrollSetting);
           if(activeCard) Class(activeCard, 'active', false);

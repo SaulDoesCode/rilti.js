@@ -11,13 +11,22 @@ const doc = document,
 root = window,
 undef = void 0,
 NULL = null,
+keys = Object.keys,
 forEach = 'forEach',
-InputTypes = 'INPUT TEXTAREA',
-// it's ugly, I know but damnit it's beautiful to me
-curry = (fn, arity = fn.length, next = (...memory) => (...more) => ((more.length + memory.length) >= arity ? fn : next)(...memory.concat(more))) => next(),
-composeTest = (...cases) => match => cases.some(Case => match == Case || (isFunc(Case) && Case(match))), // irony
+InputTypes = 'INPUT TEXTAREA';
+
+const curry = (
+  fn,
+  arity = fn.length,
+  next = (...memory) => (...more) => ((more.length + memory.length) >= arity ? fn : next)(...memory.concat(more))
+) => next(); // love this
+
+// irony: the case of Case does not match the case of match
+const composeTest = (...cases) => match => cases.some(Case => match == Case || (isFunc(Case) && Case(match))),
+// don't curry just because you want to bind
+bindr = (fn, ...args) => fn.bind(NULL, ...args),
 arrMeth = (meth, val, ...args) => Array.prototype[meth].apply(val, args),
-arrEach = arrMeth.bind(NULL, forEach),
+arrEach = bindr(arrMeth, forEach),
 typeinc = str => obj => toString.call(obj).indexOf(str) !== -1,
 // all the is this that stuff
 isInstance = (o, t) => o instanceof t,
@@ -34,60 +43,64 @@ isObj = typeinc('Object'),
 isIterator = typeinc('Iterator'),
 isArr = Array.isArray,
 isArrlike = o => o && typeof o.length != 'undefined',
-isEmpty = val => (isUndef(val) || isFunc(val)) || !(isObj(val) ? Object.keys(val).length : isArrlike(val) ? val.length : val.size),
+isEmpty = val => (isUndef(val) || isFunc(val)) || !(isObj(val) ? keys(val).length : isArrlike(val) ? val.length : val.size),
 isNode = o => o && isInstance(o, Node),
 isNodeList = nl => isInstance(nl, NodeList) || (isArrlike(nl) && arrMeth('every', nl, isNode)),
 isEl = typeinc('HTML'),
 isMap = typeinc('Map'),
 isSet = typeinc('Set'),
 isInput = el => isEl(el) && InputTypes.indexOf(el.tagName) !== -1,
-isEq = curry((o1,...vals) => vals.every(isFunc(o1) ? i => o1(i) : i => o1 === i), 2),
+isEq = curry((o1, ...vals) => vals.every(isFunc(o1) ? i => o1(i) : i => o1 === i), 2);
 
-yieldloop = (count, fn, done, chunksize = 60, i = 0) => {
+const yieldloop = (count, fn, done, chunksize = 60, i = 0) => {
     const chunk = () => {
       const end = Math.min(i + chunksize, count);
-      while(i < end) {
-        fn(i);
-        ++i;
-      }
+      while(i < end) fn(i++);
       if (i < count) setTimeout(chunk, 0);
       else if(done) done();
     }
     chunk();
-},
+}
 
-each = (iterable, func, i = 0) => {
+const each = (iterable, func, i = 0) => {
   if(!isEmpty(iterable)) {
     iterable[forEach] ? iterable[forEach](func) : isArrlike(iterable) && arrEach(iterable, func);
     if(isObj(iterable)) for(i in iterable) func(iterable[i], i, iterable);
   } else if (isInt(iterable)) yieldloop(iterable, func);
   else if(iterable && (iterable.entries || isIterator(iterable))) for (let [key, value] of iterable) func(key, value, iterable);
   return iterable;
-},
+}
 
-def = Object.defineProperty,
-getdesc = Object.getOwnPropertyDescriptor,
-extend = (host, obj, safe = false) => (!isEmpty(obj) && each(Object.keys(obj), key => (!safe || (safe && !(key in host))) && def(host, key, getdesc(obj, key))), host),
-flatten = arr => isArrlike(arr) ? arrMeth("reduce", arr, (flat, toFlatten) => flat.concat(isArr(toFlatten) ? flatten(toFlatten) : toFlatten), []) : [arr],
+const extend = (host, obj, safe = false) => {
+  if(!isEmpty(obj)) each(keys(obj), key => {
+      if(!safe || (safe && !(key in host)))
+        Object.defineProperty(host, key, Object.getOwnPropertyDescriptor(obj, key));
+  });
+  return host;
+}
 
-composePlain = (f, g) => (...args) => f(g(...args)),
-compose = (...fns) => fns.reduce(composePlain),
+const flatten = arr => isArrlike(arr) ? arrMeth("reduce", arr, (flat, toFlatten) => flat.concat(isArr(toFlatten) ? flatten(toFlatten) : toFlatten), []) : [arr];
+
+const composePlain = (f, g) => (...args) => f(g(...args));
+const compose = (...fns) => fns.reduce(composePlain);
+
 // aren't fuggly one liners just the best
-pipe = val => (fn, ...args) => typeof fn == "function" ? pipe(fn(val, ...args)) : fn === true ? pipe(args.shift()(val, ...args)) : !args.length && !fn ? val : pipe(val),
+const pipe = val => (fn, ...args) => typeof fn == "function" ? pipe(fn(val, ...args)) : fn === true ? pipe(args.shift()(val, ...args)) : !args.length && !fn ? val : pipe(val);
 
-query = (selector, element = doc) => (isStr(element) ? doc.querySelector(element) : element).querySelector(selector),
-queryAll = (selector, element = doc) => Array.from((isStr(element) ? query(element) : element).querySelectorAll(selector)),
-queryEach = (selector, func, element = doc) => (!isFunc(func) && ([func, element] = [element, doc]), each(queryAll(selector, element), func)),
-DOMcontains = (descendant, parent = doc) => parent == descendant || Boolean(parent.compareDocumentPosition(descendant) & 16),
+const query = (selector, element = doc) => (isStr(element) ? doc.querySelector(element) : element).querySelector(selector);
+const queryAll = (selector, element = doc) => Array.from((isStr(element) ? query(element) : element).querySelectorAll(selector));
+const queryEach = (selector, func, element = doc) => (!isFunc(func) && ([func, element] = [element, doc]), each(queryAll(selector, element), func));
 
-newEVT = t => new CustomEvent(t),
-mountEVT = newEVT('mount'),
-destroyEVT = newEVT('destroy'),
-createEVT = newEVT('create'),
+const DOMcontains = (descendant, parent = doc) => parent == descendant || Boolean(parent.compareDocumentPosition(descendant) & 16);
 
-eventListeners = new Map, // for cloning nodes and odd cases
+const newEVT = t => new CustomEvent(t);
+const mountEVT = newEVT('mount');
+const destroyEVT = newEVT('destroy');
+const createEVT = newEVT('create');
 
-EventManager = curry((state, target, type, handle, options = false) => {
+const eventListeners = new Map; // for cloning nodes and odd cases
+
+const EventManager = curry((state, target, type, handle, options = false) => {
   if(isStr(target)) target = query(target);
   if(!target.addEventListener) throw new TypeError('bad event target');
   if(isNode(target) && !eventListeners.has(target)) {
@@ -124,12 +137,12 @@ EventManager = curry((state, target, type, handle, options = false) => {
 
   add(once);
   return manager;
-}, 4),
+}, 4);
 
-once = EventManager('once'),
-on = EventManager('on'),
+const once = EventManager('once');
+const on = EventManager('on');
 
-debounce = (func, wait, immediate) => {
+const debounce = (func, wait, immediate) => {
 	let timeout;
 	return (...args) => {
 		const later = () => {
@@ -141,21 +154,24 @@ debounce = (func, wait, immediate) => {
 		timeout = setTimeout(later, wait);
 		if(callNow) func(...args);
 	}
-},
+}
 
-deleteHandle = (handles, type, handle) => ((handles.has(type) && !handles.get(type).delete(handle).size) && handles.delete(type), handle),
-addHandle = (handles, type, handle) => ((handles.has(type) ? handles : handles.set(type, new Set)).get(type).add(handle), handle),
-handleMaker = (handles, one = false) => (type, handle) => {
-  //if(!isFunc(handle)) throw new TypeError("notifier: handle must be a function");
+const deleteHandle = (handles, type, handle) => ((handles.has(type) && !handles.get(type).delete(handle).size) && handles.delete(type), handle);
+const addHandle = (handles, type, handle) => ((handles.has(type) ? handles : handles.set(type, new Set)).get(type).add(handle), handle);
+
+const handleMaker = (handles, one = false) => (type, handle) => {
+  if(!isFunc(handle)) throw new TypeError("notifier: handle must be a function");
+
   handle.one = one;
   handle.type = type;
   handle.off = () => deleteHandle(handles, type, handle);
   handle.on = () => addHandle(handles, type, handle.off());
   handle.once = () => (handle.one === true, handle.on());
-  return addHandle(handles, type, handle);
-},
 
-notifier = (host = {}) => {
+  return addHandle(handles, type, handle);
+}
+
+const notifier = (host = {}) => {
   const handles = new Map;
 
   host.on = handleMaker(handles);
@@ -170,9 +186,9 @@ notifier = (host = {}) => {
     return host;
   }
   return host;
-},
+}
 
-route = notifier((hash, fn) => {
+const route = notifier((hash, fn) => {
   if(!route.active) {
       on(root, 'hashchange', () => {
         const hash = location.hash;
@@ -215,10 +231,11 @@ const vpend = args => {
   const dfrag = domfrag();
   each(args, arg => dfrag.appendChild(html(arg)));
   return dfrag;
-},
-autoQuery = n => isStr(n) ? query(n) : n,
+}
 
-domfn = {
+const autoQuery = n => isStr(n) ? query(n) : n;
+
+const domfn = {
   replace:(node, val) => node.replaceWith ? node.replaceWith(val) : node.parentNode.replaceChild(val, node),
   clone(node) {
     const clone = node.cloneNode();
@@ -243,8 +260,8 @@ domfn = {
         checkAttr(a, node);
       });
       else if(isStr(attr)) {
-        if(isPrimitive(val)) node.setAttribute(attr, val);
-        else return node.getAttribute(attr);
+        if(!isPrimitive(val)) return node.getAttribute(attr);
+        node.setAttribute(attr, val);
       }
    }
    return node;
@@ -266,10 +283,11 @@ domfn = {
   appendTo: curry((node, val) => (autoQuery(val).appendChild(node), node)),
   prependTo: curry((node, val) => (autoQuery(val).prepend(node), node)),
   remove:(node, after) => (isNum(after) ? setTimeout(() => node.remove(), after) : node.remove(), node),
-},
-{append, emit, attr} = domfn,
+};
 
-render = curry((elements, node = 'body') => {
+const {append, emit, attr} = domfn;
+
+const render = curry((elements, node = 'body') => {
   if(isNode(node)) append(node, elements);
   if(isStr(node)) node == 'head' ? append(doc.head, elements) : run(
     () => isNode(node = node == 'body' ? doc[node] : query(node)) && append(node, elements)
@@ -325,17 +343,17 @@ create = (tag, options, ...children) => {
   el.dispatchEvent(createEVT);
   if(isMounted(el, options && options.render)) el.dispatchEvent(mountEVT);
   return el;
-},
+}
 
-dom = new Proxy(extend(
+const dom = new Proxy(extend(
   (selector, element = doc) => isNode(selector) ? selector : query(selector, element),
   {create,query,queryAll,queryEach,on,once,html,domfrag}
 ), {
-  get:(d, key) => key in d ? d[key] : create.bind(NULL, key),
-  set:(d, key, val) => d[key] = val,
-}),
+  get: (d, key) => key in d ? d[key] : bindr(create, key), // get the d
+  set: (d, key, val) => d[key] = val
+});
 
-repeater = (interval, fn, destroySync, intervalID, mngr = ({
+const repeater = (interval, fn, destroySync, intervalID, mngr = ({
   stop:() => (clearInterval(intervalID), mngr),
   start() {
     intervalID = setInterval(fn, interval);
@@ -343,10 +361,10 @@ repeater = (interval, fn, destroySync, intervalID, mngr = ({
     return mngr;
   },
   destroySync:el => once(el, 'destroy', mngr.stop)
-})) => mngr.start(),
+})) => mngr.start();
 
-mountORdestroy = (stack, type) => stack.length > 0 && arrEach(stack, node => {
-  if(!(node.isConnected || doc.contains(node))) node.dispatchEvent(type);
+const mountORdestroy = (stack, type) => stack.length > 0 && arrEach(stack, node => {
+  if(!node.isConnected && !doc.contains(node)) node.dispatchEvent(type);
 });
 
 new MutationObserver(muts => each(muts, ({addedNodes, removedNodes, target, attributeName, oldValue}) => {
