@@ -1,18 +1,20 @@
 {
 "use strict";
 // get all the functions needed
-const {notifier, each, pipe, compose, curry, dom, domfn, run, render, route, isFunc, isStr, isEmpty} = rilti;
-// generating all the tags used
-const {queryEach, div, h1, header, footer, span, nav, p, a ,b, domfrag, html, ul, li, pre, code} = dom;
+const {notifier,each,pipe,compose,curry,dom,domfn,run,render,route,isObj,isFunc,isStr,isEmpty} = rilti;
+// getting dom related functions & generating all the tags used
+const {queryEach,div,h1,header,footer,span,nav,p,a,b,domfrag,html,ul,li,pre,code} = dom;
 // dom manip functions
-const {Class, hasClass} = domfn;
+const {Class,hasClass} = domfn;
 
 const smoothScrollSetting = { block: 'start', behavior: 'smooth' };
 
 // The Bridge: central "App" object / message center
 const hub = notifier();
 
-const toggleSection = (name, state) => hub.emit('colapse:'+name, state);
+const toggleSection = (name, state) => {
+  hub.emit('colapse:'+name, state);
+}
 
 // temporarily render sidebar content to a dom fragment
 // to reduce rendering granularity for performance
@@ -29,9 +31,11 @@ const sbHeader = (section, name, ...buttons) => {
       mount(el) {
         hub.on('colapse:'+name, state => {
           Class(el, 'open', state);
-          if(hasClass(el, 'open') && name !== activeSection) {
-            if(isStr(activeSection)) toggleSection(activeSection, false);
-            activeSection = name;
+          if(hasClass(el, 'open')) {
+            if(name !== activeSection) {
+              if(isStr(activeSection)) toggleSection(activeSection, false);
+              activeSection = name;
+            }
           }
         });
       }
@@ -41,7 +45,7 @@ const sbHeader = (section, name, ...buttons) => {
       class:'sidebar-header',
       action(e, el) {
         toggleSection(name);
-        location.hash = '#/'+section;
+        if(activeSection === name) location.hash = '#/'+name;
         if(activeButton) {
           Class(activeButton, 'selected', false);
           activeButton = null;
@@ -53,6 +57,7 @@ const sbHeader = (section, name, ...buttons) => {
       if(isStr(btn)) {
         const href = `#/${section}.${btn}`;
         const linkBtn = a({ class: 'sidebar-button', href }, span('.'), btn);
+        if(btn.length >= 11) linkBtn.style.fontSize = '.95em';
 
         route(href, () => {
           if(activeButton) Class(activeButton, 'selected', false);
@@ -70,42 +75,34 @@ const sbHeader = (section, name, ...buttons) => {
 
 const sbSubheader = name => div({ class: 'sidebar-subheader' }, name);
 
-sbHeader('rilti', 'rilti',
-  'notifier',
-  'each',
-  'pipe',
-  'compose',
-  'curry',
-  'flatten',
-  'run',
-  'render',
-  'route',
-  'repeater'
-);
 
-sbHeader('rilti.domfn', '.domfn',
-'replace',
-'clone',
-'css',
-'Class',
-'hasClass',
-'attr',
-'removeAttr',
-'hasAttr',
-'getAttr',
-'setAttr',
-'attrToggle',
-'inner',
-'emit',
-'append',
-'prepend',
-'appendTo',
-'prependTo',
-'remove'
-);
+// Dude!?!??!! meta-(self-documentation)
+const internals = {
+  rilti:[],
+  '.isX':[],
+  sub: {}
+}
+
+each(rilti, (val, key) => {
+  if(isFunc(val)) {
+     if(key.includes('is')) internals['.isX'].push(key);
+     else internals.rilti.push(key);
+  } else if(isObj(val) && !isEmpty(val)) {
+    internals.sub[key] = [];
+    each(val, (v, k) => {
+      if(isFunc(v)) internals.sub[key].push(k);
+    });
+  }
+});
+
+sbHeader('rilti', 'rilti', ...internals.rilti.sort());
+sbHeader('rilti', '.isX', ...internals['.isX'].sort());
+
+each(internals.sub, (set, head) => {
+  sbHeader('rilti.'+head, '.'+head, ...set.sort());
+});
 
 sbHeader('rilti.dom', '.dom',
-'dom',
 'query',
 'queryAll',
 'queryEach',
@@ -114,35 +111,20 @@ sbHeader('rilti.dom', '.dom',
 'domfrag',
 'html',
 'on',
-'once'
-);
-
-sbHeader('rilti', '.isX',
-  'isBool',
-  'isFunc',
-  'isDef',
-  'isUndef',
-  'isNull',
-  'isEmpty',
-  'isNum',
-  'isInt',
-  'isStr',
-  'isObj',
-  'isArr',
-  'isArrlike',
-  'isMap',
-  'isSet',
-  'isIterator',
-  'isEl',
-  'isNode',
-  'isNodeList',
-  'isInput',
-  'isPrimitive'
-);
+'once');
 
 render(sidebarContent, '.sidebar');
 
+// did ya try turning it on and off again?!?!?
+if(location.hash.length > 3) {
+  const hash = location.hash;
+  location.hash = "";
+  location.hash = hash;
+}
+
 const main = dom.main({render:'body'});
+
+let activeCard;
 
 const infoCard = (href, title, exampleCode, ...description) => div({
     render:main,
@@ -151,11 +133,15 @@ const infoCard = (href, title, exampleCode, ...description) => div({
       mount(el) {
         route(href, hash => {
           el.scrollIntoView(smoothScrollSetting);
+          if(activeCard) Class(activeCard, 'active', false);
+          activeCard = Class(el, 'active', true);
         });
       }
     }
   },
-  header(a({href: '#/'+href}, title)),
+  header(
+    a({href: '#/'+href}, title)
+  ),
   pre(
     code({class:'hljs javascript'}, exampleCode)
   ),

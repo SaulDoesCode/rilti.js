@@ -80,7 +80,6 @@ queryAll = (selector, element = doc) => Array.from((isStr(element) ? query(eleme
 queryEach = (selector, func, element = doc) => (!isFunc(func) && ([func, element] = [element, doc]), each(queryAll(selector, element), func)),
 DOMcontains = (descendant, parent = doc) => parent == descendant || Boolean(parent.compareDocumentPosition(descendant) & 16),
 
-err = msg => new Error(msg),
 newEVT = t => new CustomEvent(t),
 mountEVT = newEVT('mount'),
 destroyEVT = newEVT('destroy'),
@@ -90,7 +89,7 @@ eventListeners = new Map, // for cloning nodes and odd cases
 
 EventManager = curry((state, target, type, handle, options = false) => {
   if(isStr(target)) target = query(target);
-  //if(!target.addEventListener) throw err('bad event target');
+  if(!target.addEventListener) throw new TypeError('bad event target');
   if(isNode(target) && !eventListeners.has(target)) {
     eventListeners.set(target, new Set);
     EventManager('once', target, 'destroy', () => eventListeners.delete(target));
@@ -176,8 +175,8 @@ notifier = (host = {}) => {
 route = notifier((hash, fn) => {
   if(!route.active) {
       on(root, 'hashchange', () => {
-        route.emit('default', location.hash);
-        route.emit(location.hash, location.hash);
+        const hash = location.hash;
+        route.emit(route.hastype(hash) ? hash : 'default', hash);
       });
       route.active = true;
   }
@@ -273,11 +272,11 @@ render = curry((elements, node = 'body') => {
 
 observedAttributes = new Map,
 attrInit = (el,name) => (el[name+"_init"] = true, el),
-observeAttr = (name, stages) => {
+watchAttr = (name, stages) => {
   observedAttributes.set(name, stages);
   run(() => queryEach(`[${name}]`, el => stages.init(attrInit(el, name), el.getAttribute(name))));
 },
-unobserveAttr = name => observedAttributes.delete(name),
+unwatchAttr = name => observedAttributes.delete(name),
 checkAttr = (name, el, oldValue) => {
   if(observedAttributes.has(name)) {
       const val = el.getAttribute(name), observedAttr = observedAttributes.get(name);
@@ -355,5 +354,5 @@ new MutationObserver(muts => each(muts, ({addedNodes, removedNodes, target, attr
   //target.emit('attr:'+attributeName,target,target.attr[attributeName],oldValue);
 })).observe(doc, {attributes:true, childList:true, subtree:true});
 
-return {dom,domfn,notifier,pipe,compose,composeTest,yieldloop,debounce,observeAttr,unobserveAttr,repeater,extend,def,getdesc,route,render,run,curry,each,DOMcontains,flatten,isDef,isUndef,isPrimitive,isNull,isFunc,isStr,isBool,isNum,isInt,isIterator,isObj,isArr,isArrlike,isEmpty,isEl,isEq,isNode,isNodeList,isInput,isMap,isSet};
+return {dom,domfn,notifier,pipe,compose,composeTest,yieldloop,debounce,watchAttr,unwatchAttr,repeater,extend,route,render,run,curry,each,DOMcontains,flatten,isDef,isUndef,isPrimitive,isNull,isFunc,isStr,isBool,isNum,isInt,isIterator,isObj,isArr,isArrlike,isEmpty,isEl,isEq,isNode,isNodeList,isInput,isMap,isSet};
 })();

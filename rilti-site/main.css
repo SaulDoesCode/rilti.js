@@ -13,10 +13,9 @@ li {margin-bottom: 6px !important;}
 .hidden {display: none !important;}
 
 .sidebar {
-  position: absolute;
+  position: fixed;
   display: block;
-  box-sizing: content-box;
-  min-height: 100%;
+  height: 100%;
   width: 160px;
   left:0;
   top:0;
@@ -183,21 +182,21 @@ li {margin-bottom: 6px !important;}
 main {
   position: absolute;
   display: block;
-  flex-flow: column;
   padding: 10px;
   top: 0;
   left: 165px;
   width: calc(100% - 165px);
+  min-height: 100%;
 }
 
 .info-card {
   position: relative;
   display: block;
+  overflow: hidden;
   min-width: 500px;
-  width: 50vw;
-  height: auto;
-  margin: 0 auto;
-  margin-bottom: 1.8vh;
+  width: 60vw;
+  height: 90%;
+  margin: .9vh auto .9vh auto;
   background: #e0d1b2;
   color: #575656;
   border-radius: 3px;
@@ -208,11 +207,11 @@ main {
   margin: 0;
   border: none;
   border-radius: 0;
+  box-shadow: inset 0 1px 5px hsla(0, 0%, 0%, .3);
 }
 
 .info-card pre, .info-card code {
   text-align: left;
-  /*box-shadow: 0 2px 4px hsla(0, 0%, 0%, .25);*/
 }
 
 .info-card>header {
@@ -229,6 +228,11 @@ main {
   background: #a6956b;
   text-shadow: 0 1px 3px hsla(0, 0%, 0%, .25);
   text-align: left;
+}
+
+.info-card.active > header {
+  background: #ab986a;
+  border-right: 3px solid #b39865;
 }
 
 .info-card>header>a {
@@ -253,6 +257,7 @@ main {
   width: 100%;
   height: 100%;
   padding: 4px;
+  padding-top: 6px;
 }
 .content>div {
   text-align: left;
