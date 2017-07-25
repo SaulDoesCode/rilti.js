@@ -3,7 +3,7 @@
 // get all the functions needed
 const {notifier,each,pipe,compose,curry,dom,domfn,run,render,route,isObj,isFunc,isStr,isEmpty} = rilti;
 // getting dom related functions & generating all the tags used
-const {queryEach,div,h1,header,footer,span,nav,p,a,b,domfrag,html,ul,li,pre,code} = dom;
+const {queryEach,on,div,h1,header,footer,span,nav,p,a,b,domfrag,html,ul,li,pre,code} = dom;
 // dom manip functions
 const {Class,hasClass} = domfn;
 
@@ -57,7 +57,7 @@ const sbHeader = (section, name, ...buttons) => {
       if(isStr(btn)) {
         const href = `#/${section}.${btn}`;
         const linkBtn = a({ class: 'sidebar-button', href }, span('.'), btn);
-        if(btn.length >= 11) linkBtn.style.fontSize = '.95em';
+        if(btn.length >= 11) linkBtn.style.fontSize = '.92em';
 
         route(href, () => {
           if(activeButton) Class(activeButton, 'selected', false);
@@ -122,7 +122,7 @@ if(location.hash.length > 3) {
   location.hash = hash;
 }
 
-const main = dom.main({render:'body'});
+const main = dom.main();
 
 let activeCard;
 
@@ -131,6 +131,8 @@ const infoCard = (href, title, exampleCode, ...description) => div({
     class:'info-card',
     lifecycle: {
       mount(el) {
+        const thisCardLink = '#/'+href;
+        on(el, 'mouseover', () => location.hash = thisCard);
         route(href, hash => {
           el.scrollIntoView(smoothScrollSetting);
           if(activeCard) Class(activeCard, 'active', false);
@@ -177,6 +179,40 @@ const taskHandler = pubsub.on('task', val => {
   it allows you to listen and trigger events and also pass values to listeners from the point of emission.`)
 );
 
+infoCard('rilti.pipe', 'pipe',
+`const {pipe} = rilti;
+
+const add = (a,b) => a+b;\n
+const x = pipe(5)(add, 5)(add, 5)(add, 5)(); // -> 20;\n\n
+const {Class, css, append, appendTo} = rilti.domfn;
+const {div, header, p} = rilti.dom;
+
+pipe(div())
+// add a class to div element
+(Class, 'material-panel')
+// now append some children
+(append,
+
+ header("Good News Everyone!!!"),
+ p(\`
+  We've a fun new toy to play with called rilti.js,
+  it let's you build things using functional wizardry.
+ \`)
+
+)
+// finally add div to page
+(appendTo, document.body)
+// pipes won't stop asking for funcs
+// until it is executed without any arguments
+(); // pipe chain stopped, -> div.material-panel
+
+
+`,
+  p(`pipe takes a value and returns a function that expects a function as the first parameter.
+
+  `)
+);
+
 infoCard('rilti.each', 'each',
 `const {each} = rilti; // get function
 
@@ -216,6 +252,7 @@ ul({
 );
 
   run(() => {
+    render(main, document.body);
     console.info(`Loaded in ${performance.now() - commence}ms`);
   });
 }

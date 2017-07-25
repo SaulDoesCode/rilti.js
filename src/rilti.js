@@ -193,17 +193,24 @@ once(root, 'DOMContentLoaded', () => {
   LoadStack = NULL;
 });
 
-const run = fn => ready ? fn() : LoadStack.add(fn),
-html = html => {
+const run = fn => ready ? fn() : LoadStack.add(fn);
+
+const isMounted = (el, potentialParent) => (
+  el.isConnected || doc.contains(el) || (isNode(potentialParent) && DOMcontains(el, potentialParent))
+);
+
+const html = html => {
   html = isNode(html) ? html : doc.createRange().createContextualFragment(html || '');
-  if(!(html.isCreated || (html.isConnected && !html.isMounted))) html.dispatchEvent(createEVT);
-  !html.isMounted && run(() => {
-    if((doc.contains(html) || html.isConnected) && !html.isMounted) html.dispatchEvent(mountEVT);
-  });
+  if(!isMounted(html)) {
+    html.dispatchEvent(createEVT);
+    run(() => isMounted(html) && html.dispatchEvent(mountEVT));
+  }
   return html;
-},
-domfrag = inner => isPrimitive(inner) ? html(inner) : doc.createDocumentFragment(),
-vpend = args => {
+}
+
+const domfrag = inner => isPrimitive(inner) ? html(inner) : doc.createDocumentFragment();
+
+const vpend = args => {
   if((args = flatten(args)).length == 1) return html(args[0]);
   const dfrag = domfrag();
   each(args, arg => dfrag.appendChild(html(arg)));
@@ -223,8 +230,7 @@ domfn = {
       isObj(styles) ? each(styles, (p, key) => node.style[key] = p) : isEq(isStr,styles,prop) && (node.style[styles] = prop),
       node // return node
   ), 2),
-  Class: curry((node, c, state) => {
-    if(!isDef(state)) state = !node.classList.contains(c);
+  Class: curry((node, c, state = !node.classList.contains(c)) => {
     state = state ? 'add' : 'remove';
     c.indexOf(' ') !== -1 ? each(c.split(' '), cls => node.classList[state](cls)) : node.classList[state](c);
     return node;
@@ -287,19 +293,15 @@ checkAttr = (name, el, oldValue) => {
   }
 },
 
-isMounted = (el, potentialParent) => (
-  el.isConnected || doc.contains(el) || (isNode(potentialParent) && DOMcontains(el, potentialParent))
-),
-
 isRenderable = composeTest(isNode, isStr, isArrlike),
 
-create = curry((tag, options, ...children) => {
+create = (tag, options, ...children) => {
   const el = doc.createElement(tag);
 
   if(isRenderable(options)) {
-    if(!isEmpty(children)) append(el, options, children);
+    if(children.length) append(el, options, children);
     else append(el, options);
-  } else if(!isEmpty(children)) append(el, children);
+  } else if(children.length) append(el, children);
 
   if(isObj(options)) {
     for(const key in options) {
@@ -318,18 +320,18 @@ create = curry((tag, options, ...children) => {
         });
       }
     }
-    if(options.render) options.render.appendChild ? options.render.appendChild(el) : render(el, options.render);
+    if(options && options.render) options.render.appendChild ? options.render.appendChild(el) : render(el, options.render);
   }
   el.dispatchEvent(createEVT);
-  if(isMounted(el, options.render)) el.dispatchEvent(mountEVT);
+  if(isMounted(el, options && options.render)) el.dispatchEvent(mountEVT);
   return el;
-}, 2),
+},
 
 dom = new Proxy(extend(
   (selector, element = doc) => isNode(selector) ? selector : query(selector, element),
   {create,query,queryAll,queryEach,on,once,html,domfrag}
 ), {
-  get:(d, key) => key in d ? d[key] : create(key),
+  get:(d, key) => key in d ? d[key] : create.bind(NULL, key),
   set:(d, key, val) => d[key] = val,
 }),
 
