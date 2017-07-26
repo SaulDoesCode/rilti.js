@@ -59,7 +59,7 @@ li {margin-bottom: 6px !important;}
   display: block;
   height: 8.5mm;
   line-height: 8.5mm;
-  width: 86%;
+  width: 88%;
   margin: .8vh auto;
   font-size: 1.5rem;
   font-weight: bold;
@@ -87,37 +87,6 @@ li {margin-bottom: 6px !important;}
   border-bottom: 2px solid #b8a584;
 }
 
-.sidebar-subheader {
-  position: relative;
-  display: block;
-  height: 6mm;
-  line-height: 6mm;
-  width: 75%;
-  margin: .6vh auto;
-  border-bottom: 2px solid #a88e63;
-  font-size: 1.1rem;
-  text-shadow: 0 1px 3px hsla(0, 0%, 0%, .2);
-  color: hsl(0, 0%, 100%);
-  background: #c2a97b;
-  cursor: pointer;
-  -webkit-user-select: none;
-  -moz-user-select: none;
-  user-select: none;
-  box-sizing: content-box;
-  border-radius: 3px;
-  transition: all 140ms ease;
-}
-
-.sidebar-subheader:hover {
-  -webkit-filter: saturate(140%);
-  filter: saturate(140%) hue-rotate(.5deg);
-}
-
-.sidebar-header:hover {
-  -webkit-filter: saturate(140%);
-  filter: saturate(140%) hue-rotate(.5deg);
-}
-
 .sidebar-header>span, .sidebar-button>span {
   color: #ffdd86;
   margin: 0 1px 0 1px;
@@ -130,7 +99,7 @@ li {margin-bottom: 6px !important;}
 
 .sidebar-button {
   display: block;
-  width: 81%;
+  width: 83%;
   height: 8mm;
   line-height: 8mm;
   margin: .7vh auto;

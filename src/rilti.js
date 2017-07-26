@@ -1,8 +1,8 @@
 /**
-* rilti.js alpha
-* @licence MIT
-* @repo SaulDoesCode/rilti.js
+* rilti.js
+* @repo github.com/SaulDoesCode/rilti.js
 * @author Saul van der Walt
+* @licence MIT
 **/
 var rilti = (() => {
 "use strict";
@@ -85,7 +85,9 @@ const composePlain = (f, g) => (...args) => f(g(...args));
 const compose = (...fns) => fns.reduce(composePlain);
 
 // aren't fuggly one liners just the best
-const pipe = val => (fn, ...args) => typeof fn == "function" ? pipe(fn(val, ...args)) : fn === true ? pipe(args.shift()(val, ...args)) : !args.length && !fn ? val : pipe(val);
+const pipe = val => (fn, ...args) => (
+  typeof fn == "function" ? pipe(fn(val, ...args)) : fn === true ? pipe(args.shift()(val, ...args)) : !args.length && !fn ? val : pipe(val)
+);
 
 const query = (selector, element = doc) => (isStr(element) ? doc.querySelector(element) : element).querySelector(selector);
 const queryAll = (selector, element = doc) => Array.from((isStr(element) ? query(element) : element).querySelectorAll(selector));
@@ -202,14 +204,12 @@ const route = notifier((hash, fn) => {
   return route.on(hash, fn);
 });
 
-let LoadStack = new Set, ready = false;
-once(root, 'DOMContentLoaded', () => {
-  ready = true;
-  each(LoadStack, fn => fn());
-  LoadStack = NULL;
-});
+const isReady = () => doc.readyState === 'complete' || doc.readyState !== 'loading';
+const LoadStack = new Set;
 
-const run = fn => ready ? fn() : LoadStack.add(fn);
+once(root, 'DOMContentLoaded', () => each(LoadStack, fn => fn()));
+
+const run = fn => isReady() ? fn() : LoadStack.add(fn);
 
 const isMounted = (el, potentialParent) => (
   el.isConnected || doc.contains(el) || (isNode(potentialParent) && DOMcontains(el, potentialParent))
@@ -285,23 +285,24 @@ const domfn = {
   remove:(node, after) => (isNum(after) ? setTimeout(() => node.remove(), after) : node.remove(), node),
 };
 
-const {append, emit, attr} = domfn;
+const {append, attr} = domfn;
 
 const render = curry((elements, node = 'body') => {
   if(isNode(node)) append(node, elements);
   if(isStr(node)) node == 'head' ? append(doc.head, elements) : run(
     () => isNode(node = node == 'body' ? doc[node] : query(node)) && append(node, elements)
   );
-}, 2),
+}, 2);
 
-observedAttributes = new Map,
-attrInit = (el,name) => (el[name+"_init"] = true, el),
-watchAttr = (name, stages) => {
+const observedAttributes = new Map;
+const attrInit = (el, name) => (el[name+"_init"] = true, el);
+const directive = (name, stages) => {
   observedAttributes.set(name, stages);
   run(() => queryEach(`[${name}]`, el => stages.init(attrInit(el, name), el.getAttribute(name))));
-},
-unwatchAttr = name => observedAttributes.delete(name),
-checkAttr = (name, el, oldValue) => {
+}
+const directiveRevoke = name => observedAttributes.delete(name);
+
+const checkAttr = (name, el, oldValue) => {
   if(observedAttributes.has(name)) {
       const val = el.getAttribute(name), observedAttr = observedAttributes.get(name);
       if(isPrimitive(val)) {
@@ -309,11 +310,11 @@ checkAttr = (name, el, oldValue) => {
           else observedAttr.update && val != oldValue && observedAttr.update(el, val, oldValue);
       } else observedAttr.destroy && observedAttr.destroy(el, val, oldValue);
   }
-},
+}
 
-isRenderable = composeTest(isNode, isStr, isArrlike),
+const isRenderable = composeTest(isNode, isStr, isArrlike);
 
-create = (tag, options, ...children) => {
+const create = (tag, options, ...children) => {
   const el = doc.createElement(tag);
 
   if(isRenderable(options)) {
@@ -333,7 +334,6 @@ create = (tag, options, ...children) => {
       else if(isObj(option)) {
         if(key !== 'lifecycle') extend(el, option);
         else each(option, (handle, stage) => {
-          let times = 0;
           if(isFunc(handle)) (stage === 'create' ? once : on)(el, stage, handle.bind(el, el));
         });
       }
@@ -374,5 +374,5 @@ new MutationObserver(muts => each(muts, ({addedNodes, removedNodes, target, attr
   //target.emit('attr:'+attributeName,target,target.attr[attributeName],oldValue);
 })).observe(doc, {attributes:true, childList:true, subtree:true});
 
-return {dom,domfn,notifier,pipe,compose,composeTest,yieldloop,debounce,watchAttr,unwatchAttr,repeater,extend,route,render,run,curry,each,DOMcontains,flatten,isDef,isUndef,isPrimitive,isNull,isFunc,isStr,isBool,isNum,isInt,isIterator,isObj,isArr,isArrlike,isEmpty,isEl,isEq,isNode,isNodeList,isInput,isMap,isSet};
+return {dom,domfn,notifier,pipe,compose,composeTest,yieldloop,debounce,directive,directiveRevoke,repeater,extend,route,render,run,curry,each,DOMcontains,flatten,isDef,isUndef,isPrimitive,isNull,isFunc,isStr,isBool,isNum,isInt,isIterator,isObj,isArr,isArrlike,isEmpty,isEl,isEq,isNode,isNodeList,isInput,isMap,isSet};
 })();

@@ -1,13 +1,18 @@
 {
 "use strict";
 // get all the functions needed
-const {notifier,each,pipe,compose,curry,dom,domfn,run,render,route,isObj,isFunc,isStr,isEmpty} = rilti;
+const {notifier,each,pipe,compose,curry,dom,domfn,run,render,route,isObj,isFunc,isNum,isStr,isEmpty} = rilti;
 // getting dom related functions & generating all the tags used
 const {queryEach,on,div,h1,header,footer,span,nav,p,a,b,domfrag,html,ul,li,pre,code} = dom;
 // dom manip functions
 const {Class,hasClass} = domfn;
 
 const smoothScrollSetting = { block: 'start', behavior: 'smooth' };
+
+var monad = val => ({
+  bind: morpher => monad(isFunc(morpher) ? morpher(val) : val+morpher),
+  get val() { return val }
+});
 
 // The Bridge: central "App" object / message center
 const hub = notifier();
@@ -20,8 +25,8 @@ const toggleSection = (name, state) => {
 // to reduce rendering granularity for performance
 const sidebarContent = domfrag();
 
-var activeButton;
-var activeSection;
+let activeButton;
+let activeSection;
 
 const sbHeader = (section, name, ...buttons) => {
   div({
@@ -57,7 +62,8 @@ const sbHeader = (section, name, ...buttons) => {
       if(isStr(btn)) {
         const href = `#/${section}.${btn}`;
         const linkBtn = a({ class: 'sidebar-button', href }, span('.'), btn);
-        if(btn.length >= 11) linkBtn.style.fontSize = '.92em';
+        if(btn.length >= 14) linkBtn.style.fontSize = '.83em';
+        else if(btn.length >= 11) linkBtn.style.fontSize = '.94em';
 
         route(href, () => {
           if(activeButton) Class(activeButton, 'selected', false);
@@ -200,8 +206,7 @@ pipe(div())
  \`)
 
 )
-// finally add div to page
-(appendTo, document.body)
+(appendTo, document.body) // finally add div to page
 // pipes won't stop asking for funcs
 // until it is executed without any arguments
 (); // pipe chain stopped, -> div.material-panel
@@ -251,6 +256,7 @@ ul({
 )
 );
 
+  hljs.initHighlightingOnLoad();
   run(() => {
     render(main, document.body);
     console.info(`Loaded in ${performance.now() - commence}ms`);
