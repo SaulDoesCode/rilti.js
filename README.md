@@ -27,14 +27,14 @@ Feel free to fork or raise issues. Constructive criticism is welcome
 | method | description  |
 |--------|--------------|
 | ``dom["anytagname"]( {=object}, {...children} )`` | where the magic happens, define behavior for elements and see them come to life |
-| ``dom( {string/node}, {=string/node} )`` | finds nodes and proxifies them, gives them all the dom manip magic |
+| ``dom( {string/node}, {=string/node} )`` | same as querySelector but returns a promise |
 | ``dom.query( {string}, {=string/node} )`` | improved alternative to ``document.querySelector``|
 | ``dom.queryAll( {string}, {=string/node} )`` | improved alternative to ``document.querySelectorAll``|
 | ``dom.queryEach( {string}, {=string/node}, {function} )`` | queries nodes returned by selector and iterates over them like ``[].forEach`` would|
 | ``dom.on( {target}, {type}, {listener}, {=options} )`` | generates event listener |
 | ``dom.once( {target}, {type}, {listener}, {=options} )`` | generates event listener that triggers only once |
 | ``dom.html( {string} )`` | converts strings to html nodes |
-| ``render( {...node} )( {=parent/document.body} )`` | renders nodes to document.body or node of your choice |
+| ``render( {node}, {=selectorString/node} )`` | renders nodes to a node of your choice, independent of ready state |
 | ``run( {function} )`` | executes a given function when the DOM is loaded |
 | ``route( {=hashString}, {function})`` | detect and respond to location.hash changes |
 | ``curry( {functions} )`` | curries a function |
@@ -128,32 +128,53 @@ dom functions that return the node can be piped using rilti.pipe
 ```html
 <script src="/rilti/dist/rilti.min.js"></script>
 <script>
-  const testRilti = (count = 10000) => {
+  const testRiltiBlocking = (count = 10000) => {
+    const span = rilti.dom.span;
+    const start = performance.now();
+    while(count != 0) span({
+      render: document.body,
+      css: {
+        background:'#fff',
+        width:'110px',
+        color: 'dimgrey',
+        textAlign: 'center',
+        height:'110px',
+        margin:'5px',
+        padding:'4px',
+        float:'left',
+        boxShadow:'0 1px 4px hsla(0,0%,0%,.3)'
+      }
+    }, "damn daniel, back at it again with those white spans ", count--);
+
+    console.log(`That took ${performance.now() - start}ms`);
+  }
+  testRiltiBlocking(); // -> this usually takes ~ 7800ms on my i5 machine and is blocking
+
+  const testRiltiChunked = (count = 10000) => {
     const each = rilti.each, span = rilti.dom.span;
     const start = performance.now();
-
-    each(count, i => {
-
+    // int loops are chunked making heavy loads less blocking
+    each(count, i =>
       span({
         render: document.body,
         css: {
           background:'#fff',
-          width:'100px',
-          height:'100px',
+          width:'110px',
           color: 'dimgrey',
           textAlign: 'center',
+          height:'110px',
           margin:'5px',
           padding:'4px',
           float:'left',
           boxShadow:'0 1px 4px hsla(0,0%,0%,.3)'
         }
-      }, "damn daniel, back at it again with those white spans");
-
-    });
-
+      },
+      "damn daniel, back at it again with those white spans ", count--)
+    );
     console.log(`That took ${performance.now() - start}ms`);
   }
-  testRilti(); // -> usually only a few milliseconds on my i5 machine
+  testRiltiChunked();
+  // -> site useable even while rendering thousands of nodes
 </script>
 ```
 

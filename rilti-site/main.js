@@ -9,11 +9,6 @@ const {Class,hasClass} = domfn;
 
 const smoothScrollSetting = { block: 'start', behavior: 'smooth' };
 
-var monad = val => ({
-  bind: morpher => monad(isFunc(morpher) ? morpher(val) : val+morpher),
-  get val() { return val }
-});
-
 // The Bridge: central "App" object / message center
 const hub = notifier();
 
@@ -109,24 +104,12 @@ each(internals.sub, (set, head) => {
 });
 
 sbHeader('rilti.dom', '.dom',
-'query',
-'queryAll',
-'queryEach',
-'create',
-"anyTag",
-'domfrag',
-'html',
-'on',
-'once');
+'query', 'queryAll', 'queryEach',
+'create', "anyTag",
+'domfrag', 'html',
+'on', 'once');
 
 render(sidebarContent, '.sidebar');
-
-// did ya try turning it on and off again?!?!?
-if(location.hash.length > 3) {
-  const hash = location.hash;
-  location.hash = "";
-  location.hash = hash;
-}
 
 const main = dom.main();
 
@@ -256,9 +239,41 @@ ul({
 )
 );
 
-  hljs.initHighlightingOnLoad();
   run(() => {
+    hljs.initHighlightingOnLoad();
+    // did ya try turning it on and off again?!?!?
+    if(location.hash.length > 3) {
+      const hash = location.hash;
+      location.hash = "";
+      location.hash = hash;
+    }
     render(main, document.body);
     console.info(`Loaded in ${performance.now() - commence}ms`);
   });
+
+
+  window.testRilti = (count = 10000) => {
+    const each = rilti.each, span = rilti.dom.span;
+    const start = performance.now();
+    // int loops are chunked making heavy loads less blocking
+    each(count, i =>
+      span({
+        render: main,
+        css: {
+          background:'#fff',
+          width:'110px',
+          color: 'dimgrey',
+          textAlign: 'center',
+          height:'110px',
+          margin:'5px',
+          padding:'4px',
+          float:'left',
+          boxShadow:'0 1px 4px hsla(0,0%,0%,.3)'
+        }
+      },
+      "damn daniel, back at it again with those white spans ", count--)
+    );
+    console.log(`That took ${performance.now() - start}ms`);
+  }
+
 }

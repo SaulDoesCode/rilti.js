@@ -1,6 +1,6 @@
 {
   "name": "rilti.js",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "simple small plugable view layer for the front end written in es6 with no apologies",
   "main": "init.js",
   "repository": {
@@ -20,8 +20,8 @@
   },
   "homepage": "https://github.com/sauldoescode/rilti.js#readme",
   "devDependencies": {
-    "babili": "0.0.9",
-    "iltorb": "^1.3.5",
-    "ws": "^3.0.0"
+    "babili": "*",
+    "iltorb": "*",
+    "ws": "*"
   }
 }
