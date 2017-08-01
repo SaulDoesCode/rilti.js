@@ -199,6 +199,8 @@ const activateRouting = () => {
   on(root, 'hashchange', () => {
     const hash = location.hash;
     route.emit(route.hastype(hash) ? hash : 'default', hash);
+  }, {
+    passive:true
   });
 }
 

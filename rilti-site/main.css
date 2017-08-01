@@ -1,5 +1,5 @@
 @import "/rilti-site/normalize.css";
-@import "/rilti-site/monokai.css";
+@import "/rilti-site/prism.css";
 body {
   font-family: "Nunito", "Roboto", "Oxygen", "Ubuntu", "Segoe UI", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", "Helvetica", "Arial", sans-serif;
   background: #534e43;
@@ -119,7 +119,7 @@ li {margin-bottom: 6px !important;}
   color: #ada07e;
 }
 
-.sidebar-button::after, .info-card>header>a::after {
+.sidebar-button::after, #viewer > header::after {
   font-family: "Consolas", "Courier New", "Lucida Console", monospace;
 }
 
@@ -190,20 +190,12 @@ main {
 }
 
 #viewer > header::after {
-  font-family: "Consolas", "Courier New", "Lucida Console", monospace;
   content:'()';
 }
 
 #viewer > pre {
-  position: relative;
-  display: block;
   width: calc(100% - 2vw);
-  border-radius: 3px;
-  margin: 2vh auto;
-  overflow: auto;
-}
-#viewer > pre > code {
-  border-radius: 3px;
+  text-shadow: 0 1px 3px hsla(0, 0%, 0%, .25);
   box-shadow: inset 0 0 5px 2px hsla(0, 0%, 0%, .3);
 }
 

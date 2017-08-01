@@ -8,6 +8,7 @@ const {Class,hasClass,replace,css, append} = domfn; // dom manip functions
 
 const smoothScrollSetting = { block: 'start', behavior: 'smooth' };
 
+
 // The Bridge: central "App" object / message center
 const hub = notifier();
 
@@ -90,11 +91,11 @@ const title = header({
 }, 'funcName');
 
 const description = div({
-  class:'description'
+  class: 'description'
 });
 
 const example = pre({
-  class:'example'
+  class: 'example language-javascript'
 });
 
 dom.section({
@@ -111,25 +112,17 @@ const inner = (el, ...newContent) => {
   el.append(...newContent);
 }
 
-var hw = new Worker('/rilti-site/highlightWorker.js');
-
-on(hw, 'message', ({data}) => {
-  const {value, href} = data;
-  hub.emit('hw:'+href, html(value));
-});
-
 const genDoc = (href, DocTitle, rawCode, ...desc) => {
   href = '#/'+href;
   desc = flatten(desc);
 
   const codeEL = code({
-    class:'hljs javascript'
+    class: 'language-javascript'
   });
 
-  hub.once('hw:'+href, codeHTML => {
-    codeEL.appendChild(codeHTML);
+  run(() => {
+    codeEL.innerHTML = Prism.highlight(rawCode, Prism.languages.javascript);
   });
-  hw.postMessage({rawCode, href});
 
   hub.on('selection:'+href, () => {
     title.textContent = DocTitle;
@@ -389,7 +382,6 @@ route('#/home', () => {
 });
 
 run(() => {
-  setTimeout(() => hw.terminate(), 1500);
   console.info(`Loaded in ${performance.now() - commence}ms`);
 });
 
