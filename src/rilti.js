@@ -207,7 +207,7 @@ const isReady = () => doc.readyState === 'complete' || doc.readyState !== 'loadi
 const LoadStack = new Set;
 once(root, 'DOMContentLoaded', () => each(LoadStack, fn => fn()));
 
-const run = fn => isReady() ? fn : LoadStack.add(fn);
+const run = fn => isReady() ? fn() : LoadStack.add(fn);
 
 const html = html => html.nodeType ? html : doc.createRange().createContextualFragment(html || '');
 
