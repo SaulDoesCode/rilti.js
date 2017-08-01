@@ -93,22 +93,13 @@ const query = (selector, element = doc) => (isStr(element) ? doc.querySelector(e
 const queryAll = (selector, element = doc) => Array.from((isStr(element) ? query(element) : element).querySelectorAll(selector));
 const queryEach = (selector, func, element = doc) => (!isFunc(func) && ([func, element] = [element, doc]), each(queryAll(selector, element), func));
 
-const isInDOM = (descendant, parent = doc) => parent == descendant || Boolean(parent.compareDocumentPosition(descendant) & 16);
-
-const newEVT = t => new CustomEvent(t);
-const mountEVT = newEVT('mount');
-const destroyEVT = newEVT('destroy');
-const createEVT = newEVT('create');
-
-const eventListeners = new Map; // for cloning nodes and odd cases
+const isMounted = (descendant, parent = doc) => parent === descendant || Boolean(parent.compareDocumentPosition(descendant) & 16);
 
 const EventManager = curry((mode, target, type, handle, options = false) => {
   if(isStr(target)) target = query(target);
   if(!target.addEventListener) throw new TypeError('bad event target');
-  if(isNode(target) && !eventListeners.has(target)) {
-    eventListeners.set(target, new Set);
-    EventManager('once', target, 'destroy', () => eventListeners.delete(target));
-  }
+  if(target.nodeType && !target.evtlisteners) target.evtlisteners = new Set;
+
   let once = mode === 'once';
   const handler = evt => {
     handle.call(target, evt, target);
@@ -117,20 +108,22 @@ const EventManager = curry((mode, target, type, handle, options = false) => {
 
   const remove = () => {
     target.removeEventListener(type, handler);
-    eventListeners.has(target) && eventListeners.get(target).delete(manager);
+    target.evtlisteners && target.evtlisteners.delete(manager);
   }
 
   const add = mode => {
     once = !!mode;
     remove();
     target.addEventListener(type, handler, options);
-    eventListeners.has(target) && eventListeners.get(target).add(manager);
+    target.evtlisteners && target.evtlisteners.add(manager);
   }
 
   const manager = {
+    handler,
+    type,
     reseat(newTarget, removeOriginal) {
       if(removeOriginal) remove();
-      return EventManager(state, newTarget, type, handle, options);
+      return EventManager(mode, newTarget, type, handle, options);
     },
     on:() => (add(), manager),
     once:() => (add(true), manager),
@@ -180,6 +173,7 @@ const notifier = (host = {}) => {
   host.once = handleMaker(handles, true);
   host.off = curry(deleteHandle)(handles);
   host.hastype = type => handles.has(isFunc(type) ? type.type : type);
+  host.hasHandle = handle => host.hastype(handle.type) && handles.get(handle.type).has(handle);
   host.emit = (type, ...args) => {
     if(handles.has(type)) handles.get(type).forEach(handle => {
         handle(...args);
@@ -192,10 +186,7 @@ const notifier = (host = {}) => {
 
 const route = notifier((hash, fn) => {
   if(!route.active) {
-      on(root, 'hashchange', () => {
-        const hash = location.hash;
-        route.emit(route.hastype(hash) ? hash : 'default', hash);
-      });
+      activateRouting();
       route.active = true;
   }
   if(isFunc(hash)) [fn, hash] = [hash, 'default'];
@@ -204,34 +195,31 @@ const route = notifier((hash, fn) => {
   return route.on(hash, fn);
 });
 
-const isReady = () => doc.readyState === 'complete' || doc.readyState !== 'loading';
-const LoadStack = new Set;
+const activateRouting = () => {
+  on(root, 'hashchange', () => {
+    const hash = location.hash;
+    route.emit(route.hastype(hash) ? hash : 'default', hash);
+  });
+}
 
+const isReady = () => doc.readyState === 'complete' || doc.readyState !== 'loading';
+
+const LoadStack = new Set;
 once(root, 'DOMContentLoaded', () => each(LoadStack, fn => fn()));
 
-const run = fn => isReady() ? fn() : LoadStack.add(fn);
+const run = fn => isReady() ? fn : LoadStack.add(fn);
 
-const isMounted = (el, potentialParent) => (
-  el.isConnected || doc.contains(el) || (isNode(potentialParent) && isInDOM(el, potentialParent))
-);
-
-const html = html => {
-  html = isNode(html) ? html : doc.createRange().createContextualFragment(html || '');
-  if(!isMounted(html)) {
-    html.dispatchEvent(createEVT);
-    run(() => {
-      if(isMounted(html)) html.dispatchEvent(mountEVT);
-    });
-  }
-  return html;
-}
+const html = html => html.nodeType ? html : doc.createRange().createContextualFragment(html || '');
 
 const domfrag = inner => isPrimitive(inner) ? html(inner) : doc.createDocumentFragment();
 
-const vpend = args => {
-  if((args = flatten(args)).length == 1) return html(args[0]);
+const vpend = Args => {
+  const args = flatten(Args);
+  if(args.length == 1) return html(args[0]);
   const dfrag = domfrag();
-  each(args, arg => dfrag.appendChild(html(arg)));
+  each(args, arg => {
+    dfrag.appendChild(arg.nodeType ? arg : html(arg));
+  });
   return dfrag;
 }
 
@@ -242,7 +230,7 @@ const domfn = {
   ),
   clone(node) {
     const clone = node.cloneNode();
-    if(eventListeners.has(node)) each(eventListeners.get(node), l => l.reseat(clone));
+    if(node.evtlisteners) each(node.evtlisteners, l => l.reseat(clone));
     each(node.childNodes, n => clone.appendChild(domfn.clone(n)));
     return clone;
   },
@@ -284,18 +272,16 @@ const domfn = {
       node // return node
     ),
   2),
-  inner: (node, ...args) => (
-    node.innerHTML = '',
-    append(node, args) // return node indirectly
-  ),
   emit: curry((node, type, detail) => (
       node.dispatchEvent(!isStr(type) ? type : new CustomEvent(type, {detail})),
       node // return node
   ), 2),
-  append: curry((node, ...args) => (
-    node.appendChild(vpend(args)),
-    node // return node
-  ), 2),
+  append: curry((node, ...args) => {
+    node.nodeType ?
+    node.appendChild(vpend(args)) :
+    dom(node).then(n => n.appendChild(vpend(args)));
+    return node;
+  }, 2),
   prepend: curry((node, ...args) => (
     node.prepend(vpend(args)),
     node // return node
@@ -316,7 +302,7 @@ const domfn = {
   ),
 };
 
-const {append, attr, appendTo: render} = domfn;
+const {append, attr} = domfn;
 
 const observedAttributes = new Map;
 const attrInit = (el, name) => (
@@ -343,17 +329,33 @@ const checkAttr = (name, el, oldValue) => {
   }
 }
 
+const emitMount = node => {
+  if(!node.didMount && node.notifier) {
+    node.notifier.emit('mount', node);
+    node.didMount = true;
+  }
+}
+
+const render = (node, host) => dom(host).then(h => {
+  h.appendChild(node);
+  emitMount(node);
+}, err => console.warn('Render error, host state:', err, node));
+
 const isRenderable = composeTest(isNode, isStr, isArrlike);
 
 const create = (tag, options, ...children) => {
   const el = doc.createElement(tag);
+  el.notifier = notifier();
 
-  if(isRenderable(options)) {
-    if(children.length) append(el, options, children);
-    else append(el, options);
-  } else if(children.length) append(el, children);
+  if(isRenderable(options)) children.unshift(options);
+  flatten(children).forEach(child => {
+    el.append(child);
+    if(child.nodeType) emitMount(child);
+  });
 
   if(isObj(options)) {
+    const {lifecycle} = options;
+    delete options.lifecycle;
     for(const key in options) {
       const option = options[key];
       if(key === 'class' || key === 'className') el.className = option;
@@ -362,17 +364,24 @@ const create = (tag, options, ...children) => {
       else if(key === 'attr') attr(el, option);
       else if(key === 'action') el.action = on(el, 'click', option);
       else if(key in el || isPrimitive(option)) el[key] = option;
-      else if(isObj(option)) {
-        if(key !== 'lifecycle') extend(el, option);
-        else each(option, (handle, stage) => {
-          if(isFunc(handle)) (stage === 'create' ? once : on)(el, stage, handle.bind(el, el));
-        });
-      }
+      else if(isObj(option)) extend(el, option);
     }
-    if(options.render) options.render.appendChild ? options.render.appendChild(el) : dom(options.render).then(renderNode => renderNode.appendChild(el));
+    if(lifecycle) {
+      each(lifecycle, (handle, stage) => {
+          if(stage === 'create') handle.call(el, el);
+          else if(isFunc(handle)) el.notifier.once(stage, () => {
+            handle.call(el, el);
+          });
+      });
+      el.notifier.emit('create', el);
+    }
+    if(options.render) {
+      if(options.render.nodeType) {
+        options.render.appendChild(el);
+        if(lifecycle) emitMount(el);
+      } else render(el, options.render);
+    }
   }
-  el.dispatchEvent(createEVT);
-  if(isMounted(el, options && options.render)) el.dispatchEvent(mountEVT);
   return el;
 }
 
@@ -381,47 +390,33 @@ const dom = new Proxy(extend( // the audacious old browser breaker :O
   (selector, element = doc) => new Promise((res, rej) => {
     if(isNode(selector)) res(selector);
     else if(isStr(selector)) {
-      if(isReady()) {
-        if(selector === 'body') res(doc.body);
-        else {
+      if(selector === 'body') run(() => res(doc.body));
+      else if(selector === 'head') res(doc.head);
+      else {
+        const find = () => {
           let temp = query(selector, element);
-          isNode(temp) ? res(temp) : rej();
+          isNode(temp) ? res(temp) : rej(404);
         }
-      } else {
-        if(selector === 'head') res(doc.head);
-        else run(() => {
-          let temp = query(selector, element);
-          isNode(temp) ? res(temp) : rej();
-        });
+        isReady() ? find() : run(find);
       }
-    } else rej();
+    } else rej(403);
   }),
-  {create,query,queryAll,queryEach,on,once,html,domfrag}
+  {create,query,queryAll,queryEach,html,domfrag}
 ), {
   get: (d, key) => key in d ? d[key] : bindr(create, key), // get the d
   set: (d, key, val) => d[key] = val
 });
 
-const repeater = (interval, fn, destroySync, intervalID, mngr = ({
-  stop: () => (clearInterval(intervalID), mngr),
-  start() {
-    intervalID = setInterval(fn, interval);
-    isNode(destroySync) && mngr.destroySync(destroySync);
-    return mngr;
-  },
-  destroySync: el => once(el, 'destroy', mngr.stop)
-})) => mngr.start();
-
-const mountORdestroy = (stack, type) => stack.length > 0 && arrEach(stack, node => {
-  if(!node.isConnected && !doc.contains(node)) node.dispatchEvent(type);
-});
+const destroyHandle = node => {
+  if(node.notifier) node.notifier.emit('destroy', node);
+}
 
 new MutationObserver(muts => each(muts, ({addedNodes, removedNodes, target, attributeName, oldValue}) => {
-  mountORdestroy(addedNodes, mountEVT);
-  mountORdestroy(removedNodes, destroyEVT);
-  if(attributeName !== 'style' && observedAttributes.has(attributeName)) checkAttr(attributeName, target, oldValue);
+  if(addedNodes.length) arrEach(addedNodes, emitMount);
+  if(removedNodes.length) arrEach(addedNodes, destroyHandle);
+  if(attributeName && observedAttributes.has(attributeName)) checkAttr(attributeName, target, oldValue);
   //target.emit('attr:'+attributeName,target,target.attr[attributeName],oldValue);
 })).observe(doc, {attributes:true, childList:true, subtree:true});
 
-return {dom,domfn,notifier,pipe,compose,composeTest,yieldloop,debounce,directive,directiveRevoke,repeater,extend,route,render,run,curry,each,isInDOM,flatten,isDef,isUndef,isPrimitive,isNull,isFunc,isStr,isBool,isNum,isInt,isIterator,isObj,isArr,isArrlike,isEmpty,isEl,isEq,isNode,isNodeList,isInput,isMap,isSet};
+return {dom,domfn,notifier,pipe,compose,composeTest,yieldloop,on,once,debounce,directive,directiveRevoke,extend,route,render,run,curry,each,flatten,isMounted,isDef,isUndef,isPrimitive,isNull,isFunc,isStr,isBool,isNum,isInt,isIterator,isObj,isArr,isArrlike,isEmpty,isEl,isEq,isNode,isNodeList,isInput,isMap,isSet};
 })();

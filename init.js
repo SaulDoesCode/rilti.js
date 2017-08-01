@@ -4,7 +4,7 @@ const url = require('url');
 const zlib = require('zlib');
 const path = require('path');
 const WebSocket = require('ws');
-const {PassThrough} = require('stream');
+const {PassThrough, Readable} = require('stream');
 const brotliCompress = require('iltorb').compressStream;
 const command = require('child_process').exec;
 
@@ -94,7 +94,11 @@ const mimeType = {
   '.ttf': 'aplication/font-sfnt'
 }
 
-const sendFileStream = (useBrolti, res, location) => fs.createReadStream(location).pipe(useBrolti ? brotliCompress() : zlib.createGzip()).pipe(res);
+const sendFileStream = (useBrolti, res, location) => {
+  res.statusCode = 200;
+  fs.createReadStream(location).pipe(useBrolti ? brotliCompress() : zlib.createGzip()).pipe(res)
+}
+
 const send404 = res => {
   res.statusCode = 404;
   res.setHeader('Content-Encoding', 'utf8');
@@ -107,16 +111,16 @@ http.createServer((req, res) => {
   const AcceptsBrotli = req.headers['accept-encoding'].includes('br');
 
   res.setHeader('Content-Encoding', AcceptsBrotli ? 'br' : 'gzip');
+
   res.setHeader('Cache-Control', 'max-age=86400,must-revalidate');
-  // CORS: SuperOpen - come and get it mode
+
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST');
   res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type');
-  res.setHeader('Access-Control-Allow-Credentials', true);
+  //res.setHeader('Access-Control-Allow-Credentials', true);
 
   // parse URL
-  if(req.url == '/') {
-      res.setHeader('Content-type', 'text/html');
+  if(req.url == '/' || req.url == '/rilti-site/') {
       sendFileStream(AcceptsBrotli, res, './rilti-site/main.html');
   } else {
 
@@ -137,11 +141,13 @@ http.createServer((req, res) => {
         temp = null;
       }
 
-      // read file from file system
-      if(!fs.existsSync(pathname)) return send404(res);
+      fs.exists(pathname, modifiedPatExists => {
+        if(modifiedPatExists) {
+          res.setHeader('Content-type', mimeType[path.parse(pathname).ext] || 'text/plain');
+          sendFileStream(AcceptsBrotli, res, pathname)
+        } else send404(res);
+      });
 
-      res.setHeader('Content-type', mimeType[path.parse(pathname).ext] || 'text/plain');
-      sendFileStream(AcceptsBrotli, res, pathname);
     });
   }
 

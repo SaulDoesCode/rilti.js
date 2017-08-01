@@ -79,7 +79,6 @@ otherwise such as with has/get(this/that) type functions
     getAttr, // getAttr(node, {attr string}) -> string
     setAttr, // setAttr(node, {attr string/object}, {=val primitive})
     attrToggle, // (node, name, state = !node.hasAttribute(name), val = node.getAttribute(name) || '') toggle attrs
-    inner, // (node, childNodes) empties node.innerHTML and appends childNodes
     emit, // (node, {type string/Event/CustomEvent}) dispatchEvents on node
     append, prepend, appendTo, prependTo, // (node, {other string/node})
     remove // (node, {=after number}) // remove node or setTimeout after which to remove

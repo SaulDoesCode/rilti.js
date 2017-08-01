@@ -1,11 +1,10 @@
 {
 "use strict";
 // get all the functions needed
-const {notifier,each,pipe,compose,curry,dom,domfn,run,render,route,isObj,isFunc,isNum,isStr,isEmpty} = rilti;
+const {notifier,each,pipe,compose,curry,dom,domfn,on,once,flatten,run,render,route,isObj,isFunc,isNum,isNode,isStr,isEmpty} = rilti;
 // getting dom related functions & generating all the tags used
-const {queryEach,on,div,h1,header,footer,span,nav,p,a,b,domfrag,html,ul,li,pre,code} = dom;
-// dom manip functions
-const {Class,hasClass} = domfn;
+const {div,h1,header,footer,span,nav,p,a,b,html,ul,li,pre,code} = dom;
+const {Class,hasClass,replace,css, append} = domfn; // dom manip functions
 
 const smoothScrollSetting = { block: 'start', behavior: 'smooth' };
 
@@ -16,19 +15,15 @@ const toggleSection = (name, state) => {
   hub.emit('colapse:'+name, state);
 }
 
-// temporarily render sidebar content to a dom fragment
-// to reduce rendering granularity for performance
-const sidebarContent = domfrag();
-
 let activeButton;
 let activeSection;
 
-const sbHeader = (section, name, ...buttons) => {
+const sbHeader = (section, name, buttons) => {
   div({
-    render:sidebarContent,
-    class:'sidebar-section',
+    render: '.sidebar',
+    class: 'sidebar-section',
     lifecycle : {
-      mount(el) {
+      create(el) {
         hub.on('colapse:'+name, state => {
           Class(el, 'open', state);
           if(hasClass(el, 'open')) {
@@ -45,7 +40,7 @@ const sbHeader = (section, name, ...buttons) => {
       class:'sidebar-header',
       action(e, el) {
         toggleSection(name);
-        if(activeSection === name) location.hash = '#/'+name;
+        if(activeSection === name) location.hash = '#/';
         if(activeButton) {
           Class(activeButton, 'selected', false);
           activeButton = null;
@@ -56,119 +51,182 @@ const sbHeader = (section, name, ...buttons) => {
     buttons.map(btn => {
       if(isStr(btn)) {
         const href = `#/${section}.${btn}`;
-        const linkBtn = a({ class: 'sidebar-button', href }, span('.'), btn);
-        if(btn.length >= 14) linkBtn.style.fontSize = '.83em';
-        else if(btn.length >= 11) linkBtn.style.fontSize = '.94em';
+        return a({
+          class: 'sidebar-button',
+          href,
+          lifecycle: {
+            create(el) {
 
-        route(href, () => {
-          if(activeButton) Class(activeButton, 'selected', false);
-          activeButton = Class(linkBtn, 'selected', true);
-          if(activeSection !== name) toggleSection(name, true);
-        });
+              if(btn.length >= 14) css(el, {
+                fontSize: '.84em',
+                lineHeight: '8.65mm'
+              });
+              else if(btn.length >= 11) css(el, {
+                fontSize: '.94em',
+                lineHeight: '8.4mm'
+              });
 
-        return linkBtn;
+              route(href, () => {
+                if(activeButton) Class(activeButton, 'selected', false);
+                activeButton = Class(el, 'selected', true);
+                activeButton.scrollIntoView(smoothScrollSetting);
+                hub.emit('selection:'+href);
+                toggleSection(name, true);
+              });
+
+              if(location.hash === href) run(() => toggleSection(name, true));
+            }
+          }
+
+        }, btn);
       }
-      return btn;
     })
 
   );
 }
 
-const sbSubheader = name => div({ class: 'sidebar-subheader' }, name);
+const title = header({
+  class: 'title'
+}, 'funcName');
 
-
-// Dude!?!??!! meta-(self-documentation)
-const internals = {
-  rilti:[],
-  '.isX':[],
-  sub: {}
-}
-
-each(rilti, (val, key) => {
-  if(isFunc(val)) {
-     if(key.includes('is')) internals['.isX'].push(key);
-     else internals.rilti.push(key);
-  } else if(isObj(val) && !isEmpty(val)) {
-    internals.sub[key] = [];
-    each(val, (v, k) => {
-      if(isFunc(v)) internals.sub[key].push(k);
-    });
-  }
+const description = div({
+  class:'description'
 });
 
-sbHeader('rilti', 'rilti', ...internals.rilti.sort());
-sbHeader('rilti', '.isX', ...internals['.isX'].sort());
-
-each(internals.sub, (set, head) => {
-  sbHeader('rilti.'+head, '.'+head, ...set.sort());
+const example = pre({
+  class:'example'
 });
 
-sbHeader('rilti.dom', '.dom',
-'query', 'queryAll', 'queryEach',
-'create', "anyTag",
-'domfrag', 'html',
-'on', 'once');
-
-render(sidebarContent, '.sidebar');
-
-const main = dom.main();
-
-let activeCard;
-
-const infoCard = (href, title, exampleCode, ...description) => div({
-    render:main,
-    class:'info-card',
-    lifecycle: {
-      mount(el) {
-        const thisCardLink = '#/'+href;
-        on(el, 'mouseover', () => location.hash = thisCardLink);
-        route(href, hash => {
-          el.scrollIntoView(smoothScrollSetting);
-          if(activeCard) Class(activeCard, 'active', false);
-          activeCard = Class(el, 'active', true);
-        });
-      }
-    }
-  },
-  header(
-    a({href: '#/'+href}, title)
-  ),
-  pre(
-    code({class:'hljs javascript'}, exampleCode)
-  ),
-  div({class:'content'}, description)
+dom.section({
+  id: 'viewer',
+  render: 'main',
+},
+  title,
+  description,
+  example
 );
 
-infoCard('rilti.notifier', 'notifier',
+const inner = (el, ...newContent) => {
+  el.innerHTML = '';
+  el.append(...newContent);
+}
+
+var hw = new Worker('/rilti-site/highlightWorker.js');
+
+on(hw, 'message', ({data}) => {
+  const {value, href} = data;
+  hub.emit('hw:'+href, html(value));
+});
+
+const genDoc = (href, DocTitle, rawCode, ...desc) => {
+  href = '#/'+href;
+  desc = flatten(desc);
+
+  const codeEL = code({
+    class:'hljs javascript'
+  });
+
+  hub.once('hw:'+href, codeHTML => {
+    codeEL.appendChild(codeHTML);
+  });
+  hw.postMessage({rawCode, href});
+
+  hub.on('selection:'+href, () => {
+    title.textContent = DocTitle;
+    inner(example, codeEL);
+    inner(description, ...desc);
+  });
+}
+
+genDoc('rilti.compose', 'compose',
+`const { compose } = rilti;
+
+const appropriateGreeting = name => {
+  const hours = (new Date()).getHours();
+  let greeting;
+
+  if (hours < 12) {
+    greeting = 'Good Morning';
+  } else if (hours >= 12 && hours <= 17) {
+    greeting = 'Good Afternoon';
+  } else if (hours >= 17 && hours <= 24) {
+    greeting = 'Good Evening';
+  }
+
+  return greeting + ' ' + name;
+}
+
+const say = msg => console.log(msg);
+
+const GreetPerson = compose(say, appropriateGreeting);
+
+GreetPerson('Mr Tom'); // -> Good Evening Mr Tom
+`,
+  p(`compose multiple functions, string multiple functions together and join their results`)
+);
+
+genDoc('rilti.notifier', 'notifier',
 `const pubsub = rilti.notifier(); // make notifier
 
-pubsub.on('coffee', type => {
+const coffeeHandle = pubsub.on('coffee', type => {
  console.log(type + ' is just so good!!');
 });
 
-pubsub.emit('coffee', 'americano');
-
 // each event handle returns the handle function
 // with these added control functions
-handle.on();
-handle.once();
-handle.off();
+const {on, once, off} = coffeeHandle;
 
-const taskHandler = pubsub.on('task', val => {
-  if(val === 'complete') {
-    taskHandler.off();
-    console.log('Task completed!');
-  } else if(rilti.isNum(val)) {
-    console.log('Task is '+val+'% done');
-  }
-});
+pubsub.emit('coffee', 'americano');
 
 `,
   p(`notifier is an event emitter or pub/sub pattern,
   it allows you to listen and trigger events and also pass values to listeners from the point of emission.`)
 );
 
-infoCard('rilti.pipe', 'pipe',
+genDoc('rilti.flatten', 'flatten',
+`const {flatten} = rilti;
+
+flatten([1, [2, [3, [4]], 5]]);
+// => [1, 2, [3, [4]], 5]
+`,
+  p(`Flattens arrays and arraylike objects a single level deep.`)
+);
+
+genDoc('rilti.curry', 'curry',
+`const {curry} = rilti;
+
+const makeSentence = (subject, verb, object) => {
+  console.log(\`\${subject} \${verb} \${object}.\`);
+}
+
+const abcSentenceMaker = curry(makeSentence);
+
+// fn(arg 1) -> fn(arg 2) -> fn(arg 3) -> originalFN(1, 2, 3)
+abcSentenceMaker("Marry")("drinks")("coffee");
+// => "Mary drinks coffee."
+
+// fn(arg 1, arg 2) -> fn(arg 3) -> originalFN(1, 2, 3)
+abcSentenceMaker("XiaoZhao", "eats")("a burger");
+// => "XiaoZhao eats a burger."
+
+// fn(arg 1, arg2, arg3) -> originalFN(1, 2, 3)
+abcSentenceMaker("Hendrik", "watches", "the game");
+// => "Hendrik watches the game."
+
+// curry only the first 2 arguments
+const makeSVO = curry(makeSentence, 2);//<- this num
+// is for the number of arguments to curry
+
+// first 2 args already provided so we can't curry
+makeSVO("The dog", "sleeps")("outside");
+// -> type error string is not a function
+
+makeSVO("The dog")("sleeps", "outside")
+// -> "The dog sleeps outside."
+`,
+p(`Curry takes in functions and spits out functions that will keep returning functions until all of the parameters have values or a set number of parameters have values.`))
+
+genDoc('rilti.pipe', 'pipe',
 `const {pipe} = rilti;
 
 const add = (a,b) => a+b;\n
@@ -185,14 +243,15 @@ pipe(div())
  header("Good News Everyone!!!"),
  p(\`
   We've a fun new toy to play with called rilti.js,
-  it let's you build things using functional wizardry.
+  it let's you build things using 'mostleh...'
+  functional wizardry.
  \`)
 
 )
 (appendTo, document.body) // finally add div to page
 // pipes won't stop asking for funcs
 // until it is executed without any arguments
-(); // pipe chain stopped, -> div.material-panel
+(); // pipe chain stopped, -> <div.material-panel/>
 
 
 `,
@@ -201,7 +260,7 @@ pipe(div())
   `)
 );
 
-infoCard('rilti.each', 'each',
+genDoc('rilti.each', 'each',
 `const {each} = rilti; // get function
 
 // loop through arrays or arraylike objects
@@ -233,47 +292,105 @@ ul({
    "maps, sets",
    "arraylikes",
    "objects",
-   "ints: using chunking technique to stop total blockage with heavy workloads",
+   "ints: with chunking technique to prevent total window \"freezing\" / blocking",
    "iterators: any raw iterator or object with a .entries method"
- ].map(v => li(b(v)))
+ ].map(v => li(v))
 )
 );
 
-  run(() => {
-    hljs.initHighlightingOnLoad();
-    // did ya try turning it on and off again?!?!?
-    if(location.hash.length > 3) {
-      const hash = location.hash;
-      location.hash = "";
-      location.hash = hash;
-    }
-    render(main, document.body);
-    console.info(`Loaded in ${performance.now() - commence}ms`);
-  });
+genDoc('rilti.isFunc', 'isFunc',
+`const {isFunc} = rilti;
 
+isFunc(() => 5) // -> true
+isFunc('string') // -> false
 
-  window.testRilti = (count = 10000) => {
-    const each = rilti.each, span = rilti.dom.span;
-    const start = performance.now();
-    // int loops are chunked making heavy loads less blocking
-    each(count, i =>
-      span({
-        render: main,
-        css: {
-          background:'#fff',
-          width:'110px',
-          color: 'dimgrey',
-          textAlign: 'center',
-          height:'110px',
-          margin:'5px',
-          padding:'4px',
-          float:'left',
-          boxShadow:'0 1px 4px hsla(0,0%,0%,.3)'
-        }
-      },
-      "damn daniel, back at it again with those white spans ", count--)
-    );
-    console.log(`That took ${performance.now() - start}ms`);
+`,
+p(`Checks if value is classified as a `, b(`Function`), ` object.`));
+
+genDoc('rilti.isMap', 'isMap',
+`const {isMap} = rilti;
+
+isMap(new Map) // -> true
+isMap({}) // -> false`,
+p(`Checks whether or not a value is a `, b(`Map`), ` object.`));
+
+genDoc('rilti.isObj', 'isObj',
+`const {isObj} = rilti;
+
+isObj({}) // -> true
+isObj(56) // -> false`,
+p(`Checks whether or not a value is a plain `, b(`Object.`)));
+
+genDoc('rilti.isNum', 'isNum',
+`const {isNum} = rilti;
+
+isNum(56) // -> true
+isNum({}) // -> false`,
+p(`Checks whether or not a value is a `, b(`Number.`)));
+
+// Dude!?!??!! like how's this for self-documentation
+const internals = {
+  rilti:[],
+  is:[],
+  sub: {}
+}
+
+each(rilti, (val, key) => {
+  if(isFunc(val))
+     (key.includes('is') ? internals.is : internals.rilti).push(key);
+  if(isObj(val) && !isEmpty(val)) {
+    internals.sub[key] = [];
+    each(val, (v, k) => {
+      if(isFunc(v)) internals.sub[key].push(k);
+    });
   }
+});
+
+sbHeader('rilti', 'rilti', internals.rilti.sort());
+sbHeader('rilti', '.isX', internals.is.sort());
+
+each(internals.sub, (set, head) => {
+  sbHeader('rilti.'+head, '.'+head, set.sort());
+});
+
+sbHeader('rilti.dom', '.dom', ['query', 'queryAll', 'queryEach', 'create', 'anyTag', 'domfrag', 'html', 'on', 'once']);
+
+if(location.hash.length < 3 || location.hash === '#/rilti') location.hash = '#/home';
+
+route('#/home', () => {
+  div({
+    render: 'body',
+    class: 'blackout'
+  },
+    dom.aside({
+      class: 'home',
+      css: {
+        display:'block'
+      },
+      lifecycle: {
+        create(el) {
+
+        }
+      }
+    },
+      div({
+        class: 'quit-me',
+        once: {
+          click(e, el) {
+            el.parentNode.parentNode.remove();
+            location.hash = '#/rilti.compose';
+          }
+        }
+      }),
+      dom.h1('Hi there!'),
+      dom.h3('this is rilti.js')
+    )
+  );
+});
+
+run(() => {
+  setTimeout(() => hw.terminate(), 1500);
+  console.info(`Loaded in ${performance.now() - commence}ms`);
+});
 
 }
