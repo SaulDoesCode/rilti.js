@@ -4,7 +4,7 @@
  * Loosely based on Monokai textmate theme by http://www.monokai.nl/
  * @author ocodia
  */
-/*@import url('https://fonts.googleapis.com/css?family=Droid+Sans+Mono');*/
+@import url('https://fonts.googleapis.com/css?family=Droid+Sans+Mono');
 
 code[class*="language-"],
 pre[class*="language-"] {

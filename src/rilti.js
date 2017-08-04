@@ -353,7 +353,7 @@ const create = (tag, options, ...children) => {
   if(isRenderable(options)) children.unshift(options);
   flatten(children).forEach(child => {
     el.append(child);
-    if(child.nodeType) emitMount(child);
+    emitMount(child);
   });
 
   if(isObj(options)) {
@@ -389,7 +389,7 @@ const create = (tag, options, ...children) => {
 }
 
 // find a node independent of DOMContentLoaded state using a promise
-const dom = new Proxy(extend( // the audacious old browser breaker :O
+const dom = new Proxy(extend( // Proxy, the audacious old browser breaker :O
   (selector, element = doc) => new Promise((res, rej) => {
     if(isNode(selector)) res(selector);
     else if(isStr(selector)) {
