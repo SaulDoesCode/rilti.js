@@ -95,6 +95,9 @@ const queryEach = (selector, func, element = doc) => (!isFunc(func) && ([func, e
 
 const isMounted = (descendant, parent = doc) => parent === descendant || Boolean(parent.compareDocumentPosition(descendant) & 16);
 
+//const passive_events = ['wheel'];
+//passive_events.includes(type) ? {passive:true} : false
+
 const EventManager = curry((mode, target, type, handle, options = false) => {
   if(isStr(target)) target = query(target);
   if(!target.addEventListener) throw new TypeError('bad event target');
@@ -199,8 +202,6 @@ const activateRouting = () => {
   on(root, 'hashchange', () => {
     const hash = location.hash;
     route.emit(route.hastype(hash) ? hash : 'default', hash);
-  }, {
-    passive:true
   });
 }
 

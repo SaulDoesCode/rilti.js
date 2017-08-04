@@ -121,6 +121,7 @@ http.createServer((req, res) => {
 
   // parse URL
   if(req.url == '/' || req.url == '/rilti-site/') {
+      res.setHeader('Cache-Control', 'no-cache');
       sendFileStream(AcceptsBrotli, res, './rilti-site/main.html');
   } else {
 
@@ -132,6 +133,7 @@ http.createServer((req, res) => {
       if(!exist) return send404(res);
 
       if (fs.statSync(pathname).isDirectory()) {
+        res.setHeader('Cache-Control', 'no-cache');
         let temp = pathname + '/main.html';
         if(fs.existsSync(temp)) pathname = temp;
         else {
@@ -144,7 +146,10 @@ http.createServer((req, res) => {
       fs.exists(pathname, modifiedPatExists => {
         if(modifiedPatExists) {
           res.setHeader('Content-type', mimeType[path.parse(pathname).ext] || 'text/plain');
-          sendFileStream(AcceptsBrotli, res, pathname)
+          if(pathname.includes('rilti.js') || pathname.includes('main')) {
+            res.setHeader('Cache-Control', 'no-cache');
+          }
+          sendFileStream(AcceptsBrotli, res, pathname);
         } else send404(res);
       });
 

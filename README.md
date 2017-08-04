@@ -31,9 +31,9 @@ Feel free to fork or raise issues. Constructive criticism is welcome
 | ``dom.query( {string}, {=string/node} )`` | improved alternative to ``document.querySelector``|
 | ``dom.queryAll( {string}, {=string/node} )`` | improved alternative to ``document.querySelectorAll``|
 | ``dom.queryEach( {string}, {=string/node}, {function} )`` | queries nodes returned by selector and iterates over them like ``[].forEach`` would|
-| ``dom.on( {target}, {type}, {listener}, {=options} )`` | generates event listener |
-| ``dom.once( {target}, {type}, {listener}, {=options} )`` | generates event listener that triggers only once |
 | ``dom.html( {string} )`` | converts strings to html nodes |
+| ``on( {target}, {type}, {listener}, {=options} )`` | generates event listener |
+| ``once( {target}, {type}, {listener}, {=options} )`` | generates event listener that triggers only once |
 | ``render( {node}, {=selectorString/node} )`` | renders nodes to a node of your choice, independent of ready state |
 | ``run( {function} )`` | executes a given function when the DOM is loaded |
 | ``route( {=hashString}, {function})`` | detect and respond to location.hash changes |
@@ -44,8 +44,8 @@ Feel free to fork or raise issues. Constructive criticism is welcome
 | ``extend( {host object}, {object}, {=safe bool} )`` | extends host object with all props of other object, won't overwrite if safe is true |
 | ``flatten( {arraylike} )`` | flattens multidimensional arraylike objects |
 | ``notifier( {=obj} )`` | extendable event system /pub sub pattern |
-| ``Component(tag, config = {create, mount, destroy, adopted, attr, props, methods})`` | define custom elements |
 | ``DOMcontains( {node}, {=parent node} )`` | determines whether or not the dom or other node contains a specific node |
+| ``(from WC plugin) .Component(tag, config = {create, mount, destroy, adopted, attr, props, methods})`` | define custom elements |
 
 ##### rilti also exports a couple of useful type testing functions
 usage : ``rilti.isX( {any} ) // -> boolean``
@@ -234,8 +234,7 @@ dom['randomtag']({
 });
 
 // Web Components
-const {pipe} = rilti;
-const {on} = dom;
+const {pipe, on, domfn} = rilti;
 const {css} = domfn;
 
 rilti.Component('tick-box', {

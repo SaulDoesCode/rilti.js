@@ -1,23 +1,113 @@
 {
 "use strict";
 // get all the functions needed
-const {notifier,each,pipe,compose,curry,dom,domfn,on,once,flatten,run,render,route,isObj,isFunc,isNum,isNode,isStr,isEmpty} = rilti;
+const {notifier,each,pipe,compose,curry,dom,domfn,on,once,flatten,run,render,route,isObj,isFunc,isNum,isPrimitive,isNodeList,isNode,isStr,isEmpty} = rilti;
 // getting dom related functions & generating all the tags used
-const {div,h1,header,footer,span,nav,p,a,b,html,ul,li,pre,code} = dom;
+const {div,h1,header,footer,span,nav,p,a,b,html,ul,li,pre} = dom;
 const {Class,hasClass,replace,css, append} = domfn; // dom manip functions
 
 const smoothScrollSetting = { block: 'start', behavior: 'smooth' };
 
+const model = m => {
+
+  const data = notifier(new Map);
+
+  if(isObj(m) && !isEmpty(m)) each(m, (val, key) => {
+    data.set(key, val);
+  });
+
+  const normalSet = data.set.bind(data);
+  const normalGet = data.get.bind(data);
+  const normalDelete = data.delete.bind(data);
+
+  const previousProps = new Map;
+
+  data.previous = prop => previousProps.get(prop);
+
+  data.set = (prop, val) => {
+    if(!previousProps.has(prop) || !data.has(prop)) data.emit('new', prop, val);
+    previousProps.set(prop, val);
+    normalSet(prop, val).emit('change:'+prop, val);
+    return data;
+  }
+
+  data.get = prop => normalGet(prop);
+
+  data.delete = prop => {
+    normalDelete(prop).emit('change:'+prop);
+    data.emit('delete', prop);
+    previousProps.delete(prop);
+  }
+
+  data.update = newData => each(newData, (val, key) => data.set(key, val));
+
+  const syncs = new Map;
+
+  data.sync = curry((el, prop, elProp = isStr(el.value) ? 'value' : 'textContent') => {
+    if(!syncs.has(prop)) {
+      syncs.set(prop, new Map);
+    }
+    const propListeners = syncs.get(prop);
+    if(propListeners.has(el)) data.unsync(el, prop);
+    if(el.notifier) el.notifier.on('destroy', () => data.unsync(el, prop));
+
+    const updater = isFunc(elProp) ? val => elProp(el, val) : val => el[elProp] = val;
+    propListeners.set(el, data.on('change:'+prop, updater));
+    if(data.has(prop)) updater(normalGet(prop));
+    return el;
+  }, 2);
+
+  data.unsync = (el, prop) => {
+    if(syncs.has(prop)) {
+      const propListeners = syncs.get(prop);
+      if(propListeners.has(el)) {
+          const {off} = propListeners.get(el);
+          if(off) off();
+          propListeners.delete(el);
+      }
+      if(!propListeners.size) syncs.delete(prop);
+    }
+    return el;
+  }
+
+  return data;
+}
 
 // The Bridge: central "App" object / message center
-const hub = notifier();
+var hub = model();
+
+let activeButton;
+let activeSection;
 
 const toggleSection = (name, state) => {
   hub.emit('colapse:'+name, state);
 }
 
-let activeButton;
-let activeSection;
+const select = (el, state = true) => {
+  if(el !== activeButton) {
+    if(activeButton) {
+      Class(activeButton, 'selected', false);
+      activeButton = null;
+    }
+    if(el) {
+      activeButton = Class(el, 'selected', state);
+    }
+  }
+}
+
+const indexr = (arr, i, len = arr.length) => ({
+  get before() {
+    if(len === 1) return arr[0];
+    else if(len === 0) return null;
+    else if(i === 0) return arr[len - 1];
+    return arr[i - 1]
+  },
+  get after() {
+    if(len === 1 || i === len - 1) return arr[0];
+    else if(len === 0) return null;
+    return arr[i+1];
+  }
+});
 
 const sbHeader = (section, name, buttons) => {
   div({
@@ -25,12 +115,23 @@ const sbHeader = (section, name, buttons) => {
     class: 'sidebar-section',
     lifecycle : {
       create(el) {
+        on(el, 'wheel', ({deltaY}) => {
+          // Active Button Index
+          const abi = buttons.indexOf(activeButton);
+          if(abi != -1) {
+            location.hash = indexr(buttons, abi)[deltaY > 1 ? 'after' : 'before'].name;
+          }
+        }, {
+          passive:true
+        });
+
         hub.on('colapse:'+name, state => {
           Class(el, 'open', state);
           if(hasClass(el, 'open')) {
             if(name !== activeSection) {
               if(isStr(activeSection)) toggleSection(activeSection, false);
               activeSection = name;
+              if(activeSection === name) location.hash = buttons[0].name;
             }
           }
         });
@@ -41,20 +142,27 @@ const sbHeader = (section, name, buttons) => {
       class:'sidebar-header',
       action(e, el) {
         toggleSection(name);
-        if(activeSection === name) location.hash = '#/';
-        if(activeButton) {
-          Class(activeButton, 'selected', false);
-          activeButton = null;
-        }
       }
     }, name),
 
-    buttons.map(btn => {
+    buttons = buttons.map(btn => {
       if(isStr(btn)) {
         const href = `#/${section}.${btn}`;
         return a({
           class: 'sidebar-button',
           href,
+          props: {
+            name:href,
+            get activate() {
+              const el = this;
+              return () => {
+                select(el);
+                //activeButton.scrollIntoView(smoothScrollSetting);
+                hub.emit('selection:'+href);
+                toggleSection(name, true);
+              }
+            }
+          },
           lifecycle: {
             create(el) {
 
@@ -67,15 +175,9 @@ const sbHeader = (section, name, buttons) => {
                 lineHeight: '8.4mm'
               });
 
-              route(href, () => {
-                if(activeButton) Class(activeButton, 'selected', false);
-                activeButton = Class(el, 'selected', true);
-                activeButton.scrollIntoView(smoothScrollSetting);
-                hub.emit('selection:'+href);
-                toggleSection(name, true);
-              });
+              route(href, el.activate);
 
-              if(location.hash === href) run(() => toggleSection(name, true));
+              if(location.hash === href) run(el.activate);
             }
           }
 
@@ -86,48 +188,52 @@ const sbHeader = (section, name, buttons) => {
   );
 }
 
-const title = header({
-  class: 'title'
-}, 'funcName');
+const inner = (el, newContent) => {
+  el.innerHTML = '';
+  el.append(...flatten(newContent));
+}
 
-const description = div({
-  class: 'description'
+const syncOnCreate = (prop, justText) => ({
+  create(el) {
+    const s = hub.sync(el);
+    justText ? s(prop) : s(prop, inner);
+  }
 });
 
-const example = pre({
-  class: 'example language-javascript'
-});
-
-dom.section({
+const viewer = dom.section({
   id: 'viewer',
   render: 'main',
 },
-  title,
-  description,
-  example
+  header({
+    class: 'title',
+    lifecycle: syncOnCreate('title', true)
+  }, 'funcName'),
+  div({
+    class: 'description',
+    lifecycle: syncOnCreate('description')
+  }),
+  pre({
+    class: 'example language-javascript',
+    lifecycle: syncOnCreate('code')
+  })
 );
 
-const inner = (el, ...newContent) => {
-  el.innerHTML = '';
-  el.append(...newContent);
-}
+const genDoc = (href, title, rawCode, ...description) => {
 
-const genDoc = (href, DocTitle, rawCode, ...desc) => {
-  href = '#/'+href;
-  desc = flatten(desc);
-
-  const codeEL = code({
+  const code = dom.code({
     class: 'language-javascript'
-  });
+  },
+    html(Prism.highlight(rawCode, Prism.languages.javascript))
+  );
 
-  run(() => {
-    codeEL.innerHTML = Prism.highlight(rawCode, Prism.languages.javascript);
-  });
+  hub.on('selection:#/'+href, () => {
 
-  hub.on('selection:'+href, () => {
-    title.textContent = DocTitle;
-    inner(example, codeEL);
-    inner(description, ...desc);
+    hub.update({ title, description, code });
+
+    const {height} = viewer.getBoundingClientRect();
+    if(height <= 210) {
+
+    }
   });
 }
 
@@ -153,8 +259,7 @@ const say = msg => console.log(msg);
 
 const GreetPerson = compose(say, appropriateGreeting);
 
-GreetPerson('Mr Tom'); // -> Good Evening Mr Tom
-`,
+GreetPerson('Mr Tom'); // -> Good Evening Mr Tom`,
   p(`compose multiple functions, string multiple functions together and join their results`)
 );
 
@@ -180,8 +285,7 @@ genDoc('rilti.flatten', 'flatten',
 `const {flatten} = rilti;
 
 flatten([1, [2, [3, [4]], 5]]);
-// => [1, 2, [3, [4]], 5]
-`,
+// => [1, 2, 3, 4, 5]`,
   p(`Flattens arrays and arraylike objects a single level deep.`)
 );
 
@@ -195,7 +299,7 @@ const makeSentence = (subject, verb, object) => {
 const abcSentenceMaker = curry(makeSentence);
 
 // fn(arg 1) -> fn(arg 2) -> fn(arg 3) -> originalFN(1, 2, 3)
-abcSentenceMaker("Marry")("drinks")("coffee");
+abcSentenceMaker("Mary")("drinks")("coffee");
 // => "Mary drinks coffee."
 
 // fn(arg 1, arg 2) -> fn(arg 3) -> originalFN(1, 2, 3)
@@ -214,16 +318,18 @@ const makeSVO = curry(makeSentence, 2);//<- this num
 makeSVO("The dog", "sleeps")("outside");
 // -> type error string is not a function
 
-makeSVO("The dog")("sleeps", "outside")
+makeSVO("The dog")("sleeps", "outside");
 // -> "The dog sleeps outside."
 `,
 p(`Curry takes in functions and spits out functions that will keep returning functions until all of the parameters have values or a set number of parameters have values.`))
 
 genDoc('rilti.pipe', 'pipe',
-`const {pipe} = rilti;
+`const { pipe } = rilti;
 
-const add = (a,b) => a+b;\n
-const x = pipe(5)(add, 5)(add, 5)(add, 5)(); // -> 20;\n\n
+const add = (a,b) => a+b;
+
+const x = pipe(5)(add, 5)(add, 5)(add, 5)(); // -> 20;
+
 const {Class, css, append, appendTo} = rilti.domfn;
 const {div, header, p} = rilti.dom;
 
@@ -232,25 +338,18 @@ pipe(div())
 (Class, 'material-panel')
 // now append some children
 (append,
-
  header("Good News Everyone!!!"),
  p(\`
   We've a fun new toy to play with called rilti.js,
   it let's you build things using 'mostleh...'
   functional wizardry.
  \`)
-
 )
 (appendTo, document.body) // finally add div to page
 // pipes won't stop asking for funcs
 // until it is executed without any arguments
-(); // pipe chain stopped, -> <div.material-panel/>
-
-
-`,
-  p(`pipe takes a value and returns a function that expects a function as the first parameter.
-
-  `)
+(); // pipe chain stopped, -> <div.material-panel/>`,
+  p(`pipe takes a value and returns a function that expects a function as the first parameter.`)
 );
 
 genDoc('rilti.each', 'each',
@@ -271,8 +370,7 @@ each({a:1, b:2, c:3}, (val, key, obj) => {
 //  obj.a = 1
 //  obj.b = 2
 //  obj.c = 3
-//-> obj
-`,
+//-> obj`,
 div("each is a simple loop function"),
 div("each can loop through:"),
 ul({
@@ -295,9 +393,7 @@ genDoc('rilti.isFunc', 'isFunc',
 `const {isFunc} = rilti;
 
 isFunc(() => 5) // -> true
-isFunc('string') // -> false
-
-`,
+isFunc('string') // -> false`,
 p(`Checks if value is classified as a `, b(`Function`), ` object.`));
 
 genDoc('rilti.isMap', 'isMap',
@@ -348,9 +444,8 @@ each(internals.sub, (set, head) => {
 
 sbHeader('rilti.dom', '.dom', ['query', 'queryAll', 'queryEach', 'create', 'anyTag', 'domfrag', 'html', 'on', 'once']);
 
-if(location.hash.length < 3 || location.hash === '#/rilti') location.hash = '#/home';
-
 route('#/home', () => {
+
   div({
     render: 'body',
     class: 'blackout'
@@ -380,6 +475,8 @@ route('#/home', () => {
     )
   );
 });
+
+if(location.hash.length < 3 || location.hash === '#/rilti') location.hash = '#/home';
 
 run(() => {
   console.info(`Loaded in ${performance.now() - commence}ms`);
