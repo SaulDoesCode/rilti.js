@@ -349,16 +349,6 @@ const ifHas = obj => (keys, fn) => {
   }
 }
 
-const incarnation = (el, n, first = true) => ({create, mount, destroy}) => {
-  if(first && create) n.once('create', () => create.call(el, el));
-  if(mount) n.once('mount', () => mount.call(el, el));
-  if(destroy) n.once('destroy', () => {
-    destroy.call(el, el);
-    // listen for potential re-incaration
-    incarnation(el, n, false)({create, mount, destroy});
-  });
-}
-
 const create = (tag, options, ...children) => {
   const el = doc.createElement(tag);
   const n = el.notifier = notifier();
@@ -380,7 +370,17 @@ const create = (tag, options, ...children) => {
     ifhas('attr', attr(el));
     ifhas('css', css(el));
     ifhas('action', listener => el.action = on(el, 'click', listener));
-    ifhas('lifecycle', incarnation(el, n));
+    ifhas('lifecycle', ({create, mount, destroy}) => {
+      if(create) n.once('create', () => create.call(el, el));
+      if(mount) n.once('mount', () => mount.call(el, el));
+      if(destroy) n.on('destroy', () => {
+        destroy.call(el, el);
+        // listen for potential re-incaration
+        n.once('mount', () => {
+          mount.call(el, el);
+        });
+      });
+    });
 
     each(options, (val, key) => {
       if(key !== 'render')
