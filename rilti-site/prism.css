@@ -33,10 +33,10 @@ pre[class*="language-"] {
 pre[class*="language-"] {
 	position: relative;
 	display: block;
-	padding: .8em;
-	margin: 2vh auto;
+	padding: .5em;
+	margin: 1vh auto;
 	overflow: auto;
-	border-radius: 3px;
+	border-radius: 2.5px;
 }
 
 :not(pre) > code[class*="language-"],

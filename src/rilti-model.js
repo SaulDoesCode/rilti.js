@@ -1,18 +1,17 @@
 {
-
-  const {each, curry, isObj, isFunc, isEmpty} = rilti,
+  const {each, curry, isFunc} = rilti,
   change = 'change:';
 
-  rilti.model = m => {
+  rilti.model = (m = {}) => {
     const data = rilti.notifier(new Map);
 
-    if(isObj(m) && !isEmpty(m)) each(m, (val, key) => {
+    if(Object.keys(m).length) each(m, (val, key) => {
       data.set(key, val);
     });
 
-    const normalSet = data.set.bind(data);
-    const normalGet = data.get.bind(data);
-    const normalDelete = data.delete.bind(data);
+    const dataSet = data.set.bind(data),
+    const dataGet = data.get.bind(data),
+    const dataDelete = data.delete.bind(data),
 
     const previousProps = new Map;
 
@@ -21,14 +20,14 @@
     data.set = (prop, val) => {
       if(!previousProps.has(prop) || !data.has(prop)) data.emit('new', prop, val);
       previousProps.set(prop, val);
-      normalSet(prop, val).emit(change+prop, val);
+      dataSet(prop, val).emit(change+prop, val);
       return data;
     }
 
-    data.get = prop => normalGet(prop);
+    data.get = prop => dataGet(prop);
 
     data.delete = prop => {
-      normalDelete(prop).emit(change+prop);
+      dataDelete(prop).emit(change+prop);
       data.emit('delete', prop);
       previousProps.delete(prop);
     }
@@ -46,7 +45,7 @@
 
       const updater = isFunc(elProp) ? val => elProp(el, val) : val => el[elProp] = val;
       propListeners.set(el, data.on(change+prop, updater));
-      if(data.has(prop)) updater(normalGet(prop));
+      if(data.has(prop)) updater(dataGet(prop));
       return el;
     }, 2);
 

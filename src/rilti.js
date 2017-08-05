@@ -5,14 +5,12 @@
 * @licence MIT
 **/
 var rilti = (() => {
-"use strict";
 
 const doc = document,
 root = window,
 undef = void 0,
 NULL = null,
-keys = Object.keys,
-forEach = 'forEach',
+len = 'length',
 InputTypes = 'INPUT TEXTAREA';
 
 const curry = (
@@ -22,34 +20,31 @@ const curry = (
 ) => next(); // love this
 
 // irony: the case of Case does not match the case of match
-const composeTest = (...cases) => match => cases.some(Case => match == Case || (isFunc(Case) && Case(match))),
-// don't curry just because you want to bind
-bindr = (fn, ...args) => fn.bind(NULL, ...args),
+const composeTest = (...cases) => match => cases.some(Case => match === Case || (isFunc(Case) && Case(match))),
 arrMeth = (meth, val, ...args) => Array.prototype[meth].apply(val, args),
-arrEach = bindr(arrMeth, forEach),
-typeinc = str => obj => toString.call(obj).indexOf(str) !== -1,
+arrEach = curry(arrMeth, 2)('forEach'),
+not = fn => (...args) => !fn(...args),
 // all the is this that stuff
-isInstance = (o, t) => o instanceof t,
+isArr = Array.isArray,
+isArrlike = o => !isFunc(o) && len in o,
+isBool = o =>  o === true || o === false,
 isDef = o => o !== undef && o !== NULL,
 isUndef = o => o === undef || o === NULL,
+isStr =  o => typeof o == 'string',
 isNull = o => o === NULL,
-isFunc = o =>  typeof o =='function',
-isStr =  o => typeof o =='string',
-isBool = o =>  o === true || o === false,
-isNum = o => !isBool(o) && !isNaN(Number(o)),
-isPrimitive = s => isStr(s) || isBool(s) || !isNaN(s),
-isInt = val => isNum(val) && val % 1 === 0,
-isObj = typeinc('Object'),
-isIterator = typeinc('Iterator'),
-isArr = Array.isArray,
-isArrlike = o => o && typeof o.length != 'undefined',
-isEmpty = val => (isUndef(val) || isFunc(val)) || !(isObj(val) ? keys(val).length : isArrlike(val) ? val.length : val.size),
-isNode = o => o && isInstance(o, Node),
-isNodeList = nl => isInstance(nl, NodeList) || (isArrlike(nl) && arrMeth('every', nl, isNode)),
-isEl = typeinc('HTML'),
-isMap = typeinc('Map'),
-isSet = typeinc('Set'),
-isInput = el => isEl(el) && InputTypes.indexOf(el.tagName) !== -1,
+isNum = o => o && o instanceof Number,
+isFunc = o => o && o instanceof Function,
+isObj = o => o && o.constructor === Object,
+isPrimitive = composeTest(isStr,isBool,isNum),
+isIterator = o => o && o.toString().includes('Iterator'),
+isInt = o => isNum(o) && o % 1 === 0,
+isEmpty = o => !((isObj(o) ? Object.keys(o) : len in o && o)[len] || o.size),
+isEl = o => o && o instanceof Element,
+isNode = o => o && o instanceof Node,
+isNodeList = o => o && (o instanceof NodeList || (isArrlike(o) && arrMeth('every', o, isNode))),
+isMap = o => o && o instanceof Map,
+isSet = o => o && o instanceof Set,
+isInput = o => o && o.tagName && InputTypes.includes(o.tagName),
 isEq = curry((o1, ...vals) => vals.every(isFunc(o1) ? i => o1(i) : i => o1 === i), 2);
 
 const yieldloop = (count, fn, done, chunksize = 60, i = 0) => {
@@ -64,15 +59,15 @@ const yieldloop = (count, fn, done, chunksize = 60, i = 0) => {
 
 const each = (iterable, func, i = 0) => {
   if(!isEmpty(iterable)) {
-    iterable[forEach] ? iterable[forEach](func) : isArrlike(iterable) && arrEach(iterable, func);
+    iterable.forEach ? iterable.forEach(func) : isArrlike(iterable) && arrEach(iterable, func);
     if(isObj(iterable)) for(i in iterable) func(iterable[i], i, iterable);
   } else if (isInt(iterable)) yieldloop(iterable, func);
-  else if(iterable && (iterable.entries || isIterator(iterable))) for (let [key, value] of iterable) func(key, value, iterable);
+  else if(iterable && (iterable.entries || isIterator(iterable))) for (const [key, value] of iterable) func(key, value, iterable);
   return iterable;
 }
 
 const extend = (host, obj, safe = false) => {
-  if(!isEmpty(obj)) each(keys(obj), key => {
+  if(!isEmpty(obj)) each(Object.keys(obj), key => {
       if(!safe || (safe && !(key in host)))
         Object.defineProperty(host, key, Object.getOwnPropertyDescriptor(obj, key));
   });
@@ -245,7 +240,7 @@ const domfn = {
   ), 2),
   Class: curry((node, c, state = !node.classList.contains(c)) => {
     state = state ? 'add' : 'remove';
-    c.indexOf(' ') !== -1 ? each(c.split(' '), cls => node.classList[state](cls)) : node.classList[state](c);
+    c.includes(' ') ? each(c.split(' '), cls => node.classList[state](cls)) : node.classList[state](c);
     return node;
   }, 2),
   hasClass: curry((node, name) => node.classList.contains(name)),
@@ -305,50 +300,58 @@ const domfn = {
   ),
 };
 
-const {append, attr} = domfn;
+const {append, attr, css} = domfn;
 
-const observedAttributes = new Map;
-const attrInit = (el, name) => (
+const directives = new Map;
+const dirInit = (el, name) => (
   el[name+"_init"] = true,
   el // return el
 );
-const directive = (name, stages) => {
-  observedAttributes.set(name, stages);
-  run(() => {
-    queryEach(`[${name}]`, el => {
-      stages.init(attrInit(el, name), el.getAttribute(name));
-    });
-  });
-}
-const directiveRevoke = name => observedAttributes.delete(name);
 
-const checkAttr = (name, el, oldValue) => {
-  if(observedAttributes.has(name)) {
-      const val = el.getAttribute(name), observedAttr = observedAttributes.get(name);
+const checkAttr = (name, el, oldValue = NULL) => {
+  if(directives.has(name)) {
+      const val = el.getAttribute(name);
+      const {init, update, destroy} = directives.get(name);
       if(isPrimitive(val)) {
-          if(!el[name+"_init"]) observedAttr.init(attrInit(el, name), val);
-          else observedAttr.update && val != oldValue && observedAttr.update(el, val, oldValue);
-      } else observedAttr.destroy && observedAttr.destroy(el, val, oldValue);
+          if(!el[name+"_init"]) init(dirInit(el, name), val);
+          else update && val != oldValue && update(el, val, oldValue);
+      } else destroy && destroy(el, val, oldValue);
   }
 }
 
+const directive = (name, stages) => {
+  directives.set(name, stages);
+  run(() => queryEach(`[${name}]`, el => checkAttr(name, el)));
+}
+
 const emitMount = node => {
-  if(!node.didMount && node.notifier) {
-    node.notifier.emit('mount', node);
+  if(!node.didMount) {
+    if(node.notifier) node.notifier.emit('mount', node);
     node.didMount = true;
   }
 }
 
+const rerr = err => console.warn(`render node error: ${err}`);
+
 const render = (node, host) => dom(host).then(h => {
   h.appendChild(node);
   emitMount(node);
-}, err => console.warn('Render error, host state:', err, node));
+}, rerr);
 
 const isRenderable = composeTest(isNode, isStr, isArrlike);
 
+const ifHas = obj => (keys, fn) => {
+  if(
+    keys in obj || isArr(keys) && keys.some(key => key in obj && (keys = key))
+  ) {
+    fn(obj[keys], keys);
+    delete obj[keys];
+  }
+}
+
 const create = (tag, options, ...children) => {
   const el = doc.createElement(tag);
-  el.notifier = notifier();
+  const n = el.notifier = notifier();
 
   if(isRenderable(options)) children.unshift(options);
   flatten(children).forEach(child => {
@@ -357,33 +360,33 @@ const create = (tag, options, ...children) => {
   });
 
   if(isObj(options)) {
-    const {lifecycle} = options;
-    delete options.lifecycle;
-    for(const key in options) {
-      const option = options[key];
-      if(key === 'class' || key === 'className') el.className = option;
-      else if(key === 'css' && el.style) domfn.css(el, option);
-      else if(key === 'on' || key === 'once') each(option, (handle, type) => EventManager(key, el, type, handle));
-      else if(key === 'attr') attr(el, option);
-      else if(key === 'action') el.action = on(el, 'click', option);
-      else if(key in el || isPrimitive(option)) el[key] = option;
-      else if(isObj(option)) extend(el, option);
-    }
-    if(lifecycle) {
-      each(lifecycle, (handle, stage) => {
-          if(stage === 'create') handle.call(el, el);
-          else if(isFunc(handle)) el.notifier.once(stage, () => {
-            handle.call(el, el);
-          });
+    const ifhas = ifHas(options);
+    ifhas(['class', 'className'], c => el.className = c);
+    ifhas(['on', 'once'], (listeners, mode) => {
+      each(listeners, (handle, type) => {
+        EventManager(mode, el, type, handle);
       });
-      el.notifier.emit('create', el);
-    }
-    if(options.render) {
-      if(options.render.nodeType) {
-        options.render.appendChild(el);
-        if(lifecycle) emitMount(el);
-      } else render(el, options.render);
-    }
+    });
+    ifhas('attr', attr(el));
+    ifhas('css', css(el));
+    ifhas('action', listener => el.action = on(el, 'click', listener));
+    ifhas('lifecycle', ({create, mount, destroy}) => {
+      if(create) n.once('create', () => create.call(el, el));
+      if(mount) n.once('mount', () => mount.call(el, el));
+      if(destroy) n.on('destroy', () => destroy.call(el, el));
+    });
+
+    each(options, (val, key) => {
+      if(key !== 'render')
+        isObj(val) ? extend(el, val) : el[key] = val;
+    });
+  }
+
+  n.emit('create', el);
+
+  if(options && options.render) {
+    const rnode = options.render;
+    rnode.appendChild ? (rnode.appendChild(el), emitMount(el)) : render(el, rnode);
   }
   return el;
 }
@@ -393,12 +396,14 @@ const dom = new Proxy(extend( // Proxy, the audacious old browser breaker :O
   (selector, element = doc) => new Promise((res, rej) => {
     if(isNode(selector)) res(selector);
     else if(isStr(selector)) {
-      if(selector === 'body') run(() => res(doc.body));
-      else if(selector === 'head') res(doc.head);
+      if(selector === 'head') res(doc.head);
       else {
         const find = () => {
-          let temp = query(selector, element);
-          isNode(temp) ? res(temp) : rej(404);
+          if(selector === 'body') res(doc.body);
+          else {
+            const temp = query(selector, element);
+            isNode(temp) ? res(temp) : rej(404);
+          }
         }
         isReady() ? find() : run(find);
       }
@@ -406,7 +411,7 @@ const dom = new Proxy(extend( // Proxy, the audacious old browser breaker :O
   }),
   {create,query,queryAll,queryEach,html,domfrag}
 ), {
-  get: (d, key) => key in d ? d[key] : bindr(create, key), // get the d
+  get: (d, key) => key in d ? d[key] : create.bind(NULL, key), // get the d
   set: (d, key, val) => d[key] = val
 });
 
@@ -416,10 +421,9 @@ const destroyHandle = node => {
 
 new MutationObserver(muts => each(muts, ({addedNodes, removedNodes, target, attributeName, oldValue}) => {
   if(addedNodes.length) arrEach(addedNodes, emitMount);
-  if(removedNodes.length) arrEach(addedNodes, destroyHandle);
-  if(attributeName && observedAttributes.has(attributeName)) checkAttr(attributeName, target, oldValue);
-  //target.emit('attr:'+attributeName,target,target.attr[attributeName],oldValue);
+  if(removedNodes.length) arrEach(removedNodes, destroyHandle);
+  if(attributeName && directives.has(attributeName)) checkAttr(attributeName, target, oldValue);
 })).observe(doc, {attributes:true, childList:true, subtree:true});
 
-return {dom,domfn,notifier,pipe,compose,composeTest,yieldloop,on,once,debounce,directive,directiveRevoke,extend,route,render,run,curry,each,flatten,isMounted,isDef,isUndef,isPrimitive,isNull,isFunc,isStr,isBool,isNum,isInt,isIterator,isObj,isArr,isArrlike,isEmpty,isEl,isEq,isNode,isNodeList,isInput,isMap,isSet};
+return {dom,domfn,notifier,pipe,compose,composeTest,not,yieldloop,on,once,debounce,directive,directives,extend,route,render,run,curry,each,flatten,isMounted,isDef,isUndef,isPrimitive,isNull,isFunc,isStr,isBool,isNum,isInt,isIterator,isObj,isArr,isArrlike,isEmpty,isEl,isEq,isNode,isNodeList,isInput,isMap,isSet};
 })();

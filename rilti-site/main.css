@@ -16,7 +16,7 @@ li {margin-bottom: 6px !important;}
   position: fixed;
   display: block;
   height: 100%;
-  width: 170px;
+  width: 20vw;
   left:0;
   top:0;
   text-align: center;
@@ -100,11 +100,13 @@ li {margin-bottom: 6px !important;}
   height: 8mm;
   line-height: 8mm;
   margin: .7vh auto;
+  font-size: .95em;
   border-radius: 3px;
   text-align: left;
   -webkit-user-select: none;
   -moz-user-select: none;
   user-select: none;
+  white-space: nowrap;
   background: hsl(40,10%,94%);
   color: #eccd7d;
   box-shadow: 0 1px 3px hsla(0, 0%, 0%, .2);
@@ -113,8 +115,7 @@ li {margin-bottom: 6px !important;}
 
 .sidebar-button::before {
   display: inline-block;
-  margin-left: 5px;
-  margin-right: .5px;
+  margin-left: 4.5px;
   content: '.';
   color: #ada07e;
 }
@@ -151,8 +152,8 @@ li {margin-bottom: 6px !important;}
 
 main {
   position: relative;
-  width: calc(100% - 170px);
-  margin-left: 170px;
+  width: calc(100% - 20vw);
+  margin-left: 20vw;
   height: 100vh;
   overflow:auto;
 }
@@ -164,9 +165,10 @@ main {
   overflow: hidden;
   text-align: left;
   margin: 2vh auto;
-  width: 92%;
+  min-width: 590px;
+  width: 50vw;
   height: auto;
-  border-radius: 3px;
+  border-radius: 2.5px;
   box-shadow: 0 1px 3px hsla(0, 0%, 0%, .2);
 }
 

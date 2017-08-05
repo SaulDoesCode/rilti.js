@@ -15,7 +15,7 @@ let activeButton;
 let activeSection;
 
 const toggleSection = (name, state) => {
-  hub.emit('colapse:'+name, state);
+  hub.emit('tgs:'+name, state);
 }
 
 const select = (el, state = true) => {
@@ -50,6 +50,7 @@ const sbHeader = (section, name, buttons) => {
     class: 'sidebar-section',
     lifecycle : {
       create(el) {
+
         on(el, 'wheel', ({deltaY}) => {
           // Active Button Index
           const abi = buttons.indexOf(activeButton);
@@ -60,13 +61,13 @@ const sbHeader = (section, name, buttons) => {
           passive:true
         });
 
-        hub.on('colapse:'+name, state => {
+        hub.on('tgs:'+name, state => {
           Class(el, 'open', state);
           if(hasClass(el, 'open')) {
             if(name !== activeSection) {
               if(isStr(activeSection)) toggleSection(activeSection, false);
               activeSection = name;
-              if(activeSection === name) location.hash = buttons[0].name;
+              location.hash = (activeButton ? activeButton : buttons[0]).name;
             }
           }
         });
@@ -102,8 +103,8 @@ const sbHeader = (section, name, buttons) => {
             create(el) {
 
               if(btn.length >= 14) css(el, {
-                fontSize: '.84em',
-                lineHeight: '8.65mm'
+                fontSize: '.88em',
+                lineHeight: '8.7mm'
               });
               else if(btn.length >= 11) css(el, {
                 fontSize: '.94em',
@@ -390,11 +391,6 @@ route('#/home', () => {
       css: {
         display:'block'
       },
-      lifecycle: {
-        create(el) {
-
-        }
-      }
     },
       div({
         class: 'quit-me',
