@@ -4,16 +4,13 @@
 
   rilti.model = (m = {}) => {
     const data = rilti.notifier(new Map);
-
-    if(Object.keys(m).length) each(m, (val, key) => {
-      data.set(key, val);
-    });
-
-    const dataSet = data.set.bind(data),
-    const dataGet = data.get.bind(data),
-    const dataDelete = data.delete.bind(data),
+    const dataSet = data.set.bind(data);
+    const dataGet = data.get.bind(data);
+    const dataDelete = data.delete.bind(data);
 
     const previousProps = new Map;
+
+    each(m, (val, key) => data.set(key, val));
 
     data.previous = prop => previousProps.get(prop);
 
@@ -61,7 +58,7 @@
       }
       return el;
     }
-
+    
     return data;
   }
 }
