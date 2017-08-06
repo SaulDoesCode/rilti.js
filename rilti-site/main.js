@@ -45,6 +45,15 @@ const indexr = (arr, i, len = arr.length) => ({
 });
 
 const sbHeader = (section, name, buttons) => {
+
+  div({
+    class:'sidebar-header',
+    render: 'nav.sidebar > section.sidebar-headers',
+    action(e, el) {
+      toggleSection(name);
+    }
+  }, name);
+
   div({
     render: '.sidebar',
     class: 'sidebar-section',
@@ -67,20 +76,13 @@ const sbHeader = (section, name, buttons) => {
             if(name !== activeSection) {
               if(isStr(activeSection)) toggleSection(activeSection, false);
               activeSection = name;
-              location.hash = (activeButton ? activeButton : buttons[0]).name;
+              location.hash = (buttons.includes(activeButton) ? activeButton : buttons[0]).name;
             }
           }
         });
       }
     }
   },
-    div({
-      class:'sidebar-header',
-      action(e, el) {
-        toggleSection(name);
-      }
-    }, name),
-
     buttons = buttons.map(btn => {
       if(isStr(btn)) {
         const href = `#/${section}.${btn}`;
@@ -378,7 +380,7 @@ each(internals.sub, (set, head) => {
   sbHeader('rilti.'+head, '.'+head, set.sort());
 });
 
-sbHeader('rilti.dom', '.dom', ['query', 'queryAll', 'queryEach', 'create', 'anyTag', 'domfrag', 'html', 'on', 'once']);
+sbHeader('rilti.dom', '.dom', ['query', 'queryAll', 'queryEach', 'create', 'anytag', 'domfrag', 'html']);
 
 route('#/home', () => {
 

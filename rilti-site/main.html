@@ -3,32 +3,13 @@
 
 <head>
   <meta charset="utf-8">
-  <script>
-    var commence = performance.now();
-  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Rilti.js</title>
   <link rel="shortcut icon" href="/rilti-site/rilti-favicon.png" type="image/x-icon">
   <link rel="stylesheet" href="/rilti-site/main.css">
-  <script src="https://ft-polyfill-service.herokuapp.com/v2/polyfill.min.js"></script>
-  <script src="/src/rilti.js"></script>
-  <script src="/dist/rilti-model.min.js"></script>
-  <script src="/rilti-site/smoothscroll.js"></script>
-  <script src="/rilti-site/prism.js"></script>
-  <script src="/rilti-site/main.js"></script>
-</head>
-
-<body>
-  <nav class="sidebar">
-    <h1>rilti.js</h1>
-    <hr>
-    <a href="https://github.com/SaulDoesCode/rilti.js">github</a>
-    <hr>
-  </nav>
-  <main>
-
-  </main>
-  <script>
+  <!--script src="https://ft-polyfill-service.herokuapp.com/v2/polyfill.min.js"></script-->
+  <script async>
+    const commence = performance.now();
     let timesConnected = 0;
 
     function ReloadOnChange(tried = 0) {
@@ -41,9 +22,8 @@
         localStorage.setItem('WSconnectionCount', totalConnectionsEver);
         console.log('Total WebSocket connections ever', totalConnectionsEver);
       }
-      ws.onmessage = msg => {
-        if (msg.data === 'reload') location.reload();
-        else console.log(msg.data, msg);
+      ws.onmessage = ({data}) => {
+        data === 'reload' ? location.reload() : console.log(data);
       }
       ws.onclose = () => {
         ws.close();
@@ -57,6 +37,22 @@
     }
     ReloadOnChange();
   </script>
+  <script src="/src/rilti.js"></script>
+  <script src="/dist/rilti-model.min.js"></script>
+  <script src="/rilti-site/smoothscroll.js"></script>
+  <script src="/rilti-site/prism.js"></script>
+  <script src="/rilti-site/main.js"></script>
+</head>
+
+<body>
+  <nav class="sidebar">
+    <h1>rilti.js</h1>
+    <hr>
+    <a href="https://github.com/SaulDoesCode/rilti.js">github</a>
+    <hr>
+    <section class="sidebar-headers"></section>
+  </nav>
+  <main></main>
 </body>
 
 </html>

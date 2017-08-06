@@ -29,7 +29,7 @@ isArr = Array.isArray,
 isArrlike = o => !isFunc(o) && len in o,
 isBool = o =>  o === true || o === false,
 isDef = o => o !== undef && o !== NULL,
-isUndef = o => o === undef || o === NULL,
+isNill = o => o === undef || o === NULL,
 isStr =  o => typeof o == 'string',
 isNull = o => o === NULL,
 isNum = o => o && o instanceof Number,
@@ -47,27 +47,33 @@ isSet = o => o && o instanceof Set,
 isInput = o => o && o.tagName && InputTypes.includes(o.tagName),
 isEq = curry((o1, ...vals) => vals.every(isFunc(o1) ? i => o1(i) : i => o1 === i), 2);
 
-const yieldloop = (count, fn, done, chunksize = 60, i = 0) => {
-    const chunk = () => {
-      const end = Math.min(i + chunksize, count);
-      while(i < end) fn(i++);
-      if (i < count) setTimeout(chunk, 0);
-      else if(done) done();
-    }
-    chunk();
-}
+const yieldloop = (
+  count,
+  fn,
+  done,
+  chunksize = 50,
+  i = 0,
+  chunk = () => {
+
+    const end = Math.min(i + chunksize, count);
+    while(i < end) fn(i++);
+    i < count ? setTimeout(chunk, 0) : done && done();
+
+}) => chunk();
 
 const each = (iterable, func, i = 0) => {
-  if(!isEmpty(iterable)) {
-    iterable.forEach ? iterable.forEach(func) : isArrlike(iterable) && arrEach(iterable, func);
-    if(isObj(iterable)) for(i in iterable) func(iterable[i], i, iterable);
-  } else if (isInt(iterable)) yieldloop(iterable, func);
-  else if(iterable && (iterable.entries || isIterator(iterable))) for (const [key, value] of iterable) func(key, value, iterable);
+  if(!isNill(iterable)) {
+    if(iterable.forEach) iterable.forEach(func);
+    else if(iterable.length > 0) arrEach(iterable, func);
+    else if(isObj(iterable)) for(i in iterable) func(iterable[i], i, iterable);
+    else if (isInt(iterable)) yieldloop(iterable, func);
+    else if((iterable.entries || isIterator(iterable))) for (const [key, value] of iterable) func(key, value, iterable);
+  }
   return iterable;
 }
 
-const extend = (host, obj, safe = false) => {
-  if(!isEmpty(obj)) each(Object.keys(obj), key => {
+const extend = (host, obj, safe = false, keys = Object.keys(obj)) => {
+  if(keys[len]) each(keys, key => {
       if(!safe || (safe && !(key in host)))
         Object.defineProperty(host, key, Object.getOwnPropertyDescriptor(obj, key));
   });
@@ -76,17 +82,25 @@ const extend = (host, obj, safe = false) => {
 
 const flatten = arr => isArrlike(arr) ? arrMeth("reduce", arr, (flat, toFlatten) => flat.concat(isArr(toFlatten) ? flatten(toFlatten) : toFlatten), []) : [arr];
 
-const composePlain = (f, g) => (...args) => f(g(...args));
-const compose = (...fns) => fns.reduce(composePlain);
+const compose = (...fns) => fns.reduce((f, g) => (...args) => f(g(...args)));
 
 // aren't fuggly one liners just the best
 const pipe = val => (fn, ...args) => (
   typeof fn == "function" ? pipe(fn(val, ...args)) : fn === true ? pipe(args.shift()(val, ...args)) : !args.length && !fn ? val : pipe(val)
 );
 
-const query = (selector, element = doc) => (isStr(element) ? doc.querySelector(element) : element).querySelector(selector);
-const queryAll = (selector, element = doc) => Array.from((isStr(element) ? query(element) : element).querySelectorAll(selector));
-const queryEach = (selector, func, element = doc) => (!isFunc(func) && ([func, element] = [element, doc]), each(queryAll(selector, element), func));
+const query = (selector, element = doc) => (
+  // return if node else query dom
+  selector.nodeType ?
+  selector :
+  // ikr it's weird
+  query(element).querySelector(selector)
+);
+const queryAll = (selector, element = doc) => Array.from(query(element).querySelectorAll(selector));
+const queryEach = (selector, func, element = doc) => (
+  !isFunc(func) && ([func, element] = [element, doc]),
+  each(queryAll(selector, element), func)
+);
 
 const isMounted = (descendant, parent = doc) => parent === descendant || Boolean(parent.compareDocumentPosition(descendant) & 16);
 
@@ -96,9 +110,11 @@ const isMounted = (descendant, parent = doc) => parent === descendant || Boolean
 const EventManager = curry((mode, target, type, handle, options = false) => {
   if(isStr(target)) target = query(target);
   if(!target.addEventListener) throw new TypeError('bad event target');
+  // for cloning purposes and odd cases
   if(target.nodeType && !target.evtlisteners) target.evtlisteners = new Set;
 
   let once = mode === 'once';
+
   const handler = evt => {
     handle.call(target, evt, target);
     if(once) remove();
@@ -153,54 +169,49 @@ const deleteHandle = (handles, type, handle) => ((handles.has(type) && !handles.
 const addHandle = (handles, type, handle) => ((handles.has(type) ? handles : handles.set(type, new Set)).get(type).add(handle), handle);
 
 const handleMaker = (handles, one = false) => (type, handle) => {
-  if(!isFunc(handle)) throw new TypeError("notifier: handle must be a function");
-
-  handle.one = one;
+  if(one) {
+    const original = handle;
+    handle = (...args) => {
+      original.apply(NULL, args);
+      deleteHandle(handles, type, handle);
+    }
+  }
   handle.type = type;
   handle.off = () => deleteHandle(handles, type, handle);
   handle.on = () => addHandle(handles, type, handle.off());
-  handle.once = () => (handle.one === true, handle.on());
-
   return addHandle(handles, type, handle);
 }
 
 const notifier = (host = {}) => {
   const handles = new Map;
-
-  host.on = handleMaker(handles);
-  host.once = handleMaker(handles, true);
-  host.off = curry(deleteHandle)(handles);
-  host.hastype = type => handles.has(isFunc(type) ? type.type : type);
-  host.hasHandle = handle => host.hastype(handle.type) && handles.get(handle.type).has(handle);
-  host.emit = (type, ...args) => {
-    if(handles.has(type)) handles.get(type).forEach(handle => {
-        handle(...args);
-        if(handle.one) handle.off();
-    });
-    return host;
-  }
-  return host;
+  return extend(host, {
+    on: handleMaker(handles),
+    once: handleMaker(handles, true),
+    off: curry(deleteHandle)(handles),
+    hastype: type => handles.has(isFunc(type) ? type.type : type),
+    hashandle: (handle, type = handle.type) => handles.has(type) && handles.get(type).has(handle),
+    emit(type, ...args) {
+      if(handles.has(type)) handles.get(type).forEach(handle => handle.apply(NULL, args));
+      return host;
+    }
+  })
 }
 
 const route = notifier((hash, fn) => {
-  if(!route.active) {
-      activateRouting();
-      route.active = true;
-  }
-  if(isFunc(hash)) [fn, hash] = [hash, 'default'];
+  if(isFunc(hash)) [fn, hash] = [hash, 'default']; // the ol' swopperoo ...and thank the javascript gods for destructuring
   if(hash !== 'default' && !hash.includes('#/')) hash = '#/'+hash;
   if(location.hash === hash || hash === 'default') fn(location.hash);
+  if(!route.active) {
+    on(root, 'hashchange', () => {
+      const h = location.hash;
+      route.emit(route.hastype(h) ? h : 'default', h);
+    });
+    route.active = true;
+  }
   return route.on(hash, fn);
 });
 
-const activateRouting = () => {
-  on(root, 'hashchange', () => {
-    const hash = location.hash;
-    route.emit(route.hastype(hash) ? hash : 'default', hash);
-  });
-}
-
-const isReady = () => doc.readyState === 'complete' || doc.readyState !== 'loading';
+const isReady = () => doc.readyState === 'complete';
 
 const LoadStack = new Set;
 once(root, 'DOMContentLoaded', () => each(LoadStack, fn => fn()));
@@ -213,7 +224,7 @@ const domfrag = inner => isPrimitive(inner) ? html(inner) : doc.createDocumentFr
 
 const vpend = Args => {
   const args = flatten(Args);
-  if(args.length == 1) return html(args[0]);
+  if(args.length === 1) return html(args[0]);
   const dfrag = domfrag();
   each(args, arg => {
     dfrag.appendChild(arg.nodeType ? arg : html(arg));
@@ -324,11 +335,11 @@ const directive = (name, stages) => {
   run(() => queryEach(`[${name}]`, el => checkAttr(name, el)));
 }
 
+const CR = 'create', MNT = 'mount', DST = 'destroy';
+const lifeEvent = (n, type) => (n.notifier && n.notifier.emit(type, n), n);
+
 const emitMount = node => {
-  if(!node.didMount) {
-    if(node.notifier) node.notifier.emit('mount', node);
-    node.didMount = true;
-  }
+  if(!node.didMount) lifeEvent(node, MNT).didMount = true;
 }
 
 const rerr = err => console.warn(`render node error: ${err}`);
@@ -371,65 +382,61 @@ const create = (tag, options, ...children) => {
     ifhas('css', css(el));
     ifhas('action', listener => el.action = on(el, 'click', listener));
     ifhas('lifecycle', ({create, mount, destroy}) => {
-      if(create) n.once('create', () => create.call(el, el));
-      if(mount) n.once('mount', () => mount.call(el, el));
-      if(destroy) n.on('destroy', () => {
-        destroy.call(el, el);
+      if(create) n.once(CR, () => create(el));
+      if(mount) n.once(MNT, () => mount(el));
+      if(destroy) n.on(DST, () => {
+        destroy(el);
         // listen for potential re-incaration
-        n.once('mount', () => {
-          mount.call(el, el);
-        });
+        n.once(MNT, () => mount(el));
       });
     });
 
     each(options, (val, key) => {
-      if(key !== 'render')
+      if(key !== 'render') {
         isObj(val) ? extend(el, val) : el[key] = val;
+      } else {
+        n.once(CR, () => {
+
+          val.appendChild ? // if is node
+          (
+            val.appendChild(el),
+            emitMount(el)
+          ) :
+          render(el, val)
+        });
+      }
     });
   }
 
-  n.emit('create', el);
-
-  if(options && options.render) {
-    const rnode = options.render;
-    rnode.appendChild ? (rnode.appendChild(el), emitMount(el)) : render(el, rnode);
-  }
+  n.emit(CR, el);
   return el;
 }
 
 // find a node independent of DOMContentLoaded state using a promise
 const dom = new Proxy(extend( // Proxy, the audacious old browser breaker :O
-  (selector, element = doc) => new Promise((res, rej) => {
-    if(isNode(selector)) res(selector);
-    else if(isStr(selector)) {
-      if(selector === 'head') res(doc.head);
-      else {
-        const find = () => {
-          if(selector === 'body') res(doc.body);
-          else {
-            const temp = query(selector, element);
-            isNode(temp) ? res(temp) : rej(404);
-          }
-        }
-        isReady() ? find() : run(find);
-      }
-    } else rej(403);
-  }),
+  (selector, element = doc) => new Promise((go, no) =>
+
+  selector === 'head' ? go(doc.head) :
+
+  isNode(selector) ? go(selector) :
+
+  isStr(selector) ? run(() => {
+    const temp = selector === 'body' ? doc.body : query(selector, element);
+    isNode(temp) ? go(temp) : no(404);
+  }) : no(403)
+
+),
   {create,query,queryAll,queryEach,html,domfrag}
 ), {
   get: (d, key) => key in d ? d[key] : create.bind(NULL, key), // get the d
   set: (d, key, val) => d[key] = val
 });
 
-const destroyHandle = node => {
-  if(node.notifier) node.notifier.emit('destroy', node);
-}
-
 new MutationObserver(muts => each(muts, ({addedNodes, removedNodes, target, attributeName, oldValue}) => {
   if(addedNodes.length) arrEach(addedNodes, emitMount);
-  if(removedNodes.length) arrEach(removedNodes, destroyHandle);
+  if(removedNodes.length) arrEach(removedNodes, node => lifeEvent(node, DST));
   if(attributeName && directives.has(attributeName)) checkAttr(attributeName, target, oldValue);
 })).observe(doc, {attributes:true, childList:true, subtree:true});
 
-return {dom,domfn,notifier,pipe,compose,composeTest,not,yieldloop,on,once,debounce,directive,directives,extend,route,render,run,curry,each,flatten,isMounted,isDef,isUndef,isPrimitive,isNull,isFunc,isStr,isBool,isNum,isInt,isIterator,isObj,isArr,isArrlike,isEmpty,isEl,isEq,isNode,isNodeList,isInput,isMap,isSet};
+return {dom,domfn,notifier,pipe,compose,composeTest,not,yieldloop,on,once,debounce,directive,directives,extend,route,render,run,curry,each,flatten,isMounted,isDef,isNill,isPrimitive,isNull,isFunc,isStr,isBool,isNum,isInt,isIterator,isObj,isArr,isArrlike,isEmpty,isEl,isEq,isNode,isNodeList,isInput,isMap,isSet};
 })();

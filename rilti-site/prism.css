@@ -34,7 +34,7 @@ pre[class*="language-"] {
 	position: relative;
 	display: block;
 	padding: .5em;
-	margin: 1vh auto;
+	margin: 0 auto;
 	overflow: auto;
 	border-radius: 2.5px;
 }

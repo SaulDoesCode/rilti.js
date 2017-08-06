@@ -16,7 +16,7 @@ li {margin-bottom: 6px !important;}
   position: fixed;
   display: block;
   height: 100%;
-  width: 20vw;
+  width: 260px;
   left:0;
   top:0;
   text-align: center;
@@ -55,25 +55,52 @@ li {margin-bottom: 6px !important;}
   margin-bottom: 1.5vh;
 }
 
-.sidebar-header {
-  position: relative;
+.sidebar-headers {
   display: block;
-  height: 8.5mm;
-  line-height: 8.5mm;
-  width: 88%;
-  margin: .8vh auto;
-  font-size: 1.5rem;
+  margin: 5px auto;
+  width: 100%;
+}
+
+.sidebar-header {
+  display: inline-block;
+  margin-right: 3px;
+  height: 30px;
+  line-height: 30px;
+  width: 75px;
+  font-size: 1.25rem;
   font-weight: bold;
   color: #fff;
-  background: #cdb17a;
+  background: #bda87e;
   text-shadow: 0 1px 3px hsla(0, 0%, 0%, .2);
   cursor: pointer;
+  white-space: nowrap;
   -webkit-user-select: none;
   -moz-user-select: none;
   user-select: none;
   box-sizing: content-box;
-  border-radius: 3px;
+  border-radius: 2px;
   transition: all 140ms ease;
+  z-index:4;
+}
+
+.sidebar-header:nth-of-type(1) {
+  left: 5px;
+}
+.sidebar-header:nth-of-type(2) {
+  left: 85px;
+}
+.sidebar-header:nth-of-type(3) {
+  left: 165px;
+}
+.sidebar-header:nth-of-type(4) {
+  left: 245px;
+}
+
+.sidebar-section {
+  width: 96%;
+  height: auto;
+  margin: 0 auto;
+  overflow: auto;
 }
 
 .sidebar-section > *:not(.sidebar-header) {
@@ -84,10 +111,6 @@ li {margin-bottom: 6px !important;}
   display: block;
 }
 
-.sidebar-section.open > .sidebar-header {
-  border-bottom: 2px solid #b8a584;
-}
-
 .sidebar-header>span, .sidebar-button>span {
   color: #ffdd86;
   margin: 0 1px 0 1px;
@@ -95,29 +118,27 @@ li {margin-bottom: 6px !important;}
 }
 
 .sidebar-button {
-  display: block;
-  width: 83%;
+  display: inline-block;
+  float:left;
+  width: 120px;
   height: 8mm;
   line-height: 8mm;
-  margin: .7vh auto;
+  margin: 2px;
   font-size: .95em;
   border-radius: 3px;
-  text-align: left;
   -webkit-user-select: none;
   -moz-user-select: none;
   user-select: none;
-  white-space: nowrap;
   background: hsl(40,10%,94%);
   color: #eccd7d;
   box-shadow: 0 1px 3px hsla(0, 0%, 0%, .2);
-  transition: all 100ms ease-out;
+  transition: all 120ms ease-out;
 }
 
 .sidebar-button::before {
   display: inline-block;
-  margin-left: 4.5px;
   content: '.';
-  color: #ada07e;
+  color: #d99e0a;
 }
 
 .sidebar-button::after, #viewer > header::after {
@@ -134,7 +155,8 @@ li {margin-bottom: 6px !important;}
 
 .sidebar-button:hover {
   background: hsl(40,13%,90%);
-  border-right: 4px solid #91825d;
+  border-left: 1px solid #91825d;
+  border-right: 1px solid #91825d;
   box-shadow: 0 2px 4px hsla(0, 0%, 0%, .2);
 }
 
@@ -145,16 +167,16 @@ li {margin-bottom: 6px !important;}
 .sidebar-button.selected {
   color: #fff4bd;
   background: #91825d;
-  margin: 1.1vh auto;
   text-shadow: 0 1px 3px hsla(0, 0%, 0%, .2);
   box-shadow: 0 1px 3px hsla(0, 0%, 0%, .2);
 }
 
 main {
   position: relative;
-  width: calc(100% - 20vw);
-  margin-left: 20vw;
+  width: calc(100% - 260px);
+  margin-left: 260px;
   height: 100vh;
+  padding: 4px;
   overflow:auto;
 }
 
@@ -162,26 +184,39 @@ main {
   position: relative;
   display: block;
   background: #e0d1b2;
-  overflow: hidden;
+  overflow: visible;
   text-align: left;
-  margin: 2vh auto;
-  min-width: 590px;
-  width: 50vw;
+  min-width: 560px;
+  width: 85%;
   height: auto;
+  margin: 2vh auto;
+  padding: 1vw;
   border-radius: 2.5px;
   box-shadow: 0 1px 3px hsla(0, 0%, 0%, .2);
+}
+
+.title-tab {
+  position: sticky;
+  display: block;
+  top:-30px;
+  left:0;
+  padding: 5px;
+  background: #fff;
+  content: 'rilti.js';
 }
 
 #viewer > header {
   display: block;
   width: 100%;
-  height: 8mm;
-  line-height: 8mm;
+  height: 32px;
+  line-height: 30px;
+  padding-left: 10px;
+  margin: 0 auto 5px auto;
+  border-radius: 2.5px;
   background:#cdb17a;
   color:#fff;
   font-size: 1.4em;
-  text-shadow: 0 1px 3px hsla(0, 0%, 0%, .2);
-  text-align: center;
+  text-shadow: 0 1px 3px hsla(0, 0%, 0%, .25);
   -webkit-user-select: none;
   -moz-user-select: none;
   user-select: none;
@@ -193,12 +228,13 @@ main {
 }
 
 #viewer > header::after {
+  font-size: .95em;
   content:'()';
 }
 
 #viewer > pre {
   font-size: .95rem;
-  width: calc(100% - 2vw);
+  width: 100%;
   text-shadow: 0 1px 3px hsla(0, 0%, 0%, .25);
   box-shadow: inset 0 0 5px 2px hsla(0, 0%, 0%, .3);
 }
