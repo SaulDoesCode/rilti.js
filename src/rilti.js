@@ -184,9 +184,19 @@ const handleMaker = (handles, one = false) => (type, handle) => {
 
 const notifier = (host = {}) => {
   const handles = new Map;
+
+  const [once, on] = [handleMaker(handles, true), handleMaker(handles)];
+
+  const addHandlers = mode => (type, handle) => {
+    if(!isStr(type)) return each(type, (hndl, htype) => {
+      if(isFunc(hndl)) type[htype] = mode(htype, hndl);
+    });
+    else if(isFunc(handle)) return mode(type, handle);
+  }
+
   return extend(host, {
-    on: handleMaker(handles),
-    once: handleMaker(handles, true),
+    on: addHandlers(on),
+    once: addHandlers(once),
     off: curry(deleteHandle)(handles),
     hastype: type => handles.has(isFunc(type) ? type.type : type),
     hashandle: (handle, type = handle.type) => handles.has(type) && handles.get(type).has(handle),
@@ -194,13 +204,10 @@ const notifier = (host = {}) => {
       if(handles.has(type)) handles.get(type).forEach(handle => handle.apply(NULL, args));
       return host;
     }
-  })
+  });
 }
 
 const route = notifier((hash, fn) => {
-  if(isFunc(hash)) [fn, hash] = [hash, 'default']; // the ol' swopperoo ...and thank the javascript gods for destructuring
-  if(hash !== 'default' && !hash.includes('#/')) hash = '#/'+hash;
-  if(location.hash === hash || hash === 'default') fn(location.hash);
   if(!route.active) {
     on(root, 'hashchange', () => {
       const h = location.hash;
@@ -208,6 +215,9 @@ const route = notifier((hash, fn) => {
     });
     route.active = true;
   }
+  if(isFunc(hash)) [fn, hash] = [hash, 'default']; // the ol' swopperoo ...and thank the javascript gods for destructuring
+  if(hash !== 'default' && !hash.includes('#/')) hash = '#/'+hash;
+  if(location.hash === hash || hash === 'default') fn(location.hash);
   return route.on(hash, fn);
 });
 
@@ -218,17 +228,20 @@ once(root, 'DOMContentLoaded', () => each(LoadStack, fn => fn()));
 
 const run = fn => isReady() ? fn() : LoadStack.add(fn);
 
-const html = html => html.nodeType ? html : doc.createRange().createContextualFragment(html || '');
+const html = input => isNode(input) ? input : doc.createRange().createContextualFragment(input);
 
 const domfrag = inner => isPrimitive(inner) ? html(inner) : doc.createDocumentFragment();
 
+const CR = n => (n.notifier && n.notifier.emit('create', n), n);
+const MNT = n => (n.notifier && !n.didMount && requestAnimationFrame(() => (n.didMount = true, n.notifier.emit('mount', n))), n);
+const DST = n => (n.notifier && n.notifier.emit('destroy', n), n);
+
 const vpend = Args => {
   const args = flatten(Args);
-  if(args.length === 1) return html(args[0]);
+  if(args.length === 1) return MNT(html(args[0]));
+
   const dfrag = domfrag();
-  each(args, arg => {
-    dfrag.appendChild(arg.nodeType ? arg : html(arg));
-  });
+  args.forEach(arg => dfrag.appendChild(MNT(html(arg))));
   return dfrag;
 }
 
@@ -286,9 +299,8 @@ const domfn = {
       node // return node
   ), 2),
   append: curry((node, ...args) => {
-    node.nodeType ?
-    node.appendChild(vpend(args)) :
-    dom(node).then(n => n.appendChild(vpend(args)));
+    isNode(node) ? node.appendChild(vpend(args)) :
+    isStr(node) && dom(node).then(n => n.appendChild(vpend(args)));
     return node;
   }, 2),
   prepend: curry((node, ...args) => (
@@ -335,18 +347,10 @@ const directive = (name, stages) => {
   run(() => queryEach(`[${name}]`, el => checkAttr(name, el)));
 }
 
-const CR = 'create', MNT = 'mount', DST = 'destroy';
-const lifeEvent = (n, type) => (n.notifier && n.notifier.emit(type, n), n);
-
-const emitMount = node => {
-  if(!node.didMount) lifeEvent(node, MNT).didMount = true;
-}
-
-const rerr = err => console.warn(`render node error: ${err}`);
-
+const rerr = err => console.warn(`render error: ${err}`);
 const render = (node, host) => dom(host).then(h => {
   h.appendChild(node);
-  emitMount(node);
+  MNT(node);
 }, rerr);
 
 const isRenderable = composeTest(isNode, isStr, isArrlike);
@@ -365,10 +369,7 @@ const create = (tag, options, ...children) => {
   const n = el.notifier = notifier();
 
   if(isRenderable(options)) children.unshift(options);
-  flatten(children).forEach(child => {
-    el.append(child);
-    emitMount(child);
-  });
+  append(el, flatten(children));
 
   if(isObj(options)) {
     const ifhas = ifHas(options);
@@ -381,35 +382,16 @@ const create = (tag, options, ...children) => {
     ifhas('attr', attr(el));
     ifhas('css', css(el));
     ifhas('action', listener => el.action = on(el, 'click', listener));
-    ifhas('lifecycle', ({create, mount, destroy}) => {
-      if(create) n.once(CR, () => create(el));
-      if(mount) n.once(MNT, () => mount(el));
-      if(destroy) n.on(DST, () => {
-        destroy(el);
-        // listen for potential re-incaration
-        n.once(MNT, () => mount(el));
-      });
-    });
+    ifhas('lifecycle', n.once);
 
     each(options, (val, key) => {
       if(key !== 'render') {
         isObj(val) ? extend(el, val) : el[key] = val;
-      } else {
-        n.once(CR, () => {
-
-          val.appendChild ? // if is node
-          (
-            val.appendChild(el),
-            emitMount(el)
-          ) :
-          render(el, val)
-        });
-      }
+      } else render(CR(el), val);
     });
   }
 
-  n.emit(CR, el);
-  return el;
+  return CR(el);
 }
 
 // find a node independent of DOMContentLoaded state using a promise
@@ -422,9 +404,8 @@ const dom = new Proxy(extend( // Proxy, the audacious old browser breaker :O
 
   isStr(selector) ? run(() => {
     const temp = selector === 'body' ? doc.body : query(selector, element);
-    isNode(temp) ? go(temp) : no(404);
-  }) : no(403)
-
+    isNode(temp) ? go(temp) : no(404, selector);
+  }) : no(403, selector)
 ),
   {create,query,queryAll,queryEach,html,domfrag}
 ), {
@@ -433,8 +414,8 @@ const dom = new Proxy(extend( // Proxy, the audacious old browser breaker :O
 });
 
 new MutationObserver(muts => each(muts, ({addedNodes, removedNodes, target, attributeName, oldValue}) => {
-  if(addedNodes.length) arrEach(addedNodes, emitMount);
-  if(removedNodes.length) arrEach(removedNodes, node => lifeEvent(node, DST));
+  if(addedNodes.length) arrEach(addedNodes, MNT);
+  if(removedNodes.length) arrEach(removedNodes, DST);
   if(attributeName && directives.has(attributeName)) checkAttr(attributeName, target, oldValue);
 })).observe(doc, {attributes:true, childList:true, subtree:true});
 

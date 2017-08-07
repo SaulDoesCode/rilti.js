@@ -6,8 +6,6 @@ const {notifier,model,each,pipe,compose,curry,dom,domfn,on,once,flatten,run,rend
 const {div,h1,header,footer,span,nav,p,a,b,html,ul,li,pre} = dom;
 const {Class,hasClass,replace,css,append} = domfn; // dom manip functions
 
-const smoothScrollSetting = { block: 'start', behavior: 'smooth' };
-
 // The Bridge: central "App" object / message center
 var hub = model();
 
@@ -71,14 +69,14 @@ const sbHeader = (section, name, buttons) => {
         });
 
         hub.on('tgs:'+name, state => {
-          Class(el, 'open', state);
-          if(hasClass(el, 'open')) {
-            if(name !== activeSection) {
-              if(isStr(activeSection)) toggleSection(activeSection, false);
-              activeSection = name;
-              location.hash = (buttons.includes(activeButton) ? activeButton : buttons[0]).name;
+            Class(el, 'open', state);
+            if(hasClass(el, 'open')) {
+              if(name !== activeSection) {
+                if(isStr(activeSection)) toggleSection(activeSection, false);
+                activeSection = name;
+                location.hash = (buttons.includes(activeButton) ? activeButton : buttons[0]).name;
+              }
             }
-          }
         });
       }
     }
@@ -95,7 +93,6 @@ const sbHeader = (section, name, buttons) => {
               const el = this;
               return () => {
                 select(el);
-                //activeButton.scrollIntoView(smoothScrollSetting);
                 hub.emit('selection:'+href);
                 toggleSection(name, true);
               }
@@ -103,7 +100,6 @@ const sbHeader = (section, name, buttons) => {
           },
           lifecycle: {
             create(el) {
-
               if(btn.length >= 14) css(el, {
                 fontSize: '.88em',
                 lineHeight: '8.7mm'
@@ -383,10 +379,9 @@ each(internals.sub, (set, head) => {
 sbHeader('rilti.dom', '.dom', ['query', 'queryAll', 'queryEach', 'create', 'anytag', 'domfrag', 'html']);
 
 route('#/home', () => {
-
   div({
     render: 'body',
-    class: 'blackout'
+    class: 'blackout',
   },
     dom.aside({
       class: 'home',
