@@ -5,14 +5,16 @@
  * MIT License.
  *
  * Code Usage:  Tilt( ElementOrSelector, Settings = {} );
- * HTML Usage: <div tilt></div> or <div tilt="{glare:1}"></div>
+ * HTML Usage: <div tilt></div> or <div tilt="glare:1"></div>
  */
 {
 "use strict";
-const {isNode,isNodeList,isArr,isStr,domfn,dom,each,observeAttr} = rilti,
-{on, div} = dom, {css} = domfn;
-isSettingTrue = setting => setting === "" || setting === true || setting === 1,
-defaultSettings = {
+const NULL = null;
+const {isNode,isNodeList,isStr, domfn:{css}, dom: {div, queryAll}, each,extend,directive,on} = rilti;
+
+const isSettingTrue = setting => setting === "" || setting === true || setting === 1;
+
+const defaultSettings = {
   reverse: false,
   max: 35,
   perspective: 1000,
@@ -20,35 +22,38 @@ defaultSettings = {
   scale: "1",
   speed: "300",
   transition: true,
-  axis: null,
+  axis: NULL,
   glare: false,
   "max-glare": 1,
   reset: true
 };
 
-var Tilt = (element, settings = {}) => {
-    if(isStr(element)) element = dom.queryAll(element);
+var Tilt = (element, settings = defaultSettings) => {
+    if(isStr(element)) element = queryAll(element);
+
+    if(settings != defaultSettings) extend(settings, defaultSettings);
+
     if (!isNode(element)) {
       if(isNodeList(element)) return each(element, el => Tilt(el, settings));
-      throw `Can't initialize Tilt because ${element} is not a Node.`;
+      throw `Tilt init error: ${element} isn't a Node.`;
     }
 
     if(element.tiltOff) element.tiltOff();
 
-    let width = null,
-        height = null,
-        left = null,
-        top = null,
-        transitionTimeout = null,
+    let width = NULL,
+        height = NULL,
+        left = NULL,
+        top = NULL,
+        transitionTimeout = NULL,
         event, updateCall;
 
-    for (const property in defaultSettings) if(!(property in settings)) settings[property] = defaultSettings[property];
 
     const reverse = settings.reverse ? -1 : 1, glare = isSettingTrue(settings.glare);
 
     if (glare) {
+      var glareElement;
       var glareElementWrapper = div({
-          class:"js-tilt-glare",
+          class: "js-tilt-glare",
           css: {
             position: "absolute",
             top: "0",
@@ -57,11 +62,10 @@ var Tilt = (element, settings = {}) => {
             height: "100%",
             overflow: "hidden"
           },
-          render:element
-        }),
+          render: element
+        },
         glareElement = div({
-          class:"js-tilt-glare-inner",
-          render:glareElementWrapper,
+          class: "js-tilt-glare-inner",
           css:{
             'position': 'absolute',
             'top': '50%',
@@ -74,7 +78,8 @@ var Tilt = (element, settings = {}) => {
             'transform-origin': '0% 0%',
             'opacity': '0'
           }
-        });
+        })
+      );
 
       var onWindowResize = on(window, "resize", () => {
         const offset = `${element.offsetWidth * 2}`;
@@ -117,7 +122,7 @@ var Tilt = (element, settings = {}) => {
           opacity: `${percentageY * settings["max-glare"] / 100}`
         });
 
-        updateCall = null;
+        updateCall = NULL;
     }
 
     const onMouseEnter = on(element, "mouseenter", () => {
@@ -132,7 +137,7 @@ var Tilt = (element, settings = {}) => {
     });
 
     const onMouseMove = on(element, "mousemove", evt => {
-      if (updateCall !== null) cancelAnimationFrame(updateCall);
+      if (updateCall !== NULL) cancelAnimationFrame(updateCall);
       event = evt;
       updateCall = requestAnimationFrame(update);
     });
@@ -163,20 +168,19 @@ var Tilt = (element, settings = {}) => {
         onWindowResize.off();
         glareElementWrapper.remove();
       }
-      if (updateCall !== null) cancelAnimationFrame(updateCall);
-      element.tiltOff = null;
+      if (updateCall !== NULL) cancelAnimationFrame(updateCall);
+      delete element.tiltOff;
       return element;
     }
     return element;
 }
 
   const settingDecoder = (val, settings = {}) => (isStr(val) && each(val.split(";"), setting => {
-    if(setting.includes(":")) {
       setting = setting.split(":");
       settings[setting[0]] = setting[1] === "true" ? true : setting[1] === "false" ? false : setting[1];
-    }
   }), settings);
-  observeAttr('tilt', {
+
+  directive('tilt', {
     init:(el, val) => Tilt(el, settingDecoder(val)),
     update:(el, val) => Tilt(el, settingDecoder(val)),
     destroy:el => el.tiltOff()

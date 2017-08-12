@@ -12,208 +12,171 @@ li>ul {margin-top: 4px !important;}
 li {margin-bottom: 6px !important;}
 .hidden {display: none !important;}
 
-.sidebar {
-  position: fixed;
-  display: block;
-  height: 100%;
-  width: 260px;
-  left:0;
-  top:0;
-  text-align: center;
-  overflow-x: visible;
-  overflow-y: auto;
-  background: #e0d1b2;
-  color: hsl(44, 28%, 30%);
-  text-shadow: 0 1.2px 3px hsla(0, 0%, 0%, .2);
-  box-shadow: 0 0 8px hsla(0, 0%, 0%, .3);
-  z-index: 10;
-}
-
-.sidebar h1 {
-  font-size: 2.2rem;
-}
-
-.sidebar a, #viewer a {
+#viewer a {
   text-decoration: none;
   color: dimgrey;
   font-weight: bold;
 }
 
-.sidebar h1 {
-  margin: 10px auto;
-  margin-bottom: 15px;
-}
-
-.sidebar hr {
-  width: 60%;
-  margin-bottom: 1vh;
-  border-style: solid;
-  border-color: hsl(31, 24%, 65%);
-}
-
-.sidebar>hr:last-of-type {
-  margin-bottom: 1.5vh;
-}
-
-.sidebar-headers {
-  display: block;
-  margin: 5px auto;
-  width: 100%;
-}
-
-.sidebar-header {
-  display: inline-block;
-  margin-right: 3px;
-  height: 30px;
-  line-height: 30px;
-  width: 75px;
-  font-size: 1.25rem;
-  font-weight: bold;
-  color: #fff;
-  background: #bda87e;
-  text-shadow: 0 1px 3px hsla(0, 0%, 0%, .2);
-  cursor: pointer;
-  white-space: nowrap;
-  -webkit-user-select: none;
-  -moz-user-select: none;
-  user-select: none;
-  box-sizing: content-box;
-  border-radius: 2px;
-  transition: all 140ms ease;
-  z-index:4;
-}
-
-.sidebar-header:nth-of-type(1) {
-  left: 5px;
-}
-.sidebar-header:nth-of-type(2) {
-  left: 85px;
-}
-.sidebar-header:nth-of-type(3) {
-  left: 165px;
-}
-.sidebar-header:nth-of-type(4) {
-  left: 245px;
-}
-
-.sidebar-section {
-  width: 96%;
-  height: auto;
-  margin: 0 auto;
-  overflow: auto;
-}
-
-.sidebar-section > *:not(.sidebar-header) {
-  display: none;
-}
-
-.sidebar-section.open > *:not(.sidebar-header) {
-  display: block;
-}
-
-.sidebar-header>span, .sidebar-button>span {
+.fn-btn>span {
   color: #ffdd86;
   margin: 0 1px 0 1px;
   text-shadow: 0 1px 3px hsla(0, 0%, 0%, .2);
 }
 
-.sidebar-button {
+.fn-btn {
   display: inline-block;
   float:left;
-  width: 120px;
+  width: 122px;
   height: 8mm;
   line-height: 8mm;
   margin: 2px;
-  font-size: .95em;
   border-radius: 3px;
+  text-align: center;
   -webkit-user-select: none;
   -moz-user-select: none;
   user-select: none;
+  white-space: nowrap;
   background: hsl(40,10%,94%);
   color: #eccd7d;
   box-shadow: 0 1px 3px hsla(0, 0%, 0%, .2);
   transition: all 120ms ease-out;
 }
 
-.sidebar-button::before {
+.fn-btn::before {
   display: inline-block;
   content: '.';
   color: #d99e0a;
 }
 
-.sidebar-button::after, #viewer > header::after {
+.fn-btn::after, #viewer > aside > header::after {
   font-family: "Consolas", "Courier New", "Lucida Console", monospace;
 }
 
-.sidebar-button:hover::after, .sidebar-button.selected::after {
+.fn-btn:hover::after, .fn-btn.selected::after {
   content: "()";
 }
 
-.sidebar-button.selected::after {
+.fn-btn.selected::after {
   color: #fff;
 }
 
-.sidebar-button:hover {
+.fn-btn:hover {
   background: hsl(40,13%,90%);
   border-left: 1px solid #91825d;
   border-right: 1px solid #91825d;
   box-shadow: 0 2px 4px hsla(0, 0%, 0%, .2);
 }
 
-.sidebar-button.selected>span {
+.fn-btn.selected>span {
   color: #fff;
 }
 
-.sidebar-button.selected {
+.fn-btn.selected {
   color: #fff4bd;
   background: #91825d;
   text-shadow: 0 1px 3px hsla(0, 0%, 0%, .2);
   box-shadow: 0 1px 3px hsla(0, 0%, 0%, .2);
 }
 
-main {
-  position: relative;
-  width: calc(100% - 260px);
-  margin-left: 260px;
-  height: 100vh;
-  padding: 4px;
-  overflow:auto;
-}
-
 #viewer {
-  position: relative;
+  position: fixed;
   display: block;
   background: #e0d1b2;
   overflow: visible;
   text-align: left;
-  min-width: 560px;
-  width: 85%;
+  width: 75%;
   height: auto;
-  margin: 2vh auto;
-  padding: 1vw;
+  top: 6%;
+  right: 1%;
+  padding: .8vw;
   border-radius: 2.5px;
+  border-top-left-radius: 0;
+}
+
+.tabs {
+  position: fixed;
+  display: block;
+  left:10vw;
+  top:10vh;
+  width: 80vw;
+  height: 80vh;
+  color:#fff;
+  border-radius: 2.5px;
+  background: #bea77b;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  user-select: none;
   box-shadow: 0 1px 3px hsla(0, 0%, 0%, .2);
 }
 
-.title-tab {
-  position: sticky;
-  display: block;
-  top:-30px;
-  left:0;
-  padding: 5px;
-  background: #fff;
-  content: 'rilti.js';
+.tab-rack {
+  position: relative;
+  display: flex;
+  align-items: center;
+  align-content: center;
+  width: 100%;
+  height: 8mm;
+  line-height: 8mm;
+  white-space: nowrap;
 }
 
-#viewer > header {
+.tab-viewer {
+  position: relative;
   display: block;
   width: 100%;
-  height: 32px;
+  padding: 5px;
+}
+
+.tab {
+  display: inline-block;
+  text-align: center;
+  font-size: 1.3rem;
+  cursor: pointer;
+  flex: 1 1 auto;
+  height: 100%;
+  background: #ebdbbb;
+  color:#fff;
+  text-shadow: 0 1px 3px hsla(0, 0%, 0%, .2);
+  border-top-left-radius: 2px;
+  border-top-right-radius: 2px;
+  box-sizing: content-box;
+  box-shadow: 0 0 4px hsla(0, 0%, 0%, .2);
+  z-index: 2;
+}
+
+.tab.active {
+  background: #e0d1b2;
+  box-shadow: 1px 0 3px hsla(0, 0%, 0%, .2), -1px 0 3px hsla(0, 0%, 0%, .2);
+  border-top: 2px solid #fff;
+  transform: translateY(-1px);
+  z-index: 3;
+}
+
+#viewer > aside {
+  position: absolute;
+  display: block;
+  padding: 5px;
+  width: 265px;
+  height: 85%;
+  border-radius: 2px;
+  background: #dacbab;
+  box-shadow: -2px 1px 3px hsla(0, 0%, 0%, .2), inset -2px 0 2px -1px hsla(0, 0%, 0%, .25);
+  right:100%;
+  top:7.5%;
+}
+
+#viewer > aside > header {
+  display: block;
+  width: 98%;
+  height: 30px;
   line-height: 30px;
   padding-left: 10px;
-  margin: 0 auto 5px auto;
   border-radius: 2.5px;
-  background:#cdb17a;
+  margin-left: 1px;
+  margin-bottom: 5px;
+  text-align: center;
+  background:#af9c76;
   color:#fff;
   font-size: 1.4em;
   text-shadow: 0 1px 3px hsla(0, 0%, 0%, .25);
@@ -222,17 +185,17 @@ main {
   user-select: none;
 }
 
-#viewer > header::before {
+#viewer > aside > header::before {
   content:'.';
   color:#ffe09e;
 }
 
-#viewer > header::after {
+#viewer > aside > header::after {
   font-size: .95em;
   content:'()';
 }
 
-#viewer > pre {
+#viewer pre {
   font-size: .95rem;
   width: 100%;
   text-shadow: 0 1px 3px hsla(0, 0%, 0%, .25);

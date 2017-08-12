@@ -8,8 +8,7 @@
   <link rel="shortcut icon" href="/rilti-site/rilti-favicon.png" type="image/x-icon">
   <link rel="stylesheet" href="/rilti-site/main.css">
   <!--script src="https://ft-polyfill-service.herokuapp.com/v2/polyfill.min.js"></script-->
-  <script async>
-    const commence = performance.now();
+  <script>
     let timesConnected = 0;
 
     function ReloadOnChange(tried = 0) {
@@ -30,14 +29,15 @@
         if (tried != 6) ReloadOnChange(tried + 1);
         else {
           console.warn("Dev Server Error: not reachable");
-          console.info("Will attempt reconnect in 1 minute");
+          console.info("Will attempt to reconnect in 1 minute");
           setTimeout(ReloadOnChange, 60000);
         }
       }
     }
     ReloadOnChange();
   </script>
-  <script src="/src/rilti.js"></script>
+  <script src="/dist/rilti.min.js"></script>
+  <script src="/src/rilti-tilt.js"></script>
   <script src="/dist/rilti-model.min.js"></script>
   <!--script src="/rilti-site/smoothscroll.js"></script-->
   <script src="/rilti-site/prism.js"></script>
@@ -45,14 +45,9 @@
 </head>
 
 <body>
-  <nav class="sidebar">
-    <h1>rilti.js</h1>
-    <hr>
+  <div class="fn-btn" tilt>
     <a href="https://github.com/SaulDoesCode/rilti.js">github</a>
-    <hr>
-    <section class="sidebar-headers"></section>
-  </nav>
-  <main></main>
+  </div>
 </body>
 
 </html>

@@ -10,8 +10,7 @@ const doc = document,
 root = window,
 undef = void 0,
 NULL = null,
-len = 'length',
-InputTypes = 'INPUT TEXTAREA';
+len = 'length';
 
 const curry = (
   fn,
@@ -44,7 +43,7 @@ isNode = o => o && o instanceof Node,
 isNodeList = o => o && (o instanceof NodeList || (isArrlike(o) && arrMeth('every', o, isNode))),
 isMap = o => o && o instanceof Map,
 isSet = o => o && o instanceof Set,
-isInput = o => o && o.tagName && InputTypes.includes(o.tagName),
+isInput = o => o && o.tagName && 'INPUT TEXTAREA'.includes(o.tagName),
 isEq = curry((o1, ...vals) => vals.every(isFunc(o1) ? i => o1(i) : i => o1 === i), 2);
 
 const yieldloop = (
@@ -57,7 +56,7 @@ const yieldloop = (
 
     const end = Math.min(i + chunksize, count);
     while(i < end) fn(i++);
-    i < count ? setTimeout(chunk, 0) : done && done();
+    i < count ? setTimeout(chunk, 0) : isFunc(done) && done();
 
 }) => chunk();
 
@@ -91,7 +90,7 @@ const pipe = val => (fn, ...args) => (
 
 const query = (selector, element = doc) => (
   // return if node else query dom
-  selector.nodeType ?
+  isNode(selector) ?
   selector :
   // ikr it's weird
   query(element).querySelector(selector)
@@ -106,14 +105,13 @@ const isMounted = (descendant, parent = doc) => parent === descendant || Boolean
 
 //const passive_events = ['wheel'];
 //passive_events.includes(type) ? {passive:true} : false
+const eventListeners = 'EvtLs';
 
-const EventManager = curry((mode, target, type, handle, options = false) => {
+const EventManager = curry((once, target, type, handle, options = false) => {
   if(isStr(target)) target = query(target);
-  if(!target.addEventListener) throw new TypeError('bad event target');
-  // for cloning purposes and odd cases
-  if(target.nodeType && !target.evtlisteners) target.evtlisteners = new Set;
-
-  let once = mode === 'once';
+  if(!target.addEventListener) throw 'bad event target';
+  // for cloning purposes and odd cases: ELSNRS = event listeners
+  if(isNode(target) && !target[eventListeners]) target[eventListeners] = new Set;
 
   const handler = evt => {
     handle.call(target, evt, target);
@@ -122,14 +120,15 @@ const EventManager = curry((mode, target, type, handle, options = false) => {
 
   const remove = () => {
     target.removeEventListener(type, handler);
-    target.evtlisteners && target.evtlisteners.delete(manager);
+    target[eventListeners] && target[eventListeners].delete(manager);
   }
 
   const add = mode => {
     once = !!mode;
     remove();
     target.addEventListener(type, handler, options);
-    target.evtlisteners && target.evtlisteners.add(manager);
+    target[eventListeners] && target[eventListeners].add(manager);
+    return manager;
   }
 
   const manager = {
@@ -137,21 +136,20 @@ const EventManager = curry((mode, target, type, handle, options = false) => {
     type,
     reseat(newTarget, removeOriginal) {
       if(removeOriginal) remove();
-      return EventManager(mode, newTarget, type, handle, options);
+      return EventManager(once, newTarget, type, handle, options);
     },
-    on:() => (add(), manager),
-    once:() => (add(true), manager),
+    on:() => add(),
+    once:() => add(true),
     off:() => (remove(), manager)
   }
 
-  add(once);
-  return manager;
+  return add(once);
 }, 4);
 
-const once = EventManager('once');
-const on = EventManager('on');
+const once = EventManager(true);
+const on = EventManager(false);
 
-const debounce = (func, wait, immediate) => {
+/*const debounce = (func, wait, immediate) => {
 	let timeout;
 	return (...args) => {
 		const later = () => {
@@ -163,7 +161,7 @@ const debounce = (func, wait, immediate) => {
 		timeout = setTimeout(later, wait);
 		if(callNow) func(...args);
 	}
-}
+}*/
 
 const deleteHandle = (handles, type, handle) => ((handles.has(type) && !handles.get(type).delete(handle).size) && handles.delete(type), handle);
 const addHandle = (handles, type, handle) => ((handles.has(type) ? handles : handles.set(type, new Set)).get(type).add(handle), handle);
@@ -233,7 +231,7 @@ const html = input => isNode(input) ? input : doc.createRange().createContextual
 const domfrag = inner => isPrimitive(inner) ? html(inner) : doc.createDocumentFragment();
 
 const CR = n => (n.notifier && n.notifier.emit('create', n), n);
-const MNT = n => (n.notifier && !n.didMount && requestAnimationFrame(() => (n.didMount = true, n.notifier.emit('mount', n))), n);
+const MNT = n => (n.notifier && !n.didMount && setTimeout(() => (n.didMount = true, n.notifier.emit('mount', n)), 0), n);
 const DST = n => (n.notifier && n.notifier.emit('destroy', n), n);
 
 const vpend = Args => {
@@ -252,7 +250,7 @@ const domfn = {
   ),
   clone(node) {
     const clone = node.cloneNode();
-    if(node.evtlisteners) each(node.evtlisteners, l => l.reseat(clone));
+    if(node[eventListeners]) each(node[eventListeners], l => l.reseat(clone));
     each(node.childNodes, n => clone.appendChild(domfn.clone(n)));
     return clone;
   },
@@ -277,6 +275,7 @@ const domfn = {
       else if(isStr(attr)) {
         if(!isPrimitive(val)) return node.getAttribute(attr);
         node.setAttribute(attr, val);
+        checkAttr(attr, node);
       }
    }
    return node;
@@ -331,7 +330,7 @@ const dirInit = (el, name) => (
   el // return el
 );
 
-const checkAttr = (name, el, oldValue = NULL) => {
+const checkAttr = (name, el, oldValue) => {
   if(directives.has(name)) {
       const val = el.getAttribute(name);
       const {init, update, destroy} = directives.get(name);
@@ -347,11 +346,8 @@ const directive = (name, stages) => {
   run(() => queryEach(`[${name}]`, el => checkAttr(name, el)));
 }
 
-const rerr = err => console.warn(`render error: ${err}`);
-const render = (node, host) => dom(host).then(h => {
-  h.appendChild(node);
-  MNT(node);
-}, rerr);
+const rerr = ([err, selector]) => console.error("render fault:", selector, err);
+const render = (node, host) => dom(host).then(h => h.appendChild(MNT(node)), rerr);
 
 const isRenderable = composeTest(isNode, isStr, isArrlike);
 
@@ -376,16 +372,16 @@ const create = (tag, options, ...children) => {
     ifhas(['class', 'className'], c => el.className = c);
     ifhas(['on', 'once'], (listeners, mode) => {
       each(listeners, (handle, type) => {
-        EventManager(mode, el, type, handle);
+        EventManager(mode === 'once', el, type, handle);
       });
     });
     ifhas('attr', attr(el));
     ifhas('css', css(el));
-    ifhas('action', listener => el.action = on(el, 'click', listener));
     ifhas('lifecycle', n.once);
 
     each(options, (val, key) => {
-      if(key !== 'render') {
+      if(key === 'action') el.action = on(el, 'click', val);
+      else if(key !== 'render') {
         isObj(val) ? extend(el, val) : el[key] = val;
       } else render(CR(el), val);
     });
@@ -404,8 +400,8 @@ const dom = new Proxy(extend( // Proxy, the audacious old browser breaker :O
 
   isStr(selector) ? run(() => {
     const temp = selector === 'body' ? doc.body : query(selector, element);
-    isNode(temp) ? go(temp) : no(404, selector);
-  }) : no(403, selector)
+    isNode(temp) ? go(temp) : no([404, selector]);
+  }) : no([403, selector])
 ),
   {create,query,queryAll,queryEach,html,domfrag}
 ), {
@@ -419,5 +415,5 @@ new MutationObserver(muts => each(muts, ({addedNodes, removedNodes, target, attr
   if(attributeName && directives.has(attributeName)) checkAttr(attributeName, target, oldValue);
 })).observe(doc, {attributes:true, childList:true, subtree:true});
 
-return {dom,domfn,notifier,pipe,compose,composeTest,not,yieldloop,on,once,debounce,directive,directives,extend,route,render,run,curry,each,flatten,isMounted,isDef,isNill,isPrimitive,isNull,isFunc,isStr,isBool,isNum,isInt,isIterator,isObj,isArr,isArrlike,isEmpty,isEl,isEq,isNode,isNodeList,isInput,isMap,isSet};
+return {dom,domfn,notifier,pipe,compose,composeTest,not,yieldloop,on,once,directive,directives,extend,route,render,run,curry,each,flatten,isMounted,isDef,isNill,isPrimitive,isNull,isFunc,isStr,isBool,isNum,isInt,isIterator,isObj,isArr,isArrlike,isEmpty,isEl,isEq,isNode,isNodeList,isInput,isMap,isSet};
 })();

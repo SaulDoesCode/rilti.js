@@ -1,10 +1,10 @@
 {
-const {extend,isObj,isFunc} = rilti,
-newEVT = t => new CustomEvent(t),
-mountEVT = newEVT('mount'),
-destroyEVT = newEVT('destroy'),
-createEVT = newEVT('create'),
-adoptedEVT = newEVT('adopted');
+const {extend,isObj,isFunc} = rilti;
+const newEVT = t => new CustomEvent(t)
+const mountEVT = newEVT('mount');
+const destroyEVT = newEVT('destroy');
+const createEVT = newEVT('create');
+const adoptedEVT = newEVT('adopted');
 
 rilti.Component = (tag, config) => {
   if(!tag.includes('-')) throw new Error(tag+" is unhyphenated");
@@ -14,7 +14,8 @@ rilti.Component = (tag, config) => {
   const CustomElement = class extends HTMLElement {
     constructor() {
       super();
-      const element = rilti.extend(this, props);
+      const element = this;
+      if(props) rilti.extend(element, props);
       if(isFunc(create)) create.call(element, element);
       element.dispatchEvent(createEVT);
     }

@@ -1,5 +1,5 @@
 {
-"use strict";
+const commence = performance.now();
 // get all the functions needed
 const {notifier,model,each,pipe,compose,curry,dom,domfn,on,once,flatten,run,render,route,isObj,isFunc,isNum,isPrimitive,isNodeList,isNode,isStr,isEmpty} = rilti;
 // getting dom related functions & generating all the tags used
@@ -9,31 +9,15 @@ const {Class,hasClass,replace,css,append} = domfn; // dom manip functions
 // The Bridge: central "App" object / message center
 var hub = model();
 
-let activeButton;
-let activeSection;
-
-const toggleSection = (name, state) => {
-  hub.emit('tgs:'+name, state);
-}
-
-const select = (el, state = true) => {
-  if(el !== activeButton) {
-    if(activeButton) {
-      Class(activeButton, 'selected', false);
-      activeButton = null;
-    }
-    if(el) {
-      activeButton = Class(el, 'selected', state);
-    }
-  }
-}
-
-const indexr = (arr, i, len = arr.length) => ({
+const indexr = (arr, i = arr.length / 2, len = arr.length) => ({
   get before() {
     if(len === 1) return arr[0];
     else if(len === 0) return null;
     else if(i === 0) return arr[len - 1];
     return arr[i - 1]
+  },
+  get between() {
+    return arr[i];
   },
   get after() {
     if(len === 1 || i === len - 1) return arr[0];
@@ -42,85 +26,151 @@ const indexr = (arr, i, len = arr.length) => ({
   }
 });
 
-const sbHeader = (section, name, buttons) => {
+const tabs = tabObj => {
+
+  const viewer = div({ class: 'tab-viewer' });
+  const tabRack = div({ class: 'tab-rack' });
 
   div({
-    class:'sidebar-header',
-    render: 'nav.sidebar > section.sidebar-headers',
-    action(e, el) {
-      toggleSection(name);
-    }
-  }, name);
-
-  div({
-    render: '.sidebar',
-    class: 'sidebar-section',
-    lifecycle : {
-      create(el) {
-
-        on(el, 'wheel', ({deltaY}) => {
-          // Active Button Index
-          const abi = buttons.indexOf(activeButton);
-          if(abi != -1) {
-            location.hash = indexr(buttons, abi)[deltaY > 1 ? 'after' : 'before'].name;
-          }
-        }, {
-          passive:true
-        });
-
-        hub.on('tgs:'+name, state => {
-            Class(el, 'open', state);
-            if(hasClass(el, 'open')) {
-              if(name !== activeSection) {
-                if(isStr(activeSection)) toggleSection(activeSection, false);
-                activeSection = name;
-                location.hash = (buttons.includes(activeButton) ? activeButton : buttons[0]).name;
-              }
-            }
-        });
+    render: 'body',
+    class: 'tabs',
+    on: {
+      click({target: { tabName }}) {
+        if(tabName) manager.activate(tabName);
       }
     }
   },
-    buttons = buttons.map(btn => {
-      if(isStr(btn)) {
-        const href = `#/${section}.${btn}`;
-        return a({
-          class: 'sidebar-button',
-          href,
-          props: {
-            name:href,
-            get activate() {
-              const el = this;
-              return () => {
-                select(el);
-                hub.emit('selection:'+href);
-                toggleSection(name, true);
-              }
-            }
-          },
-          lifecycle: {
-            create(el) {
-              if(btn.length >= 14) css(el, {
-                fontSize: '.88em',
-                lineHeight: '8.7mm'
-              });
-              else if(btn.length >= 11) css(el, {
-                fontSize: '.94em',
-                lineHeight: '8.4mm'
-              });
-
-              route(href, el.activate);
-
-              if(location.hash === href) run(el.activate);
-            }
-          }
-
-        }, btn);
-      }
-    })
-
+    tabRack,
+    viewer
   );
+
+  const manager = notifier({
+    rack: new Map,
+    content: new Map,
+    active: '',
+    activeTab: null,
+    activeContent: null,
+    tab(name, content) {
+
+      manager.rack.set(name, div({
+        render: tabRack,
+        class: 'tab',
+        props: {
+          tabName: name
+        }
+      }, name));
+
+      manager.content.set(name, div(html(content)));
+      manager.emit('new', name);
+    },
+    has: name => manager.rack.has(name),
+    activate(name) {
+      if(name !== manager.active && manager.rack.has(name)) {
+        const content = manager.content.get(name);
+        const tab = manager.rack.get(name);
+
+        const {activeTab, activeContent} = manager;
+        if(activeTab) Class(activeTab, 'active', false);
+
+        manager.activeTab = Class(tab, 'active', true);
+
+        activeContent && activeContent.replaceWith ? activeContent.replaceWith(content) : viewer.appendChild(content);
+
+        manager.activeContent = content;
+        manager.active = name;
+
+        return manager.emit('activate', name);
+      }
+    }
+  });
+
+  const tabNames = Object.keys(tabObj).filter(name => {
+    const tabContent = tabObj[name];
+    if(tabContent) {
+      manager.tab(name, tabContent);
+      return true;
+    }
+  });
+
+  on(tabRack, 'wheel', ({deltaY}) => {
+    if(manager.active) {
+      // Active Button Index
+      const abi = tabNames.indexOf(manager.active);
+      if(abi != -1) {
+        manager.activate(indexr(tabNames, abi)[deltaY > 1 ? 'after' : 'before']);
+      }
+    }
+  }, {
+    passive:true
+  });
+
+  return manager.activate(tabNames[0]);
 }
+
+var t = tabs({
+  hello: `testing`,
+  'new tab': 'tab number 2 here, is it working?',
+  'sir tabsalot': 'hhhello? this is juan',
+  tabulus: `Greetings, count Tabulus.`
+});
+
+/*
+const sections = {
+  '#/rilti': {
+      list: [],
+      active: ''
+  },
+  '#/rilti.isX': {
+      list: [],
+      active: ''
+  },
+  '#/rilti.dom': {
+      list: [],
+      active: ''
+  },
+  '#/rilti.domfn': {
+      list: [],
+      active: ''
+  }
+}
+
+let activeTab;
+
+
+dom.main({
+  id: 'viewer',
+  render: 'body'
+},
+  dom.nav({
+    class: 'tabs'
+  },
+    ['rilti', '.isX', '.domfn', '.dom'].map(tab => div({
+      class: 'tab',
+      action(e, el) {
+        if(activeTab && activeTab != el) Class(activeTab, 'active', false);
+        activeTab = Class(el, 'active', true);
+      }
+    }, tab))
+  ),
+  dom.aside(
+    header("curry")
+  ),
+  dom.article(
+    div({
+      class: 'description'
+    }),
+    dom.pre({
+      class: 'language-javascript'
+    },
+      dom.code({
+        class: 'language-javascript'
+      })
+    )
+  )
+);
+
+
+
 
 const inner = (el, newContent) => {
   el.innerHTML = '';
@@ -134,24 +184,6 @@ const syncOnCreate = (prop, justText) => ({
   }
 });
 
-const viewer = dom.section({
-  id: 'viewer',
-  render: 'main',
-},
-  header({
-    class: 'title',
-    lifecycle: syncOnCreate('title', true)
-  }, 'funcName'),
-  div({
-    class: 'description',
-    lifecycle: syncOnCreate('description')
-  }),
-  pre({
-    class: 'example language-javascript',
-    lifecycle: syncOnCreate('code')
-  })
-);
-
 const genDoc = (href, title, rawCode, ...description) => {
 
   const code = dom.code({
@@ -160,15 +192,6 @@ const genDoc = (href, title, rawCode, ...description) => {
     html(Prism.highlight(rawCode, Prism.languages.javascript))
   );
 
-  hub.on('selection:#/'+href, () => {
-
-    hub.update({ title, description, code });
-
-    const {height} = viewer.getBoundingClientRect();
-    if(height <= 210) {
-
-    }
-  });
 }
 
 genDoc('rilti.compose', 'compose',
@@ -358,6 +381,12 @@ const internals = {
   sub: {}
 }
 
+const buttons = new Map;
+
+const fnbtn = (section, btns) => {
+  buttons.set(section, new Set(btns));
+}
+
 each(rilti, (val, key) => {
   if(isFunc(val))
      (key.includes('is') ? internals.is : internals.rilti).push(key);
@@ -369,45 +398,19 @@ each(rilti, (val, key) => {
   }
 });
 
-sbHeader('rilti', 'rilti', internals.rilti.sort());
-sbHeader('rilti', '.isX', internals.is.sort());
+fnbtn('rilti', internals.rilti.sort());
+fnbtn('.isX', internals.is.sort());
 
 each(internals.sub, (set, head) => {
-  sbHeader('rilti.'+head, '.'+head, set.sort());
+  fnbtn('.'+head, set.sort());
 });
 
-sbHeader('rilti.dom', '.dom', ['query', 'queryAll', 'queryEach', 'create', 'anytag', 'domfrag', 'html']);
+fnbtn('.dom', ['query', 'queryAll', 'queryEach', 'create', 'anytag', 'domfrag', 'html']);
 
-route('#/home', () => {
-  div({
-    render: 'body',
-    class: 'blackout',
-  },
-    dom.aside({
-      class: 'home',
-      css: {
-        display:'block'
-      },
-    },
-      div({
-        class: 'quit-me',
-        once: {
-          click(e, el) {
-            el.parentNode.parentNode.remove();
-            location.hash = '#/rilti.compose';
-          }
-        }
-      }),
-      dom.h1('Hi there!'),
-      dom.h3('this is rilti.js')
-    )
-  );
-});
-
-if(location.hash.length < 3 || location.hash === '#/rilti') location.hash = '#/home';
+if(location.hash.length < 3 || location.hash === '#/rilti') location.hash = '#/rilti.compose';
+*/
 
 run(() => {
   console.info(`Loaded in ${performance.now() - commence}ms`);
 });
-
 }
