@@ -11,7 +11,7 @@ Feel free to fork or raise issues. Constructive criticism is welcome
 * create and observe custom attributes
 * fast and streamlined element creation
 * great dom manipulation functions
-* functional pipes & composition
+* functional composition
 * powerful yet petite notifier system (pub/sub)
 * webcomponents
 * no classes, no this, no extra fuzz, functional positive
@@ -39,7 +39,6 @@ Feel free to fork or raise issues. Constructive criticism is welcome
 | ``route( {=hashString}, {function})`` | detect and respond to location.hash changes |
 | ``curry( {functions} )`` | curries a function |
 | ``compose( {...functions} )`` | compose functions, compose(fn1,fn2,fn3)(val) // -> result |
-| ``pipe( val )`` | pipe is a little different but still cool, ``pipe(5)((a,b) => a+b, 5)((a,b) => a+b, 5)() // -> 15`` |
 | ``each( {iterable}, {function} )`` | loop through objects, numbers, array(like)s, sets, maps... |
 | ``extend( {host object}, {object}, {=safe bool} )`` | extends host object with all props of other object, won't overwrite if safe is true |
 | ``flatten( {arraylike} )`` | flattens multidimensional arraylike objects |
@@ -85,97 +84,8 @@ otherwise such as with has/get(this/that) type functions
   } = rilti.domfn;
 
 ```
-dom functions that return the node can be piped using rilti.pipe
-```js
-  const {pipe, dom} = rilti, {nav, div, img} = dom;
-
-  pipe(nav())
-  (Class, 'nav-bar') // looks kinda lispy, hey?
-  (css, {
-    position:'fixed',
-    background:'#fff',
-    width:'100%',
-    height:'50px',
-  })
-  (inner,
-    img({src:'/img/logo.jpg'}), div("Home"), div("Blog"), div("About")
-  )
-  // if the first arg of whatever you call this style of doing things
-  // is a bool then the function after it will only execute when it's true
-  (location.hash != '#/specialPage', appendTo, 'body');
-
-  // the above could also be achieved like so
-  const navBar = nav({
-    class: 'nav-bar',
-    css: {
-      position:'fixed',
-      background:'#fff',
-      width:'100%',
-      height:'50px',
-    }
-  },
-    img({src:'/img/logo.jpg'}), div("Home"), div("Blog"), div("About")
-  );
-
-  if(location.hash != '#/specialPage') appendTo(navBar, 'body');
-```
 
 [rilti.js todomvc](https://github.com/SaulDoesCode/rilti.js-todomvc)
-
-#### see how fast rilti.js renders your elements
-
-```html
-<script src="/rilti/dist/rilti.min.js"></script>
-<script>
-  const testRiltiBlocking = (count = 10000) => {
-    const span = rilti.dom.span;
-    const start = performance.now();
-    while(count != 0) span({
-      render: document.body,
-      css: {
-        background:'#fff',
-        width:'110px',
-        color: 'dimgrey',
-        textAlign: 'center',
-        height:'110px',
-        margin:'5px',
-        padding:'4px',
-        float:'left',
-        boxShadow:'0 1px 4px hsla(0,0%,0%,.3)'
-      }
-    }, "damn daniel, back at it again with those white spans ", count--);
-
-    console.log(`That took ${performance.now() - start}ms`);
-  }
-  testRiltiBlocking(); // -> this usually takes ~ 7800ms on my i5 machine and is blocking
-
-  const testRiltiChunked = (count = 10000) => {
-    const each = rilti.each, span = rilti.dom.span;
-    const start = performance.now();
-    // int loops are chunked making heavy loads less blocking
-    each(count, i =>
-      span({
-        render: document.body,
-        css: {
-          background:'#fff',
-          width:'110px',
-          color: 'dimgrey',
-          textAlign: 'center',
-          height:'110px',
-          margin:'5px',
-          padding:'4px',
-          float:'left',
-          boxShadow:'0 1px 4px hsla(0,0%,0%,.3)'
-        }
-      },
-      "damn daniel, back at it again with those white spans ", count--)
-    );
-    console.log(`That took ${performance.now() - start}ms`);
-  }
-  testRiltiChunked();
-  // -> site useable even while rendering thousands of nodes
-</script>
-```
 
 ```javascript
 
@@ -234,7 +144,7 @@ dom['randomtag']({
 });
 
 // Web Components
-const {pipe, on, domfn} = rilti;
+const {on, domfn} = rilti;
 const {css} = domfn;
 
 rilti.Component('tick-box', {
@@ -243,26 +153,26 @@ rilti.Component('tick-box', {
       return attr(this, 'data-ticked') === 'true';
     },
     set ticked(val) {
-      if(!this.disabled) pipe(this)
-        (attr, 'data-ticked', val)
-        (css, {
+      if(!this.disabled) {
+        attr(this, 'data-ticked', val);
+        css(this, {
           backgroundColor: val ? 'dimgrey' : 'white',
           border: `1px solid ${val ? 'white' : 'dimgrey'}`
         });
+      }
     }
   },
   mount(element) {
-   pipe(element)
-   (css, {
-     display:'block',
-     width:'20px',
-     height: '20px',
-     margin:'5px auto',
-     cursor:'pointer',
-     backgroundColor: element.ticked ? 'dimgrey' : 'white',
-     border: `1px solid ${element.ticked ? 'white' : 'dimgrey'}`
-   })
-   (on, 'click', () => element.ticked = !element.ticked);
+    css(element, {
+      display:'block',
+      width:'20px',
+      height: '20px',
+      margin:'5px auto',
+      cursor:'pointer',
+      backgroundColor: element.ticked ? 'dimgrey' : 'white',
+      border: `1px solid ${element.ticked ? 'white' : 'dimgrey'}`
+    });
+    on(el, 'click', () => element.ticked = !element.ticked);
   },
   destroy(element) {
    console.log('tick-box is no more :(');
@@ -276,9 +186,64 @@ rilti.Component('tick-box', {
 
 ```
 
+#### see how fast rilti.js renders your elements
+
+```html
+<script src="/rilti/dist/rilti.min.js"></script>
+<script>
+  const testRiltiBlocking = (count = 10000) => {
+    const span = rilti.dom.span;
+    const start = performance.now();
+    while(count != 0) span({
+      render: document.body,
+      css: {
+        background:'#fff',
+        width:'110px',
+        color: 'dimgrey',
+        textAlign: 'center',
+        height:'110px',
+        margin:'5px',
+        padding:'4px',
+        float:'left',
+        boxShadow:'0 1px 4px hsla(0,0%,0%,.3)'
+      }
+    }, "damn daniel, back at it again with those white spans ", count--);
+
+    console.log(`That took ${performance.now() - start}ms`);
+  }
+  testRiltiBlocking(); // -> this usually takes ~ 7800ms on my i5 machine and is blocking
+
+  const testRiltiChunked = (count = 10000) => {
+    const each = rilti.each, span = rilti.dom.span;
+    const start = performance.now();
+    // int loops are chunked making heavy loads less blocking
+    each(count, i =>
+      span({
+        render: document.body,
+        css: {
+          background:'#fff',
+          width:'110px',
+          color: 'dimgrey',
+          textAlign: 'center',
+          height:'110px',
+          margin:'5px',
+          padding:'4px',
+          float:'left',
+          boxShadow:'0 1px 4px hsla(0,0%,0%,.3)'
+        }
+      },
+      "damn daniel, back at it again with those white spans ", count--)
+    );
+    console.log(`That took ${performance.now() - start}ms`);
+  }
+  testRiltiChunked();
+  // -> site useable even while rendering thousands of nodes
+</script>
+```
+
 #### weight
 * unminified : > 18kb
-* minified : > 10kb
+* minified : > 8kb
 * minified && compressed : > 5kb
 
 #### licence = MIT

@@ -1,64 +1,44 @@
 {
-  const {each, curry, isFunc} = rilti,
-  change = 'change:';
+  const {each} = rilti;
 
-  rilti.model = (m = {}) => {
-    const data = rilti.notifier(new Map);
-    const dataSet = data.set.bind(data);
-    const dataGet = data.get.bind(data);
-    const dataDelete = data.delete.bind(data);
-
-    const previousProps = new Map;
-
-    each(m, (val, key) => data.set(key, val));
-
-    data.previous = prop => previousProps.get(prop);
-
-    data.set = (prop, val) => {
-      if(!previousProps.has(prop) || !data.has(prop)) data.emit('new', prop, val);
-      previousProps.set(prop, val);
-      dataSet(prop, val).emit(change+prop, val);
-      return data;
-    }
-
-    data.get = prop => dataGet(prop);
-
-    data.delete = prop => {
-      dataDelete(prop).emit(change+prop);
-      data.emit('delete', prop);
-      previousProps.delete(prop);
-    }
-
-    data.update = newData => each(newData, (val, key) => data.set(key, val));
+  rilti.model = props => {
+    //Object.seal(props);
 
     const syncs = new Map;
 
-    data.sync = curry((el, prop, elProp = el.value ? 'value' : 'textContent') => {
-      if(!syncs.has(prop)) syncs.set(prop, new Map);
-
-      const propListeners = syncs.get(prop);
-      if(propListeners.has(el)) data.unsync(el, prop);
-      if(el.notifier) el.notifier.on('destroy', () => data.unsync(el, prop));
-
-      const updater = isFunc(elProp) ? val => elProp(el, val) : val => el[elProp] = val;
-      propListeners.set(el, data.on(change+prop, updater));
-      if(data.has(prop)) updater(dataGet(prop));
-      return el;
-    }, 2);
-
-    data.unsync = (el, prop) => {
-      if(syncs.has(prop)) {
-        const propListeners = syncs.get(prop);
-        if(propListeners.has(el)) {
-            const {off} = propListeners.get(el);
-            if(off) off();
-            propListeners.delete(el);
+    const n = rilti.notifier({
+      sync(obj, prop, key = prop) {
+        if(!syncs.has(obj)) syncs.set(obj, new Map);
+        syncs.get(obj).set(prop, n.on('set:'+prop, val => obj[key] = val));
+        obj[key] = props[prop];
+        return obj;
+      },
+      unsync(obj, prop) {
+        if(syncs.has(obj)) {
+          const syncedProps = syncs.get(obj);
+          if(syncedProps.has(prop)) syncedProps.get(prop).off();
+          syncedProps.delete(prop);
+          if(!syncedProps.size) syncs.delete(obj);
         }
-        if(!propListeners.size) syncs.delete(prop);
+        return obj;
+      },
+      update(obj) {
+        for (const [val,prop] of obj) n[prop] = val;
       }
-      return el;
-    }
-    
-    return data;
+    });
+
+    Object.keys(props).forEach(, prop => {
+      Object.defineProperty(n, prop, {
+        get() {
+          n.emit('get:'+prop);
+          return props[prop];
+        },
+        set(val) {
+          n.emit('set:'+prop, (props[prop] = val));
+        }
+      });
+    });
+
+    return n;
   }
 }

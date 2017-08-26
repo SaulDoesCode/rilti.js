@@ -1,15 +1,10 @@
 {
-const {extend,isObj,isFunc} = rilti;
-const newEVT = t => new CustomEvent(t)
-const mountEVT = newEVT('mount');
-const destroyEVT = newEVT('destroy');
-const createEVT = newEVT('create');
-const adoptedEVT = newEVT('adopted');
+const {extend,isObj,isFunc,domfn:{emit}} = rilti;
 
 rilti.Component = (tag, config) => {
-  if(!tag.includes('-')) throw new Error(tag+" is unhyphenated");
-  const {create, mount, destroy, attr, props, methods, adopted} = config,
-  attrs = isObj(attr) ? Object.keys(attr) : [];
+  if(!tag.includes('-')) throw tag+" is un-hyphenated";
+  const {create, mount, destroy, attr, props, methods, adopted} = config;
+  const attrs = isObj(attr) ? Object.keys(attr) : [];
 
   const CustomElement = class extends HTMLElement {
     constructor() {
@@ -17,22 +12,22 @@ rilti.Component = (tag, config) => {
       const element = this;
       if(props) rilti.extend(element, props);
       if(isFunc(create)) create.call(element, element);
-      element.dispatchEvent(createEVT);
+      emit(element, 'create');
     }
     connectedCallback() {
       const element = this;
       isFunc(mount) && mount.call(element, element);
-      element.dispatchEvent(mountEVT);
+      emit(element, 'mount');
     }
     disconnectedCallback() {
       const element = this;
       if(isFunc(destroy)) destroy.call(element, element);
-      element.dispatchEvent(destroyEVT);
+      emit(element, 'destroy');
     }
     adoptedCallback() {
       const element = this;
       if(isFunc(adopted)) adopted.call(element, element);
-      element.dispatchEvent(adoptedEVT);
+      emit(element, 'adopted');
     }
     static get observedAttributes() { return attrs; }
     attributeChangedCallback(attrname, oldval, newval) {
