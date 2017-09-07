@@ -2,7 +2,6 @@
   const {each} = rilti;
 
   rilti.model = props => {
-    //Object.seal(props);
 
     const syncs = new Map;
 
@@ -27,7 +26,7 @@
       }
     });
 
-    Object.keys(props).forEach(, prop => {
+    Object.keys(props).forEach(prop => {
       Object.defineProperty(n, prop, {
         get() {
           n.emit('get:'+prop);

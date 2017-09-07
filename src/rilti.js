@@ -6,10 +6,13 @@
 **/
 var rilti = (() => {
 
-const doc = document,
-root = window,
-undef = void 0,
-NULL = null;
+const doc = document;
+const root = window;
+const undef = void 0;
+const NULL = null;
+const Keys = Object.keys;
+const Def = Object.defineProperty;
+const OwnDesc = Object.getOwnPropertyDescriptor;
 
 const curry = (
   fn,
@@ -36,7 +39,7 @@ isObj = o => o && o.constructor === Object,
 isPrimitive = caseMatch(isStr,isBool,isNum),
 isIterator = o => o && o.toString().includes('Iterator'),
 isInt = o => isNum(o) && o % 1 === 0,
-isEmpty = o => !o || !((isObj(o) ? Object.keys(o) : isNum(o.length) && o).length || o.size),
+isEmpty = o => !o || !((isObj(o) ? Keys(o) : isNum(o.length) && o).length || o.size),
 isEl = o => o && o instanceof Element,
 isNode = o => o && o instanceof Node,
 isNodeList = o => o && (o instanceof NodeList || (isArrlike(o) && arrMeth('every', o, isNode))),
@@ -44,6 +47,13 @@ isMap = o => o && o instanceof Map,
 isSet = o => o && o instanceof Set,
 isInput = o => isEl(o) && 'INPUT TEXTAREA'.includes(o.tagName),
 isEq = curry((o1, ...vals) => vals.every(isFunc(o1) ? i => o1(i) : i => o1 === i), 2);
+
+const extend = (host = {}, obj, safe = false, keys = Keys(obj)) => {
+  if(keys.length) each(keys, key => {
+      if(!safe || (safe && !(key in host))) Def(host, key, OwnDesc(obj, key));
+  });
+  return host;
+}
 
 const yieldloop = (
   count,
@@ -54,7 +64,10 @@ const yieldloop = (
   chunk = () => {
 
     const end = Math.min(i + chunksize, count);
-    while(i < end) fn(i++);
+    while(i < end) {
+      fn(i);
+      i++;
+    }
     i < count ? setTimeout(chunk, 0) : isFunc(done) && done();
 
 }) => chunk();
@@ -68,13 +81,6 @@ const each = (iterable, func, i = 0) => {
     else if((iterable.entries || isIterator(iterable))) for (const [key, value] of iterable) func(key, value, iterable);
   }
   return iterable;
-}
-
-const extend = (host, obj, safe = false, keys = Object.keys(obj)) => {
-  if(keys.length) each(keys, key => {
-      if(!safe || (safe && !(key in host))) Object.defineProperty(host, key, Object.getOwnPropertyDescriptor(obj, key));
-  });
-  return host;
 }
 
 const flatten = arr => isArrlike(arr) ? arrMeth("reduce", arr, (flat, toFlatten) => flat.concat(isArr(toFlatten) ? flatten(toFlatten) : toFlatten), []) : [arr];
@@ -102,7 +108,7 @@ const EventManager = curry((once, target, type, handle, options = false) => {
   if(isStr(target)) target = query(target);
   if(!target.addEventListener) throw 'bad event target';
   if(isObj(type)) return each(type, (fn, name) => EventManager(once, target, name, fn, options));
-  if(!isFunc(handle)) return EventManager.bind(NULL, once, target, type);
+  if(!isFunc(handle)) return EventManager.bind(undef, once, target, type);
   // for cloning purposes and odd cases: ELSNRS = event listeners
   if(isNode(target) && !target[eventListeners]) target[eventListeners] = new Set;
 
@@ -355,7 +361,14 @@ const create = (tag, options, ...children) => {
     if('attr' in options) domfn.attr(el, options.attr);
     if(options.css) domfn.css(el, options.css);
     if(options.class) el.className = options.class;
-    if(options.props) extend(el, options.props);
+    if(options.props) each(options.props, (val, key) => {
+      key in el ? el[key] = val :
+      Def(
+        el,
+        key,
+        isObj(val) && (val.get || val.set || 'value' in val) ? val : OwnDesc(options.props, key)
+      );
+    });
     if(options.methods) extend(el, options.methods);
     if(options.once) once(el, options.once);
     if(options.on) on(el, options.on);
@@ -385,14 +398,14 @@ extend( // Proxy, the audacious old browser breaker :O
 ),
   {create,query,queryAll,queryEach,html,frag}
 ), {
-  get: (d, key) => key in d ? d[key] : create.bind(NULL, key), // get the d
+  get: (d, key) => key in d ? d[key] : create.bind(undef, key), // get the d
   set: (d, key, val) => d[key] = val
 });
 
 new MutationObserver(muts => each(muts, ({addedNodes, removedNodes, target, attributeName, oldValue}) => {
   if(addedNodes.length) arrEach(addedNodes, MNT);
   if(removedNodes.length) arrEach(removedNodes, DST);
-  if(attributeName && directives.has(attributeName)) checkAttr(attributeName, target, oldValue);
+  if(attributeName && attributeName != 'style') checkAttr(attributeName, target, oldValue);
 })).observe(doc, {attributes:true, childList:true, subtree:true});
 
 return {dom,domfn,notifier,compose,caseMatch,not,yieldloop,on,once,directive,directives,extend,route,render,run,curry,each,flatten,isMounted,isDef,isNill,isPrimitive,isNull,isFunc,isStr,isBool,isNum,isInt,isIterator,isObj,isArr,isArrlike,isEmpty,isEl,isEq,isNode,isNodeList,isInput,isMap,isSet};
