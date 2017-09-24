@@ -1,7 +1,7 @@
 {
   "name": "rilti.js",
-  "version": "0.2.0",
-  "description": "simple small plugable view layer for the front end written in es6 with no apologies",
+  "version": "0.3.0",
+  "description": "opinionated small view layer for the front end written in ES7 with no apologies",
   "main": "init.js",
   "repository": {
     "type": "git",
@@ -9,6 +9,7 @@
   },
   "keywords": [
     "es6",
+    "es7",
     "view",
     "library",
     "front-end"
@@ -20,8 +21,10 @@
   },
   "homepage": "https://github.com/sauldoescode/rilti.js#readme",
   "devDependencies": {
-    "babili": "*",
-    "iltorb": "*",
-    "ws": "*"
+    "babel-cli": "^6.26.0",
+    "babel-minify": "^0.2.0",
+    "babel-preset-minify": "^0.2.0",
+    "iltorb": "^1.3.6",
+    "ws": "^3.2.0"
   }
 }
