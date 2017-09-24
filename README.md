@@ -13,12 +13,14 @@ Feel free to fork or raise issues. Constructive criticism is welcome
 * great dom manipulation functions
 * functional composition
 * powerful yet petite notifier system (pub/sub)
-* webcomponents
 * no classes, no this, no extra fuzz, functional positive
 * written and distributed in plain es2015/es6
 
 #### Plugins:
 * rilti-tilt.js - compact mouse motion based element tilting effect, based on vanilla-tilt.js
+* rilti-utils.js - set of useful features and things which could have been part of rilti.js but is doesn't need to be
+* rilti-webcomponents.js - Tiny wrapper for WebComponents that removes the bullshit and makes it easier
+* rilti-model.js - a Model system that makes it easy to work with data and monitor changes, Highly WIP
 
 #### planned features
 * offer collection of useful optional plugins
@@ -68,7 +70,6 @@ otherwise such as with has/get(this/that) type functions
 ```js
   const {
     replace,
-    clone, // (node) clones nodes (and their(+childNodes) event listeners if they were made using ``on || once``)
     css, // (node, stylePropery, val) || (node, { styleProp:'4em' }) set element.style properties
     Class, // (node, class, {=state bool}) // add/remove or toggle classes
     hasClass, // (node, class) -> bool
@@ -244,6 +245,6 @@ rilti.Component('tick-box', {
 #### weight
 * unminified : > 18kb
 * minified : > 8kb
-* minified && compressed : > 5kb
+* minified && compressed : > 4.5kb
 
 #### licence = MIT
