@@ -5,7 +5,7 @@
 * @licence MIT
 **/
 {
-  /* global Node NodeList Element CustomEvent location */
+  /* global Node NodeList Element CustomEvent location MutationObserver */
   const root = window
   const doc = document
   const undef = void 0
@@ -30,7 +30,7 @@
   const isArrlike = o => o && !(o instanceof Function) && isNum(o.length)
   const isBool = o => o === true || o === false
   const isDef = o => o !== undef && o !== NULL
-  const isNill = o => o === undef || o === NULL || o === 0 || isNaN(o)
+  const isNil = o => o === undef || o === NULL || o === 0
   const isNull = o => o === NULL
   const isNum = o => typeof o === 'number'
   const isStr = o => typeof o === 'string'
@@ -47,6 +47,8 @@
   const isSet = o => o && o instanceof Set
   const isInput = o => isEl(o) && 'INPUT TEXTAREA'.includes(o.tagName)
   const isEq = curry((o1, ...vals) => vals.every(isFunc(o1) ? i => o1(i) : i => o1 === i), 2)
+
+  const err = console.error.bind(console)
 
   const extend = (host = {}, obj, safe = false, keys = Keys(obj)) => {
     if (keys.length) {
@@ -70,7 +72,7 @@
     }) => chunk()
 
   const each = (iterable, func, i = 0) => {
-    if (!isNill(iterable)) {
+    if (!isNil(iterable)) {
       if (iterable.forEach) iterable.forEach(func)
       else if (iterable.length > 0) arrEach(iterable, func)
       else if (isObj(iterable)) for (i in iterable) func(iterable[i], i, iterable)
@@ -98,7 +100,7 @@
 
   const EventManager = curry((once, target, type, handle, options = false) => {
     if (isStr(target)) target = query(target)
-    if (!target.addEventListener) throw new Error('EventManager: target invalid')
+    if (!target.addEventListener) return err('EventManager: target invalid')
     if (isObj(type)) return each(type, (fn, name) => EventManager(once, target, name, fn, options))
     if (!isFunc(handle)) return EventManager.bind(undef, once, target, type)
 
@@ -391,7 +393,6 @@
     return CR(el)
   }
 
-  const err = console.error.bind(console)
   // find a node independent of DOMContentLoaded state using a promise
   const dom = new Proxy( // ah Proxy, the audacious old browser breaker :P
   extend(
@@ -413,7 +414,7 @@
     set: (d, key, val) => (d[key] = val)
   })
 
-  new root.MutationObserver(muts => each(muts, ({addedNodes, removedNodes, target, attributeName, oldValue}) => {
+  new MutationObserver(muts => each(muts, ({addedNodes, removedNodes, target, attributeName, oldValue}) => {
     if (addedNodes.length) arrEach(addedNodes, MNT)
     if (removedNodes.length) arrEach(removedNodes, DST)
     if (attributeName && attributeName !== 'style') checkAttr(attributeName, target, oldValue)
@@ -441,7 +442,7 @@
     flatten,
     isMounted,
     isDef,
-    isNill,
+    isNil,
     isPrimitive,
     isNull,
     isFunc,

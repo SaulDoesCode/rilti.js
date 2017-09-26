@@ -29,7 +29,7 @@ Feel free to fork or raise issues. Constructive criticism is welcome
 | method | description  |
 |--------|--------------|
 | ``dom["anytagname"]( {=object}, {...children} )`` | where the magic happens, define behavior for elements and see them come to life |
-| ``dom( {string/node}, {=string/node} )`` | same as querySelector but returns a promise |
+| ``dom( {string/node}, {=string/node} )`` | same as querySelector but returns a promise-like interface |
 | ``dom.query( {string}, {=string/node} )`` | improved alternative to ``document.querySelector``|
 | ``dom.queryAll( {string}, {=string/node} )`` | improved alternative to ``document.querySelectorAll``|
 | ``dom.queryEach( {string}, {=string/node}, {function} )`` | queries nodes returned by selector and iterates over them like ``[].forEach`` would|
