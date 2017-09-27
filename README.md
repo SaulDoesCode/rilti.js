@@ -29,7 +29,7 @@ Feel free to fork or raise issues. Constructive criticism is welcome
 | method | description  |
 |--------|--------------|
 | ``dom["anytagname"]( {=object}, {...children} )`` | where the magic happens, define behavior for elements and see them come to life |
-| ``dom( {string/node}, {=string/node} )`` | same as querySelector but returns a promise-like interface |
+| ``dom( {string/node}, {=string/node} )`` | same as querySelector but returns a promise, it's essentially an async querySelector |
 | ``dom.query( {string}, {=string/node} )`` | improved alternative to ``document.querySelector``|
 | ``dom.queryAll( {string}, {=string/node} )`` | improved alternative to ``document.querySelectorAll``|
 | ``dom.queryEach( {string}, {=string/node}, {function} )`` | queries nodes returned by selector and iterates over them like ``[].forEach`` would|
@@ -74,7 +74,7 @@ otherwise such as with has/get(this/that) type functions
     Class, // (node, class, {=state bool}) // add/remove or toggle classes
     hasClass, // (node, class) -> bool
     attr, // (node, {attr object/string}, {=val primitive}) // set attrs with objects or string pairs or get attr('type') // -> val
-    removeAttr, // (node, {attr string}) removes attrs
+    rmAttr, // (node, {attr string}) removes attrs
     hasAttr, // hasAttr(node, {attr string}) -> bool
     getAttr, // getAttr(node, {attr string}) -> string
     setAttr, // setAttr(node, {attr string/object}, {=val primitive})

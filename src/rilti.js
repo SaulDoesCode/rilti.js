@@ -287,19 +287,19 @@
     }, 2),
     emit,
     append: curry((node, ...args) => {
-      dom(node)(n => n.appendChild(vpend(args)))
+      dom(node).then(n => n.appendChild(vpend(args)))
       return node
     }, 2),
     prepend: curry((node, ...args) => {
-      dom(node)(n => n.prepend(vpend(args)))
+      dom(node).then(n => n.prepend(vpend(args)))
       return node
     }, 2),
     appendTo: curry((node, val) => {
-      dom(val)(v => v.appendChild(node))
+      dom(val).then(v => v.appendChild(node))
       return node
     }),
     prependTo: curry((node, val) => {
-      dom(val)(v => v.prepend(node))
+      dom(val).then(v => v.prepend(node))
       return node
     }),
     remove (node, after) {
@@ -342,7 +342,7 @@
 
   const render = (node, host, connector = 'appendChild') => {
     CR(node)
-    dom(host)(
+    dom(host).then(
       h => h[connector](MNT(node)),
       errs => err('render fault:', ...errs)
     )
@@ -352,10 +352,10 @@
   const isRenderable = caseMatch(isNode, isArrlike, isPrimitive)
 
   const create = (tag, options, ...children) => {
-    const el = doc.createElement(tag)
+    const el = isNode(tag) ? tag : doc.createElement(tag)
 
     if (isRenderable(options)) children.unshift(options)
-    domfn.append(el, children)
+    if(children.length && el.nodeName !== '#text') domfn.append(el, children)
 
     if (isObj(options)) {
       if ('attr' in options) domfn.attr(el, options.attr)
@@ -393,22 +393,28 @@
     return CR(el)
   }
 
+  const text = (options, txt) => {
+    if (isStr(options)) [txt, options] = [options, {}]
+    const node = new Text(txt)
+    return create(node, options)
+  }
+
   // find a node independent of DOMContentLoaded state using a promise
   const dom = new Proxy( // ah Proxy, the audacious old browser breaker :P
   extend(
-    (selector, element = doc) => (go, no = err) => {
-      if (isNode(selector)) go(selector)
-      else if (selector === 'head') go(doc.head)
+    (selector, element = doc) => new Promise((resolve, reject) => {
+      if (isNode(selector)) resolve(selector)
+      else if (selector === 'head') resolve(doc.head)
       else if (isStr(selector)) {
         run(() => {
           const temp = selector === 'body' ? doc.body : query(selector, element)
-          isNode(temp) ? go(temp) : no([404, selector])
+          isNode(temp) ? resolve(temp) : reject([404, selector])
         })
       } else {
-        no([403, selector])
+        reject([403, selector])
       }
-    },
-    {create, query, queryAll, queryEach, html, frag}
+    }),
+    {create, query, queryAll, queryEach, html, text, frag}
   ), {
     get: (d, key) => key in d ? d[key] : create.bind(undef, key), // get the d
     set: (d, key, val) => (d[key] = val)
