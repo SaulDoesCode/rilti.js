@@ -36,6 +36,7 @@
   const isStr = o => typeof o === 'string'
   const isFunc = o => o && o instanceof Function
   const isObj = o => o && o.constructor === Object
+  const isPromise = o => o && o.constructor === Promise
   const isPrimitive = caseMatch(isStr, isBool, isNum)
   const isIterator = o => o && o.toString().includes('Iterator')
   const isInt = o => isNum(o) && o % 1 === 0
@@ -141,7 +142,7 @@
   const on = EventManager(false)
 
   const deleteHandle = (handles, type, handle) => {
-    if (handles.has(type) && !handles.get(type).delete(handle).size) handles.delete(type)
+    if (handles.has(type) && handles.get(type).delete(handle).size < 1) handles.delete(type)
     return handle
   }
   const addHandle = (handles, type, handle) => {
@@ -183,7 +184,13 @@
       hastype: type => handles.has(isFunc(type) ? type.type : type),
       hashandle: (handle, type = handle.type) => handles.has(type) && handles.get(type).has(handle),
       emit (type, arg, arg1, arg2) {
-        if (handles.has(type)) handles.get(type).forEach(handle => handle(arg, arg1, arg2))
+        if (handles.has(type)) {
+          setTimeout(() => {
+            handles.get(type).forEach(handle => {
+              handle(arg, arg1, arg2)
+            })
+          }, 0)
+        }
         return host
       }
     })
@@ -343,8 +350,14 @@
   const render = (node, host, connector = 'appendChild') => {
     CR(node)
     dom(host).then(
-      h => h[connector](MNT(node)),
-      errs => err('render fault:', ...errs)
+      h => {
+        if (connector === 'after' || connector === 'before' && !isMounted(h)) {
+          once(h, 'mount', () => h[connector](MNT(node)))
+        } else {
+          h[connector](MNT(node))
+        }
+      },
+      errs => err('render fault:', errs)
     )
     return node
   }
@@ -362,15 +375,9 @@
       if (options.css) domfn.css(el, options.css)
       if (options.class) el.className = options.class
       if (options.props) {
-        each(options.props, (val, key) => {
-          if (key in el) el[key] = val
-          else {
-            Def(
-              el,
-              key,
-              isObj(val) && (val.get || val.set || 'value' in val) ? val : OwnDesc(options.props, key)
-            )
-          }
+        each(Keys(options.props), prop => {
+          if (prop in el) el[prop] = options.props[prop]
+          else Def(el, prop, OwnDesc(options.props, prop))
         })
       }
       if (options.methods) extend(el, options.methods)
@@ -449,6 +456,7 @@
     isMounted,
     isDef,
     isNil,
+    isPromise,
     isPrimitive,
     isNull,
     isFunc,
