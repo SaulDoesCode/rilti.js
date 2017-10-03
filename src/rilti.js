@@ -213,9 +213,9 @@
   const isReady = () => doc.readyState === 'complete' || isNode(doc.body)
 
   const LoadStack = new Set()
-  once(root, 'DOMContentLoaded', () => each(LoadStack, fn => fn()).clear())
+  once(root, 'DOMContentLoaded', () => each(LoadStack, fn => setTimeout(fn, 0)).clear())
 
-  const run = fn => isReady() ? fn() : LoadStack.add(fn)
+  const run = fn => isReady() ? setTimeout(fn, 0) : LoadStack.add(fn)
 
   const html = input => isFunc(input) ? html(input()) : isNode(input) ? input : doc.createRange().createContextualFragment(input)
 
@@ -374,6 +374,7 @@
       if ('attr' in options) domfn.attr(el, options.attr)
       if (options.css) domfn.css(el, options.css)
       if (options.class) el.className = options.class
+      if (options.id) el.id = options.id
       if (options.props) {
         each(Keys(options.props), prop => {
           if (prop in el) el[prop] = options.props[prop]
@@ -392,10 +393,10 @@
         if (mount) once(el, 'mount', () => mount(el))
         if (create) once(el, 'create', () => create(el))
       }
-      if (options.run) run(() => options.run(el))
+      if (options.run) run(options.run.bind(el, el))
       if (options.render) render(el, options.render)
-      else if (options.renderAfter) render(el, options.renderAfter, 'after')
       else if (options.renderBefore) render(el, options.renderBefore, 'before')
+      else if (options.renderAfter) render(el, options.renderAfter, 'after')
     }
     return CR(el)
   }
