@@ -10,6 +10,7 @@
   const doc = document
   const undef = void 0
   const NULL = null
+  const assign = Object.assign
   const Keys = Object.keys
   const Def = Object.defineProperty
   const OwnDesc = Object.getOwnPropertyDescriptor
@@ -30,7 +31,7 @@
   const isArrlike = o => o && !(o instanceof Function) && isNum(o.length)
   const isBool = o => o === true || o === false
   const isDef = o => o !== undef && o !== NULL
-  const isNil = o => o === undef || o === NULL || o === 0
+  const isNil = o => o === undef || o === NULL
   const isNull = o => o === NULL
   const isNum = o => typeof o === 'number'
   const isStr = o => typeof o === 'string'
@@ -60,6 +61,29 @@
     return host
   }
 
+  const runAsync = (fn, ...args) => setTimeout(() => fn(...args), 0)
+
+  const timeout = (fn, ms = 1000, current) => assign(fn, {
+    ms,
+    start() {
+      current = setTimeout(() => {
+        fn()
+        this.ran = true
+      }, ms)
+      return this
+    },
+    stop() {
+      clearTimeout(current)
+      return this
+    },
+    runStop() {
+      clearTimeout(current)
+      fn()
+      this.ran = true
+      return this
+    }
+  })
+
   const yieldloop = (
     count,
     fn,
@@ -69,7 +93,7 @@
     chunk = () => {
       const end = Math.min(i + chunksize, count)
       while (i < end) fn(++i)
-      i < count ? setTimeout(chunk, 0) : isFunc(done) && done()
+      i < count ? runAsync(chunk) : isFunc(done) && done()
     }) => chunk()
 
   const each = (iterable, func, i = 0) => {
@@ -138,8 +162,13 @@
     return add(once)
   }, 3)
 
-  const once = EventManager(true)
-  const on = EventManager(false)
+  const eventListenerTypeProxy = {
+    get(fn, type) {
+      return (target, handle, options = false) => fn(target, type, handle, options)
+    }
+  }
+  const once = new Proxy(EventManager(true), eventListenerTypeProxy)
+  const on = new Proxy(EventManager(false), eventListenerTypeProxy)
 
   const deleteHandle = (handles, type, handle) => {
     if (handles.has(type) && handles.get(type).delete(handle).size < 1) handles.delete(type)
@@ -165,6 +194,10 @@
     }))
   }
 
+  const TypeProxy = {
+    get: (fn, key) => fn.bind(NULL, key)
+  }
+
   const notifier = (host = {}) => {
     const handles = new Map()
 
@@ -176,29 +209,29 @@
       } else if (isFunc(handle)) return mode(type, handle)
     }
 
+    const on = new Proxy(addHandlers(handleMaker(handles)), TypeProxy)
+    const once = new Proxy(addHandlers(handleMaker(handles, true)), TypeProxy)
+    const emit = new Proxy((type, arg, arg1, arg2, arg3) => {
+      if (handles.has(type)) runAsync(() => {
+        handles.get(type).forEach(handle => {
+          runAsync(handle, arg, arg1, arg2, arg3)
+        })
+      })
+      return host
+    }, TypeProxy)
+
     return extend(host, {
-      on: addHandlers(handleMaker(handles)),
-      once: addHandlers(handleMaker(handles, true)),
+      on, once, emit,
       off: curry(deleteHandle)(handles),
       has: key => Reflect.has(host, key),
       hastype: type => handles.has(isFunc(type) ? type.type : type),
-      hashandle: (handle, type = handle.type) => handles.has(type) && handles.get(type).has(handle),
-      emit (type, arg, arg1, arg2) {
-        if (handles.has(type)) {
-          setTimeout(() => {
-            handles.get(type).forEach(handle => {
-              handle(arg, arg1, arg2)
-            })
-          }, 0)
-        }
-        return host
-      }
+      hashandle: (handle, type = handle.type) => handles.has(type) && handles.get(type).has(handle)
     })
   }
 
   const route = notifier((hash, fn) => {
     if (!route.active) {
-      on(root, 'hashchange', () => {
+      on.hashchange(root, () => {
         const h = location.hash
         route.emit(route.hastype(h) ? h : 'default', h)
       })
@@ -213,9 +246,9 @@
   const isReady = () => doc.readyState === 'complete' || isNode(doc.body)
 
   const LoadStack = new Set()
-  once(root, 'DOMContentLoaded', () => each(LoadStack, fn => setTimeout(fn, 0)).clear())
+  once.DOMContentLoaded(root, () => each(LoadStack, fn => runAsync(fn)).clear())
 
-  const run = fn => isReady() ? setTimeout(fn, 0) : LoadStack.add(fn)
+  const run = fn => isReady() ? runAsync(fn) : LoadStack.add(fn)
 
   const html = input => isFunc(input) ? html(input()) : isNode(input) ? input : doc.createRange().createContextualFragment(input)
 
@@ -230,7 +263,9 @@
   // node lifecycle event distributers
   const CR = n => emit(n, 'create')
   const MNT = node => {
-    if (!mounted.has(node)) setTimeout(() => mounted.add(emit(node, 'mount')), 0)
+    if (!mounted.has(node)) runAsync(() => {
+      mounted.add(emit(node, 'mount'))
+    })
     return node
   }
   const DST = node => {
@@ -238,6 +273,7 @@
     return emit(node, 'destroy')
   }
 
+  // vpend - virtual append, add nodes and get them as a document fragment
   const vpend = (args, dfrag = frag()) => {
     each(flatten(args), arg => dfrag.appendChild(MNT(html(arg))))
     return dfrag
@@ -310,10 +346,11 @@
       return node
     }),
     remove (node, after) {
-      if (isNum(after)) setTimeout(() => node.remove(), after)
+      if (isNum(after)) return timeout(() => node.remove(), after).start()
       else node.remove()
       return node
-    }
+    },
+    removeNodes: (...nodes) => each(nodes, n => n.remove())
   }
 
   const directives = new Map()
@@ -341,13 +378,11 @@
   const directive = (name, stages) => {
     directives.set(name, stages)
     run(() => {
-      queryEach(`[${name}]`, el => {
-        checkAttr(name, el)
-      })
+      queryEach(`[${name}]`, checkAttr.bind(NULL, name))
     })
   }
 
-  const render = (node, host, connector = 'appendChild') => {
+  const render = (node, host = 'body', connector = 'appendChild') => {
     CR(node)
     dom(host).then(
       h => {
@@ -438,22 +473,24 @@
   root.rilti = {
     dom,
     domfn,
-    notifier,
+    curry,
     compose,
     caseMatch,
-    not,
-    yieldloop,
-    on,
-    once,
     directive,
     directives,
-    extend,
-    route,
-    render,
-    run,
-    curry,
     each,
+    extend,
     flatten,
+    not,
+    notifier,
+    on,
+    once,
+    timeout,
+    yieldloop,
+    render,
+    route,
+    run,
+    runAsync,
     isMounted,
     isDef,
     isNil,

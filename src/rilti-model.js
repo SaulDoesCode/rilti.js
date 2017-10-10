@@ -1,6 +1,6 @@
 {
   /* global rilti */
-  const {each,extend,isPromise} = rilti
+  const {each,extend,isPromise,isDef} = rilti
 
   rilti.model = (props = {}) => {
     const syncs = new Map()
@@ -11,15 +11,15 @@
         syncs.get(obj).set(prop, n.on('set:' + prop, val => {
           obj[key] = val
         }))
-        obj[key] = props[prop]
+        if (isDef(props[prop])) obj[key] = props[prop]
         return obj
       },
+      syncNode: (node, prop, key = 'textContent') => n.sync(node, key, prop),
       unsync (obj, prop) {
         if (syncs.has(obj)) {
           const syncedProps = syncs.get(obj)
-          if (!prop) {
-            each(syncedProps, ln => ln.off()).clear()
-          } else if (syncedProps.has(prop)) {
+          if (!prop) each(syncedProps, ln => ln.off()).clear()
+          else if (syncedProps.has(prop)) {
             syncedProps.get(prop).off()
             syncedProps.delete(prop)
           }
@@ -36,32 +36,19 @@
     }), props)
 
     const Async = new Proxy(n, {
-      get (_, key) {
+      get: (_, key) => new Promise(resolve => {
+        n.has(key) ? resolve(n[key]) : n.once('set:'+key, resolve)
         n.emit('get:' + key)
-        return new Promise(resolve => {
-          if (n.has(key)) {
-            resolve(n[key])
-          } else {
-            n.once('set:'+key, resolve)
-          }
-        })
-      }
+      })
     })
 
     const Model = new Proxy(n, {
-      get (_, key) {
-        n.emit('get:' + key)
-        if (key === 'async') return Async
-        return n[key]
-      },
+      get: (_, key) => key === 'async' ? Async : n.emit('get:' + key)[key],
       set (_, key, val) {
-        if (isPromise(val)) {
-          val.then(v => {
-            n.emit('set:' + key, (n[key] = v))
-          })
-        } else {
-          n.emit('set:' + key, (n[key] = val))
-        }
+        if (isPromise(val)) val.then(v => {
+          n.emit('set:' + key, (n[key] = v))
+        })
+        else n.emit('set:' + key, (n[key] = val))
         return true
       }
     })
