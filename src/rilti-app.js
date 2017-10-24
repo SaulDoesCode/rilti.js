@@ -108,7 +108,6 @@
               store.emit.error(key, err)
             })
           }
-
           ready ? getItem() : store.once.ready(getItem)
         })
       }

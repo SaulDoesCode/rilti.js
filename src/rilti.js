@@ -14,11 +14,12 @@
   const Keys = Object.keys
   const Def = Object.defineProperty
   const OwnDesc = Object.getOwnPropertyDescriptor
+  const proxy = (host, handles) => new Proxy(host, handles)
 
   const curry = (
     fn,
     arity = fn.length,
-    next = (...memory) => (...more) => ((more.length + memory.length) >= arity ? fn : next)(...memory.concat(more))
+    next = (...args) => (...more) => ((more.length + args.length) >= arity ? fn : next)(...args.concat(more))
   ) => next() // love this
 
   // irony: the case of Case does not match the case of match
@@ -49,6 +50,7 @@
   const isSet = o => o && o instanceof Set
   const isInput = o => isEl(o) && 'INPUT TEXTAREA'.includes(o.tagName)
   const isEq = curry((o1, ...vals) => vals.every(isFunc(o1) ? i => o1(i) : i => o1 === i), 2)
+  const isRenderable = caseMatch(isNode, isArrlike, isPrimitive)
 
   const err = console.error.bind(console)
 
@@ -61,26 +63,27 @@
     return host
   }
 
-  const runAsync = (fn, ...args) => setTimeout(() => fn(...args), 0)
+  const runAsync = (fn, ...args) => new Promise((resolve, reject) => {
+    try {
+      resolve(fn(...args))
+    } catch (e) {
+      reject(e)
+    }
+  })
 
   const timeout = (fn, ms = 1000, current) => assign(fn, {
     ms,
-    start() {
+    start () {
       current = setTimeout(() => {
         fn()
-        this.ran = true
+        fn.ran = true
       }, ms)
-      return this
+      return fn
     },
-    stop() {
+    stop (run = false) {
+      if (run) fn()
       clearTimeout(current)
-      return this
-    },
-    runStop() {
-      clearTimeout(current)
-      fn()
-      this.ran = true
-      return this
+      return fn
     }
   })
 
@@ -154,7 +157,7 @@
         if (shouldRemoveOriginal) remove()
         return EventManager(once, newTarget, type, handle, options)
       },
-      on: () => add(),
+      on: add,
       once: () => add(true),
       off: () => remove()
     }
@@ -163,12 +166,10 @@
   }, 3)
 
   const eventListenerTypeProxy = {
-    get(fn, type) {
-      return (target, handle, options = false) => fn(target, type, handle, options)
-    }
+    get: (fn, type) => (target, handle, options = false) => fn(target, type, handle, options)
   }
-  const once = new Proxy(EventManager(true), eventListenerTypeProxy)
-  const on = new Proxy(EventManager(false), eventListenerTypeProxy)
+  const once = proxy(EventManager(true), eventListenerTypeProxy)
+  const on = proxy(EventManager(false), eventListenerTypeProxy)
 
   const deleteHandle = (handles, type, handle) => {
     if (handles.has(type) && handles.get(type).delete(handle).size < 1) handles.delete(type)
@@ -209,14 +210,16 @@
       } else if (isFunc(handle)) return mode(type, handle)
     }
 
-    const on = new Proxy(addHandlers(handleMaker(handles)), TypeProxy)
-    const once = new Proxy(addHandlers(handleMaker(handles, true)), TypeProxy)
-    const emit = new Proxy((type, arg, arg1, arg2, arg3) => {
-      if (handles.has(type)) runAsync(() => {
-        handles.get(type).forEach(handle => {
-          runAsync(handle, arg, arg1, arg2, arg3)
+    const on = proxy(addHandlers(handleMaker(handles)), TypeProxy)
+    const once = proxy(addHandlers(handleMaker(handles, true)), TypeProxy)
+    const emit = proxy((type, arg, arg1, arg2, arg3) => {
+      if (handles.has(type)) {
+        runAsync(() => {
+          handles.get(type).forEach(handle => {
+            runAsync(handle, arg, arg1, arg2, arg3)
+          })
         })
-      })
+      }
       return host
     }, TypeProxy)
 
@@ -261,11 +264,13 @@
 
   const mounted = new Set()
   // node lifecycle event distributers
-  const CR = n => emit(n, 'create')
+  const CR = n => !n.Created && emit(n, 'create')
   const MNT = node => {
-    if (!mounted.has(node)) runAsync(() => {
-      mounted.add(emit(node, 'mount'))
-    })
+    if (!mounted.has(node)) {
+      runAsync(() => {
+        mounted.add(emit(node, 'mount'))
+      })
+    }
     return node
   }
   const DST = node => {
@@ -346,11 +351,11 @@
       return node
     }),
     remove (node, after) {
-      if (isNum(after)) return timeout(() => node.remove(), after).start()
-      else node.remove()
+      if (isInt(after)) return timeout(() => isMounted(node) && node.remove(), after).start()
+      else if(isMounted(node)) node.remove()
       return node
     },
-    removeNodes: (...nodes) => each(nodes, n => n.remove())
+    removeNodes: (...nodes) => each(nodes, n => isMounted(n) && n.remove())
   }
 
   const directives = new Map()
@@ -360,18 +365,17 @@
   }
 
   const checkAttr = (name, el, oldValue) => {
-    if (directives.has(name)) {
-      const val = el.getAttribute(name)
-      const {init, update, destroy} = directives.get(name)
-      if (isPrimitive(val)) {
-        if (!el[name + '_init']) {
-          init(dirInit(el, name), val)
-        } else if (update && val !== oldValue) {
-          update(el, val, oldValue)
-        }
-      } else if (destroy) {
-        destroy(el, val, oldValue)
+    if (!directives.has(name)) return
+    const val = el.getAttribute(name)
+    const {init, update, destroy} = directives.get(name)
+    if (isPrimitive(val)) {
+      if (!el[name + '_init']) {
+        init(dirInit(el, name), val)
+      } else if (update && val !== oldValue) {
+        update(el, val, oldValue)
       }
+    } else if (destroy) {
+      destroy(el, val, oldValue)
     }
   }
 
@@ -387,7 +391,7 @@
     dom(host).then(
       h => {
         if (connector === 'after' || connector === 'before' && !isMounted(h)) {
-          once(h, 'mount', () => h[connector](MNT(node)))
+          once.mount(h, () => h[connector](MNT(node)))
         } else {
           h[connector](MNT(node))
         }
@@ -397,53 +401,57 @@
     return node
   }
 
-  const isRenderable = caseMatch(isNode, isArrlike, isPrimitive)
-
   const create = (tag, options, ...children) => {
     const el = isNode(tag) ? tag : doc.createElement(tag)
 
     if (isRenderable(options)) children.unshift(options)
-    if(children.length && el.nodeName !== '#text') domfn.append(el, children)
+    if (children.length && el.nodeName !== '#text') domfn.append(el, children)
 
     if (isObj(options)) {
-      if ('attr' in options) domfn.attr(el, options.attr)
+      if (options.attr) domfn.attr(el, options.attr)
       if (options.css) domfn.css(el, options.css)
-      if (options.class) el.className = options.class
+      if (options.className) el.className = options.class
+      else if (options.class) el.className = options.class
       if (options.id) el.id = options.id
       if (options.props) {
         each(Keys(options.props), prop => {
-          if (prop in el) el[prop] = options.props[prop]
-          else Def(el, prop, OwnDesc(options.props, prop))
+          el[prop] ? el[prop] = options.props[prop] : Def(el, prop, OwnDesc(options.props, prop))
         })
       }
       if (options.methods) extend(el, options.methods)
       if (options.once) once(el, options.once)
       if (options.on) on(el, options.on)
       if (options.lifecycle) {
-        const {mount, destroy, create} = options.lifecycle
-        on(el, 'destroy', () => {
-          if (destroy) destroy(el)
-          if (mount) once(el, 'mount', () => mount(el))
+        let {mount, destroy, create} = options.lifecycle
+        if (create) create = once.create(el, () => {
+          el.Created = true
+          create(el)
         })
-        if (mount) once(el, 'mount', () => mount(el))
-        if (create) once(el, 'create', () => create(el))
+        if (mount) mount = once.mount(el, mount.bind(NULL, el))
+
+        if (mount || destroy) {
+          on.destroy(el, () => {
+            if (destroy) destroy(el)
+            if (mount) mount.on()
+          })
+        }
       }
       if (options.run) run(options.run.bind(el, el))
-      if (options.render) render(el, options.render)
-      else if (options.renderBefore) render(el, options.renderBefore, 'before')
-      else if (options.renderAfter) render(el, options.renderAfter, 'after')
+      const {renderBefore, renderAfter, render: rendr} = options
+      if (renderBefore) render(el, renderBefore, 'before')
+      else if (renderAfter) render(el, renderAfter, 'after')
+      else if (rendr) render(el, rendr)
     }
     return CR(el)
   }
 
   const text = (options, txt) => {
     if (isStr(options)) [txt, options] = [options, {}]
-    const node = new Text(txt)
-    return create(node, options)
+    return create(new Text(txt), options)
   }
 
   // find a node independent of DOMContentLoaded state using a promise
-  const dom = new Proxy( // ah Proxy, the audacious old browser breaker :P
+  const dom = proxy( // ah Proxy, the audacious old browser breaker :P
   extend(
     (selector, element = doc) => new Promise((resolve, reject) => {
       if (isNode(selector)) resolve(selector)
@@ -466,16 +474,16 @@
   new MutationObserver(muts => each(muts, ({addedNodes, removedNodes, target, attributeName, oldValue}) => {
     if (addedNodes.length) arrEach(addedNodes, MNT)
     if (removedNodes.length) arrEach(removedNodes, DST)
-    if (attributeName && attributeName !== 'style') checkAttr(attributeName, target, oldValue)
+    if (attributeName && directives.has(attributeName)) checkAttr(attributeName, target, oldValue)
   })).observe(doc, {attributes: true, childList: true, subtree: true})
 
   // I'm really sorry but I don't believe in module loaders, besides who calls their library rilti?
   root.rilti = {
-    dom,
-    domfn,
+    caseMatch,
     curry,
     compose,
-    caseMatch,
+    dom,
+    domfn,
     directive,
     directives,
     each,

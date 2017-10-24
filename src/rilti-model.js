@@ -32,6 +32,11 @@
           n[key] = obj[key]
           if (!silent) n.emit('set:'+key, n[key])
         }
+      },
+      $set: (key, fn) => hub.on('set:'+key, fn),
+      $get: (key, fn) => hub.on('get:'+key, fn),
+      $define(key, options) {
+        Object.defineProperty(n, key, options)
       }
     }), props)
 
