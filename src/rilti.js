@@ -411,6 +411,8 @@
       if (options.className) el.className = options.class
       else if (options.class) el.className = options.class
       if (options.id) el.id = options.id
+      if (options.src) el.src = options.src
+      if (options.href) el.href = options.href
       if (options.props) {
         each(Keys(options.props), prop => {
           el[prop] ? el[prop] = options.props[prop] : Def(el, prop, OwnDesc(options.props, prop))
