@@ -262,22 +262,6 @@
     return node
   }, 2)
 
-  const mounted = new Set()
-  // node lifecycle event distributers
-  const CR = n => !n.Created && emit(n, 'create')
-  const MNT = node => {
-    if (!mounted.has(node)) {
-      runAsync(() => {
-        mounted.add(emit(node, 'mount'))
-      })
-    }
-    return node
-  }
-  const DST = node => {
-    mounted.delete(node)
-    return emit(node, 'destroy')
-  }
-
   // vpend - virtual append, add nodes and get them as a document fragment
   const vpend = (args, dfrag = frag()) => {
     each(flatten(args), arg => dfrag.appendChild(MNT(html(arg))))
@@ -386,6 +370,20 @@
     })
   }
 
+  // node lifecycle event distributers
+  const CR = n => (!n.Created && emit(n, 'create'), n)
+  const MNT = n => {
+    if (!n.Mounted) runAsync(() => {
+      n.Mounted = true
+      emit(n, 'mount')
+    })
+    return n
+  }
+  const DST = n => {
+    n.Mounted = false
+    return emit(n, 'destroy')
+  }
+
   const render = (node, host = 'body', connector = 'appendChild') => {
     CR(node)
     dom(host).then(
@@ -422,17 +420,19 @@
       if (options.once) once(el, options.once)
       if (options.on) on(el, options.on)
       if (options.lifecycle) {
-        let {mount, destroy, create} = options.lifecycle
-        if (create) create = once.create(el, () => {
+        const {mount, destroy, create} = options.lifecycle
+        if (create) once.create(el, () => {
           el.Created = true
           create(el)
         })
-        if (mount) mount = once.mount(el, mount.bind(NULL, el))
+        if (mount) {
+          var mountListener = once.mount(el, mount.bind(el, el))
+        }
 
-        if (mount || destroy) {
+        if (mountListener || destroy) {
           on.destroy(el, () => {
             if (destroy) destroy(el)
-            if (mount) mount.on()
+            if (mountListener) mountListener.on()
           })
         }
       }
@@ -472,8 +472,8 @@
   })
 
   new MutationObserver(muts => each(muts, ({addedNodes, removedNodes, target, attributeName, oldValue}) => {
-    if (addedNodes.length) arrEach(addedNodes, MNT)
-    if (removedNodes.length) arrEach(removedNodes, DST)
+    if (addedNodes.length) for (let n of addedNodes) MNT(n)
+    if (removedNodes.length) for (let n of addedNodes) DST(n)
     if (attributeName && directives.has(attributeName)) checkAttr(attributeName, target, oldValue)
   })).observe(doc, {attributes: true, childList: true, subtree: true})
 
