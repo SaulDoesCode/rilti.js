@@ -48,6 +48,14 @@
     })
   }
 
+  rilti.arrayBufferToB64 = buff => {
+    let binary = '';
+    (new Uint8Array(buff)).forEach(b => {
+      binary += String.fromCharCode(b)
+    })
+    return btoa(binary)
+  }
+
   rilti.cache = name => {
     const jsonKeys = new Set()
 
@@ -69,8 +77,9 @@
     store.ready()
     .then(() => {
       store.emit.ready(ready = true)
-    })
-    .catch(store.emit.error)
+    },
+      store.emit.error
+    )
 
     const cache = new Proxy(store, {
       set (store, key, val) {
@@ -89,11 +98,9 @@
 
         return true
       },
-      get (store, key) {
-        if (Reflect.has(store, key)) {
-          return Reflect.get(store, key)
-        }
-        return new Promise((resolve, reject) => {
+      get:(store, key) => (
+        Reflect.has(store, key) ? Reflect.get(store, key) :
+        new Promise((resolve, reject) => {
           const getItem = () => {
             store.getItem(key)
             .then(val => {
@@ -110,8 +117,19 @@
           }
           ready ? getItem() : store.once.ready(getItem)
         })
-      }
+      )
     })
+
+    store.resource = (loc, type = 'text', reqOptions) => new Promise((resolve, reject) => cache[loc].then(data => {
+      if (data) return resolve(data)
+      fetch(loc, reqOptions || {
+        method: 'GET',
+        mode: 'cors',
+      })
+      .then(res => {
+        resolve(cache[loc] = res[type]())
+      }, reject)
+    }, reject))
 
     return cache
   }
