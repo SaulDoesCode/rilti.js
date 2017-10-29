@@ -131,6 +131,25 @@
       }, reject)
     }, reject))
 
+    store.local = extend((prop, value) => {
+      if (isObj(prop)) {
+        each(prop, (val, key) => {
+          localStorage.setItem(key, isObj(val) ? JSON.stringify(val) : val)
+        })
+      } else if (value !== undefined) {
+        localStorage.setItem(prop, value)
+      } else {
+        return localStorage.getItem(prop)
+      }
+    }, {
+      clear () {
+        localStorage.clear() 
+      },
+      remove (...items) {
+        each(items, item => localStorage.removeItem(item))
+      }
+    })
+
     return cache
   }
 
@@ -149,6 +168,6 @@
     core.eventEmit = (type, vfn) => (e, el) => core.emit(type, vfn(el, e))
 
     rilti.apps[name] = core
-    return fn => fn(core, core.cache)
+    return fn => fn(core, core.cache, core.cache.local)
   }
 }
