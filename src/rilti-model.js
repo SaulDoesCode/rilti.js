@@ -1,6 +1,6 @@
 {
   /* global rilti */
-  const {each,extend,isPromise,isDef} = rilti
+  const {each, extend, isPromise, isDef} = rilti
 
   rilti.model = (props = {}) => {
     const syncs = new Map()
@@ -30,30 +30,41 @@
       update (obj, key, silent) {
         for (key in obj) {
           n[key] = obj[key]
-          if (!silent) n.emit('set:'+key, n[key])
+          if (!silent) n.emit('set:' + key, n[key])
         }
       },
-      $set: (key, fn) => n.on('set:'+key, fn),
-      $get: (key, fn) => n.on('get:'+key, fn),
-      $define(key, options) {
+      $set: (key, fn) => n.on('set:' + key, fn),
+      $get: (key, fn) => n.on('get:' + key, fn),
+      $define (key, options) {
         Object.defineProperty(n, key, options)
       }
     }), props)
 
     const Async = new Proxy(n, {
       get: (_, key) => new Promise(resolve => {
-        n.has(key) ? resolve(n[key]) : n.once('set:'+key, resolve)
+        n.has(key) ? resolve(n[key]) : n.once('set:' + key, resolve)
         n.emit('get:' + key)
       })
     })
 
     const Model = new Proxy(n, {
-      get: (_, key) => key === 'async' ? Async : n.emit('get:' + key)[key],
+      get (_, key) {
+        if (key === 'async') return Async
+        if (key in n) return Reflect.get(n.emit('get:' + key), key)
+        if (key[0] === '$') {
+          key = key.slice(1)
+          return v => {
+            if (isNil(v)) return Model[key]
+            return Reflect.set(o, key, v)
+          }
+        }
+      },
       set (_, key, val) {
-        if (isPromise(val)) val.then(v => {
-          n.emit('set:' + key, (n[key] = v))
-        })
-        else n.emit('set:' + key, (n[key] = val))
+        if (isPromise(val)) {
+          val.then(v => {
+            n.emit('set:' + key, (n[key] = v))
+          })
+        } else n.emit('set:' + key, (n[key] = val))
         return true
       }
     })
