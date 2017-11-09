@@ -14,7 +14,7 @@ Feel free to fork or raise issues. Constructive criticism is welcome
 * functional composition
 * powerful yet petite notifier system (pub/sub)
 * no classes, no this, no extra fuzz, functional positive
-* written and distributed in plain es2015/es6
+* no old javascript, we use modern features like Proxy
 
 #### Plugins:
 * rilti-tilt.js - compact mouse motion based element tilting effect, based on vanilla-tilt.js
@@ -28,11 +28,11 @@ Feel free to fork or raise issues. Constructive criticism is welcome
 ### API
 | method | description  |
 |--------|--------------|
-| ``dom["anytagname"]( {=object}, {...children} )`` | where the magic happens, define behavior for elements and see them come to life |
+| ``dom["any-tag"]( {=object}, {...children} )`` | where the magic happens, define behavior for elements and see them come to life |
 | ``dom( {string/node}, {=string/node} )`` | same as querySelector but returns a promise, it's essentially an async querySelector |
 | ``dom.query( {string}, {=string/node} )`` | improved alternative to ``document.querySelector``|
 | ``dom.queryAll( {string}, {=string/node} )`` | improved alternative to ``document.querySelectorAll``|
-| ``dom.queryEach( {string}, {=string/node}, {function} )`` | queries nodes returned by selector and iterates over them like ``[].forEach`` would|
+| ``dom.queryEach( {string}, {=string/node}, {function} )`` | queries nodes returned by selector and iterates over them like ``.forEach`` would|
 | ``dom.html( {string} )`` | converts strings to html nodes |
 | ``on( {target}, {type}, {listener}, {=options} )`` | generates event listener |
 | ``once( {target}, {type}, {listener}, {=options} )`` | generates event listener that triggers only once |
@@ -85,56 +85,60 @@ otherwise such as with has/get(this/that) type functions
   } = rilti.domfn;
 
 ```
+#### examples of rilti used to build things
+[rilti.js todomvc](https://github.com/SaulDoesCode/rilti.js-todomvc)   
+[grimstack.io blog site](https://grimstack.io)    
 
-[rilti.js todomvc](https://github.com/SaulDoesCode/rilti.js-todomvc)
-
-```javascript
+#### basic practical examples
+```js
 
 const {dom, run, render} = rilti;
 const {div, nav} = dom;
 const {Class, hasClass, attr, css} = domfn;
 
-function goHome() {
-  location.replace("https://mysite:3000/#home");
-}
+const goHome = () => location.replace("https://mysite.xyz/#home")
 
 const navbutton = (inner, click) => div({
   class : 'navbar-button',
   on : { click }
-}, inner);
+}, inner)
 
 const navbar = nav({
-    render:'body',
+    render: 'body',
     class : 'navbar',
     css : { color : '#fff' },
     attr : { id : 'mainbar' },
-    toggle() { Class(navbar,'hidden') },
-    get isToggled() {
-        return hasClass(navbar, 'hidden');
+    toggle() {
+      // this toggles .hidden on the navbar
+      Class(navbar, 'hidden', !this.toggled)
+      // it would still toggle without !this.toggled
+      // becase state = !hasClass by default
+    },
+    get toggled() {
+      return hasClass(navbar, 'hidden')
     }
   },    
   'My Company Title',
   navbutton('home', goHome)
-);
+)
 
 run(() => {
   // run post-dom-load code here
-  navbar.toggle();
-  console.log(navbar.isToggled);
-});
+  navbar.toggle()
+  console.log(navbar.toggled)
+})
 
-// observe attributes
-rilti.observeAttr('custom-attr', {
+// observe attributes with vue-like directives
+rilti.directive('custom-attr', {
   init(element, value) { ... },
   update(element, value, oldValue) { ... },
   destroy(element, value, oldValue) { ... }
-});
-// unobserve Attributes
-rilti.unobserveAttr('custom-attr');
-
+})
+// revoke a directive
+rilti.directives.delete('custom-attr')
 
 // create elements with any tag
-dom['randomtag']({
+dom['random-tag']({
   render: ".main > header", // render to dom using selectors or nodes
   lifecycle: {
     // manage the element's lifecycle
@@ -142,49 +146,51 @@ dom['randomtag']({
     mount() { ... },
     destroy() { ... }
   }
-});
+})
+```
 
-// Web Components
-const {on, domfn} = rilti;
-const {css} = domfn;
+#### Web Components
+```js
+// Web Components using the rilti-webcomponents.js plugin
+const {on, domfn} = rilti
+const {css} = domfn
 
 rilti.Component('tick-box', {
   props: {
     get ticked() {
-      return attr(this, 'data-ticked') === 'true';
+      return attr(this, 'data-ticked') === 'true'
     },
     set ticked(val) {
       if(!this.disabled) {
-        attr(this, 'data-ticked', val);
+        attr(this, 'data-ticked', val)
         css(this, {
           backgroundColor: val ? 'dimgrey' : 'white',
           border: `1px solid ${val ? 'white' : 'dimgrey'}`
-        });
+        })
       }
     }
   },
   mount(element) {
     css(element, {
-      display:'block',
-      width:'20px',
+      display: 'block',
+      width: '20px',
       height: '20px',
-      margin:'5px auto',
-      cursor:'pointer',
+      margin: '5px auto',
+      cursor: 'pointer',
       backgroundColor: element.ticked ? 'dimgrey' : 'white',
       border: `1px solid ${element.ticked ? 'white' : 'dimgrey'}`
-    });
-    on(el, 'click', () => element.ticked = !element.ticked);
+    })
+    on.click(el, () => element.ticked = !element.ticked)
   },
   destroy(element) {
-   console.log('tick-box is no more :(');
+   console.log('tick-box is no more :(')
   },
   attr: {
     disabled(oldValue, value, element) {
-      css(element, 'cursor', value === 'true' ? 'not-allowed' : '');
+      css(element, 'cursor', value === 'true' ? 'not-allowed' : '')
     }
   }
-});
-
+})
 ```
 
 #### see how fast rilti.js renders your elements
@@ -193,8 +199,8 @@ rilti.Component('tick-box', {
 <script src="/rilti/dist/rilti.min.js"></script>
 <script>
   const testRiltiBlocking = (count = 10000) => {
-    const span = rilti.dom.span;
-    const start = performance.now();
+    const span = rilti.dom.span
+    const start = performance.now()
     while(count != 0) span({
       render: document.body,
       css: {
@@ -208,15 +214,18 @@ rilti.Component('tick-box', {
         float:'left',
         boxShadow:'0 1px 4px hsla(0,0%,0%,.3)'
       }
-    }, "damn daniel, back at it again with those white spans ", count--);
+    },
+      "damn daniel, back at it again with those white spans ",
+      count--
+    )
 
-    console.log(`That took ${performance.now() - start}ms`);
+    console.log(`That took ${performance.now() - start}ms`)
   }
-  testRiltiBlocking(); // -> this usually takes ~ 7800ms on my i5 machine and is blocking
+  testRiltiBlocking(); // -> this usually takes ~ 7800ms on my i5 machine
 
   const testRiltiChunked = (count = 10000) => {
-    const each = rilti.each, span = rilti.dom.span;
-    const start = performance.now();
+    const { each, dom:{span} } = rilti
+    const start = performance.now()
     // int loops are chunked making heavy loads less blocking
     each(count, i =>
       span({
@@ -233,8 +242,10 @@ rilti.Component('tick-box', {
           boxShadow:'0 1px 4px hsla(0,0%,0%,.3)'
         }
       },
-      "damn daniel, back at it again with those white spans ", count--)
-    );
+        "damn daniel, back at it again with those white spans ",
+        count--
+      )
+    )
     console.log(`That took ${performance.now() - start}ms`);
   }
   testRiltiChunked();
