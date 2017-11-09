@@ -53,10 +53,7 @@
         if (key in n) return Reflect.get(n.emit('get:' + key), key)
         if (key[0] === '$') {
           key = key.slice(1)
-          return v => {
-            if (isNil(v)) return Model[key]
-            return Reflect.set(o, key, v)
-          }
+          return v => (isDef(v) ? Model[key] = v : Model[key])
         }
       },
       set (_, key, val) {
