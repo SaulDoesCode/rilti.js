@@ -1,7 +1,7 @@
 // Please note this rilti extention requires rilti-model.js and localForage.js to work
 
 {
-  const {isObj, isStr, isFunc, model, notifier, extend, each} = rilti
+  const {isObj, isStr, isFunc, isArr, model, notifier, extend, each} = rilti
 
   rilti.ws = (loc, conf = {}) => {
     const state = notifier()
@@ -57,50 +57,24 @@
   }
 
   rilti.cache = name => {
-    const jsonKeys = new Set()
-
     const store = notifier(localforage.createInstance({name}))
 
-    const jsonKeyUpdate = (key, AddOrRemove) => {
-      const jkey = 'isJSON:'+key
-      if (AddOrRemove) {
-        jsonKeys.delete(key)
-        store.removeItem(jkey)
-      } else {
-        jsonKeys.add(key)
-        store.setItem(jkey, true)
-      }
-    }
-
-    const jsonResolve = (resolve, val, key) => {
-      resolve(JSON.parse(val))
-      store.emit('get:' + key)
-      if (!jsonKeys.has(key)) jsonKeyUpdate(key)
-    }
-
     store.delete = key => new Promise((resolve, reject) => {
-      store.removeItem(key)
-      .then(
-        () => {
-          if (jsonKeys.has(key)) {
-            jsonKeyUpdate(key, true)
-          }
-          resolve(key + ' deleted')
-          store.emit['delete:' + key]()
-        },
-        err => {
+      store.removeItem(key, err => {
+        if (err) {
           store.emit.error(key, err)
-          reject(' an error occured while attempting to delete ' + key)
+          return reject(' an error occured while attempting to delete ' + key)
         }
-      )
+        resolve(key + ' deleted')
+        store.emit['delete:' + key]()
+      })
     })
 
     let ready = false
-    store.ready()
-    .then(
-      () => store.emit.ready(ready = true),
-      store.emit.error
-    )
+    store.ready(err => {
+      if (err) throw err
+      store.emit.ready(ready = true)
+    })
 
     const cache = new Proxy(
       obj => obj && each(obj, (val, key) => cache[key] = val),
@@ -108,51 +82,26 @@
         set (_, key, val) {
           if (!ready) return store.once.ready(() => cache[key] = val)
 
-          const isJSON = isObj(val)
-
-          if (isJSON) {
-            val = JSON.stringify(val)
-            jsonKeyUpdate(key)
-          } else if (jsonKeys.has(key)) {
-            jsonKeyUpdate(key, true)
-          }
-
-          store.setItem(key, val)
-          .then(
-            store.emit['set:' + key],
-            err => store.emit.error(key, err)
-          )
-
+          store.setItem(key, val, err => {
+            if (err) return store.emit.error(key, err)
+            store.emit('set:' + key, val)
+          })
           return true
         },
         get: (_, key) => (
           Reflect.has(store, key) ? Reflect.get(store, key) :
           new Promise((resolve, reject) => {
             const getItem = () => {
-              store.getItem(key)
-              .then(val => {
-                if (isStr(val)) {
-                  if (jsonKeys.has(key)) {
-                    return jsonResolve(resolve, val, key)
-                  }
-                  cache['isJSON:'+key]
-                  .then(
-                    isJSON => isJSON && jsonResolve(resolve, val, key),
-                    () => {
-                      resolve(val)
-                      store.emit('get:' + key)
-                    }
-                  )
-                } else {
-                  resolve(val)
-                  store.emit('get:' + key)
+              store.getItem(key, (err, val) => {
+                if (err) {
+                  reject(err)
+                  return store.emit.error(key, err)
                 }
-              })
-              .catch(err => {
-                reject(err)
-                store.emit.error(key, err)
+                resolve(val)
+                store.emit('get:' + key)
               })
             }
+
             ready ? getItem() : store.once.ready(getItem)
           })
         )
@@ -175,11 +124,13 @@
         if (isObj(prop)) {
           each(prop, (val, key) => store.local(key, val))
         } else if (value !== undefined) {
-          const isJSON = isObj(value)
+          const isJSON = isObj(value) || isArr(value)
           localStorage.setItem(prop, isJSON ? JSON.stringify(value) : value)
-          if (isJSON) localStorage.setItem('isJSON:'+prop, true)
+          if (isJSON) {
+            localStorage.setItem('isJSON:' + prop, true)
+          }
         } else {
-          if (localStorage.getItem('isJSON:'+prop)) {
+          if (localStorage.getItem('isJSON:' + prop)) {
             return JSON.parse(localStorage.getItem(prop))
           }
           return localStorage.getItem(prop)
@@ -191,7 +142,7 @@
         remove (...items) {
           each(items, item => {
             localStorage.removeItem(item)
-            localStorage.removeItem('isJSON:'+item)
+            localStorage.removeItem('isJSON:' + item)
           })
         }
       }),
