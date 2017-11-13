@@ -27,7 +27,7 @@
         }
         return obj
       },
-      update (obj, key, silent) {
+      update (obj, silent, key) {
         for (key in obj) {
           n[key] = obj[key]
           if (!silent) n.emit('set:' + key, n[key])
@@ -47,7 +47,7 @@
       })
     })
 
-    const Model = new Proxy(n, {
+    const Model = new Proxy(n.update, {
       get (_, key) {
         if (key === 'async') return Async
         if (key in n) return Reflect.get(n.emit('get:' + key), key)
