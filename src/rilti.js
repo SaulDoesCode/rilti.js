@@ -336,7 +336,7 @@
     }),
     remove (node, after) {
       if (isInt(after)) return timeout(() => isMounted(node) && node.remove(), after).start()
-      else if(isMounted(node)) node.remove()
+      else if (isMounted(node)) node.remove()
       return node
     },
     removeNodes: (...nodes) => each(nodes, n => isMounted(n) && n.remove())
@@ -373,10 +373,12 @@
   // node lifecycle event distributers
   const CR = n => (!n.Created && emit(n, 'create'), n)
   const MNT = n => {
-    if (!n.Mounted) runAsync(() => {
-      n.Mounted = true
-      emit(n, 'mount')
-    })
+    if (!n.Mounted) {
+      runAsync(() => {
+        n.Mounted = true
+        emit(n, 'mount')
+      })
+    }
     return n
   }
   const DST = n => {
@@ -423,10 +425,13 @@
       if (options.on) on(el, options.on)
       if (options.lifecycle) {
         const {mount, destroy, create} = options.lifecycle
-        if (create) once.create(el, () => {
-          el.Created = true
-          create(el)
-        })
+        if (create) {
+          once.create(el, () => {
+            el.Created = true
+            create(el)
+          })
+        }
+        
         if (mount) {
           var mountListener = once.mount(el, mount.bind(el, el))
         }
@@ -469,7 +474,7 @@
     }),
     {create, query, queryAll, queryEach, html, text, frag}
   ), {
-    get: (d, key) => key in d ? d[key] : create.bind(undef, key), // get the d
+    get: (d, key) => key in d ? d[key] : create.bind(NULL, key), // get the d
     set: (d, key, val) => (d[key] = val)
   })
 
