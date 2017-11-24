@@ -22,8 +22,7 @@
     next = (...args) => (...more) => ((more.length + args.length) >= arity ? fn : next)(...args.concat(more))
   ) => next() // love this
 
-  // irony: the case of Case does not match the case of match
-  const caseMatch = (...cases) => match => cases.some(Case => match === Case || (isFunc(Case) && Case(match)))
+  const some = (...cases) => match => cases.some(Case => match === Case || (isFunc(Case) && Case(match)))
   const arrMeth = (meth, val, ...args) => Array.prototype[meth].apply(val, args)
   const arrEach = curry(arrMeth, 2)('forEach')
   const not = fn => (...args) => !fn(...args)
@@ -39,7 +38,7 @@
   const isFunc = o => o && o instanceof Function
   const isObj = o => o && o.constructor === Object
   const isPromise = o => o && o.constructor === Promise
-  const isPrimitive = caseMatch(isStr, isBool, isNum)
+  const isPrimitive = some(isStr, isBool, isNum)
   const isIterator = o => o && o.toString().includes('Iterator')
   const isInt = o => isNum(o) && o % 1 === 0
   const isEmpty = o => !o || !((isObj(o) ? Keys(o) : isNum(o.length) && o).length || o.size)
@@ -50,7 +49,7 @@
   const isSet = o => o && o instanceof Set
   const isInput = o => isEl(o) && 'INPUT TEXTAREA'.includes(o.tagName)
   const isEq = curry((o1, ...vals) => vals.every(isFunc(o1) ? i => o1(i) : i => o1 === i), 2)
-  const isRenderable = caseMatch(isNode, isArrlike, isPrimitive)
+  const isRenderable = some(isNode, isArrlike, isPrimitive)
 
   const err = console.error.bind(console)
 
@@ -97,20 +96,34 @@
       const end = Math.min(i + chunksize, count)
       while (i < end) fn(++i)
       i < count ? runAsync(chunk) : isFunc(done) && done()
-    }) => chunk()
+    }
+  ) => chunk()
 
-  const each = (iterable, func, i = 0) => {
+  const each = (iterable, func) => {
     if (!isNil(iterable)) {
       if (iterable.forEach) iterable.forEach(func)
       else if (iterable.length > 0) arrEach(iterable, func)
-      else if (isObj(iterable)) for (i in iterable) func(iterable[i], i, iterable)
+      else if (isObj(iterable)) for (let key in iterable) func(iterable[key], key, iterable)
       else if (isInt(iterable)) yieldloop(iterable, func)
-      else if ((iterable.entries || isIterator(iterable))) for (const [key, value] of iterable) func(key, value, iterable)
+      else if (iterable.entries || isIterator(iterable)) {
+        for (const [key, value] of iterable) func(key, value, iterable)
+      }
     }
     return iterable
   }
 
-  const flatten = arr => isArrlike(arr) ? arrMeth('reduce', arr, (flat, toFlatten) => flat.concat(isArr(toFlatten) ? flatten(toFlatten) : toFlatten), []) : [arr]
+  const flatten = arr => (
+    isArrlike(arr) ?
+    arrMeth(
+      'reduce',
+      arr,
+      (flat, toFlatten) => (
+        flat.concat(isArr(toFlatten) ? flatten(toFlatten) : toFlatten)
+      ),
+      []
+    ) :
+    [arr]
+  )
 
   const compose = (...fns) => fns.reduce((f, g) => (...args) => f(g(...args)))
 
@@ -124,7 +137,9 @@
     return each(queryAll(selector, element), func)
   }
 
-  const isMounted = (descendant, parent = doc) => parent === descendant || Boolean(parent.compareDocumentPosition(descendant) & 16)
+  const isMounted = (descendant, parent = doc) => (
+    parent === descendant || Boolean(parent.compareDocumentPosition(descendant) & 16)
+  )
 
   const EventManager = curry((once, target, type, handle, options = false) => {
     if (isStr(target)) target = query(target)
@@ -215,7 +230,8 @@
     const emit = proxy((type, arg, arg1, arg2, arg3) => {
       if (handles.has(type)) {
         runAsync(() => {
-          handles.get(type).forEach(handle => {
+          handles.get(type)
+          .forEach(handle => {
             runAsync(handle, arg, arg1, arg2, arg3)
           })
         })
@@ -253,14 +269,16 @@
 
   const run = fn => isReady() ? runAsync(fn) : LoadStack.add(fn)
 
-  const html = input => isFunc(input) ? html(input()) : isNode(input) ? input : doc.createRange().createContextualFragment(input)
+  const html = input => (
+    isFunc(input) ? html(input()) : isNode(input) ? input : doc.createRange().createContextualFragment(input)
+  )
 
   const frag = inner => isPrimitive(inner) ? html(inner) : doc.createDocumentFragment()
 
-  const emit = curry((node, type, detail) => {
-    node.dispatchEvent(!isStr(type) ? type : new CustomEvent(type, detail === undef ? undef : {detail}))
+  const emit = (node, type, detail = NULL) => {
+    node.dispatchEvent(isStr(type) ? new CustomEvent(type, {detail}) : type)
     return node
-  }, 2)
+  }
 
   // vpend - virtual append, add nodes and get them as a document fragment
   const vpend = (args, dfrag = frag()) => {
@@ -342,16 +360,46 @@
     removeNodes: (...nodes) => each(nodes, n => isMounted(n) && n.remove())
   }
 
-  const directives = new Map()
-  const dirInit = (el, name) => {
-    el[name + '_init'] = true
-    return el
+  const components = new Map()
+  const component = (tag, config) => {
+    if (!tag.includes('-')) throw new Error(tag + ' is un-hyphenated')
+    components.set(tag, config)
+    run(() => {
+      queryEach(tag, el => updateComponent(tag, el))
+    })
   }
 
-  const checkAttr = (name, el, oldValue) => {
-    if (!directives.has(name)) return
-    const val = el.getAttribute(name)
-    const {init, update, destroy} = directives.get(name)
+  const updateComponent = (name, element, stage) => {
+    if (!components.has(name)) return
+
+    const {create, mount, destroy, props, methods, attr} = components.get(name)
+    if (!element.Created) {
+      if (props) extend(element, props)
+      if (methods) extend(element, methods)
+      element.Created = true
+      emit(element, 'create')
+      if (create) create(element)
+    }
+    if (!element.Mounted && stage === 'mount') {
+      if (attr) {
+        each(attr, (config, name) => {
+          if (!config.init) return err('component.attr must have an init method')
+          if (element.hasAttribute(name)) {
+            handleAttribute(name, element, config)
+          }
+        })
+      }
+      element.Mounted = true
+      emit(element, 'mount')
+      if (mount) mount(element)
+    } else if (stage === 'destroy') {
+      element.Mounted = false
+      emit(element, 'destroy')
+      if (destroy) destroy(element)
+    }
+  }
+
+  const handleAttribute = (name, el, {init, update, destroy}, oldValue, val = el.getAttribute(name)) => {
     if (isPrimitive(val)) {
       if (!el[name + '_init']) {
         init(dirInit(el, name), val)
@@ -359,8 +407,27 @@
         update(el, val, oldValue)
       }
     } else if (destroy) {
+      el[name + '_init'] = false
       destroy(el, val, oldValue)
     }
+  }
+
+  const directives = new Map()
+  const dirInit = (el, name) => {
+    el[name + '_init'] = true
+    return el
+  }
+
+  const checkAttr = (name, el, oldValue) => {
+    if (!directives.has(name)) {
+      const tag = el.tagName.toLowerCase()
+      const {attr: {[name]: config}} = components.get(tag) || {}
+      if (config) {
+        handleAttribute(name, el, config, oldValue)
+      }
+      return
+    }
+    handleAttribute(name, el, directives.get(name), oldValue)
   }
 
   const directive = (name, stages) => {
@@ -431,7 +498,7 @@
             create(el)
           })
         }
-        
+
         if (mount) {
           var mountListener = once.mount(el, mount.bind(el, el))
         }
@@ -448,6 +515,11 @@
       if (renderBefore) render(el, renderBefore, 'before')
       else if (renderAfter) render(el, renderAfter, 'after')
       else if (rendr) render(el, rendr)
+    }
+
+    if (components.has(tag)) {
+      updateComponent(tag, el)
+      return el
     }
     return CR(el)
   }
@@ -478,17 +550,38 @@
     set: (d, key, val) => (d[key] = val)
   })
 
-  new MutationObserver(muts => each(muts, ({addedNodes, removedNodes, target, attributeName, oldValue}) => {
-    if (addedNodes.length) for (let n of addedNodes) MNT(n)
-    if (removedNodes.length) for (let n of addedNodes) DST(n)
-    if (attributeName && directives.has(attributeName)) checkAttr(attributeName, target, oldValue)
-  })).observe(doc, {attributes: true, childList: true, subtree: true})
+  new MutationObserver(muts => {
+    muts.forEach(({addedNodes:added, removedNodes:removed, target, attributeName, oldValue}) => {
+
+      if (attributeName) checkAttr(attributeName, target, oldValue)
+
+      if (added.length) for (let n of added) {
+        const tag = (n.tagName || '').toLowerCase()
+        if (components.has(tag)) {
+          updateComponent(tag, n, 'mount')
+        } else {
+          MNT(n)
+        }
+      }
+      if (removed.length) for (let n of removed) {
+        const tag = (n.tagName || '').toLowerCase()
+        if (components.has(tag)) {
+          updateComponent(tag, n, 'destroy')
+        } else {
+          DST(n)
+        }
+      }
+    })
+  })
+  .observe(doc, {attributes: true, childList: true, subtree: true})
 
   // I'm really sorry but I don't believe in module loaders, besides who calls their library rilti?
   root.rilti = {
-    caseMatch,
+    some,
     curry,
     compose,
+    component,
+    components,
     dom,
     domfn,
     directive,
