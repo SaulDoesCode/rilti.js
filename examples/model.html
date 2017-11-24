@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>rilti.model(=data, =store)</title>
+  <link rel="stylesheet" href="./assets/bulma.css">
+  <script src="../src/rilti.js"></script>
+</head>
+
+<body>
+  <section class="hero">
+    <div class="hero-body">
+      <div class="container">
+        <h1 class="title">
+            Model use example
+          </h1>
+      </div>
+    </div>
+  </section>
+
+  <section class="container box">
+    <h2 class="title is-4">Data binding</h2>
+    <article class="box" id="databinding">
+    </article>
+    <script>
+      {
+        const {dom:{label, input}} = rilti
+        const model = rilti.model()
+
+        const display = label({
+          render: '#databinding',
+          class: 'label',
+        })
+
+        model.sync(display, 'innerText', 'txt')
+        model.txt = 'type something...'
+
+        input({
+          renderAfter: display,
+          class: 'input',
+          attr: {
+            type: 'text',
+            value: model.txt
+          },
+          on: {
+            input(evt, element) {
+              model.txt = element.value.trim()
+            }
+          }
+        })
+      }
+    </script>
+<pre><code>
+  const {dom:{label, input}} = rilti
+  const model = rilti.model()
+
+  const display = label({
+    render: '#databinding',
+    class: 'label',
+  })
+
+  model.sync(display, 'innerText', 'txt')
+  model.txt = 'type something...'
+
+  input({
+    renderAfter: display,
+    class: 'input',
+    attr: {
+      type: 'text',
+      value: model.txt
+    },
+    on: {
+      input(evt, element) {
+        model.txt = element.value.trim()
+      }
+    }
+  })
+</code></pre>
+  </section>
+
+  <section class="container box field">
+    <h2 class="title is-4">Model Events</h2>
+    <article class="box control" id=model-events>
+    </article>
+    <script>
+      {
+        const {dom:{span, button}} = rilti
+        const model = rilti.model()
+
+        button({
+          render: '#model-events',
+          class: 'button is-primary',
+          props: {
+            clicks: 0,
+          },
+          on: {
+            click(evt, element) {
+              model.emit.buttonPress(element.clicks++)
+            }
+          }
+        },
+          `emit buttonPress`
+        )
+
+        let count = 0
+
+        const counter = span({
+          render: '#model-events',
+          css: {
+            display: 'inline-block',
+            verticalAlign: 'middle',
+            border: '1px solid #ccc',
+            borderRadius: '2px',
+            padding: '5px 10px 5px 10px',
+            margin: '0 10px 0 10px'
+          },
+          props: {
+            counterType: 'clicks',
+            count: 0,
+          },
+          methods: {
+            update(count) {
+              counter.textContent = `${counter.counterType} count: ${counter.count++}`
+            }
+          },
+          lifecycle: {
+            mount() {
+              counter.update()
+            }
+          }
+        })
+
+        model.on.buttonPress(counter.update)
+      }
+    </script>
+<pre><code>
+  const {dom:{span, button}} = rilti
+  const model = rilti.model()
+
+  button({
+    render: '#model-events',
+    class: 'button is-primary',
+    props: {
+      clicks: 0,
+    },
+    on: {
+      click(evt, element) {
+        model.emit.buttonPress(element.clicks++)
+      }
+    }
+  },
+    `emit buttonPress`
+  )
+
+  let count = 0
+
+  const counter = span({
+    render: '#model-events',
+    css: {
+      display: 'inline-block',
+      verticalAlign: 'bottom',
+      marginLeft: '10px'
+    },
+    props: {
+      counterType: 'clicks',
+      count: 0,
+    },
+    methods: {
+      update(count) {
+        counter.textContent = `${counter.counterType} count: ${counter.count++}`
+      }
+    },
+    lifecycle: {
+      mount() {
+        counter.update()
+      }
+    }
+  })
+
+  model.on.buttonPress(counter.update)
+</code></pre>
+  </section>
+
+</body>
+
+</html>

@@ -7,9 +7,12 @@ Feel free to fork or raise issues. Constructive criticism is welcome
 
 ## features
 * lifecycle hooks
-* event management
+* dom event management
+* models, sync/async accessors, observe props
 * create and observe custom attributes
-* fast and streamlined element creation
+* create elements in javascript don't write clunky html
+* components aka custom-elements, no polyfill needed!
+* vue-like directives aka custom attributes
 * great dom manipulation functions
 * functional composition
 * powerful yet petite notifier system (pub/sub)
@@ -19,8 +22,6 @@ Feel free to fork or raise issues. Constructive criticism is welcome
 #### Plugins:
 * rilti-tilt.js - compact mouse motion based element tilting effect, based on vanilla-tilt.js
 * rilti-utils.js - set of useful features and things which could have been part of rilti.js but is doesn't need to be
-* rilti-webcomponents.js - Tiny wrapper for WebComponents that removes the bullshit and makes it easier
-* rilti-model.js - a Model system that makes it easy to work with data and monitor changes, Highly WIP
 
 #### planned features
 * offer collection of useful optional plugins
@@ -36,7 +37,7 @@ Feel free to fork or raise issues. Constructive criticism is welcome
 | ``dom.html( {string} )`` | converts strings to html nodes |
 | ``on( {target}, {type}, {listener}, {=options} )`` | generates event listener |
 | ``once( {target}, {type}, {listener}, {=options} )`` | generates event listener that triggers only once |
-| ``render( {node}, {=selectorString/node} )`` | renders nodes to a node of your choice, independent of ready state |
+| ``render( {node}, {string/node}, {=connector})`` | renders nodes to a node of your choice, independent of ready state |
 | ``run( {function} )`` | executes a given function when the DOM is loaded |
 | ``route( {=hashString}, {function})`` | detect and respond to location.hash changes |
 | ``curry( {functions} )`` | curries a function |
@@ -92,9 +93,9 @@ otherwise such as with has/get(this/that) type functions
 #### basic practical examples
 ```js
 
-const {dom, run, render} = rilti;
-const {div, nav} = dom;
-const {Class, hasClass, attr, css} = domfn;
+const {dom, run, render} = rilti
+const {div, nav} = dom
+const {Class, hasClass, attr, css} = domfn
 
 const goHome = () => location.replace("https://mysite.xyz/#home")
 
@@ -149,7 +150,7 @@ dom['random-tag']({
 })
 ```
 
-#### Web Components
+#### Web Components / Custom Elements
 ```js
 // Web Components using the rilti-webcomponents.js plugin
 const {on, domfn} = rilti
@@ -170,7 +171,7 @@ rilti.Component('tick-box', {
       }
     }
   },
-  mount(element) {
+  create() {
     css(element, {
       display: 'block',
       width: '20px',
@@ -182,12 +183,17 @@ rilti.Component('tick-box', {
     })
     on.click(el, () => element.ticked = !element.ticked)
   },
+  mount(element) {
+    console.log('tick-box mounted to document')
+  },
   destroy(element) {
    console.log('tick-box is no more :(')
   },
   attr: {
-    disabled(oldValue, value, element) {
-      css(element, 'cursor', value === 'true' ? 'not-allowed' : '')
+    disabled: {
+      init(oldValue, value, element) {
+        css(element, 'cursor', value === 'true' ? 'not-allowed' : '')
+      }
     }
   }
 })

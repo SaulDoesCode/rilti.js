@@ -14,6 +14,7 @@
   const Keys = Object.keys
   const Def = Object.defineProperty
   const OwnDesc = Object.getOwnPropertyDescriptor
+  const noop = () => {}
   const funcConstruct = obj => (...args) => new obj(...args)
   const $map = funcConstruct(Map)
   const $set = funcConstruct(Set)
@@ -268,6 +269,114 @@
     return extend(host, {emit,emitAsync,on,once,listen,listeners})
   }
 
+  const model = (data = {}, store = $map()) => {
+
+    const mitter = notifier()
+    const {emit,emitAsync,on,once,listen} = mitter
+
+    const del = key => {
+      store.delete(key)
+      emit('delete', key)
+      emit('delete:' + key)
+    }
+
+    const has = key => store.has(key)
+
+    const mut = (key, val, silent) => {
+      if (isObj(key)) {
+        for (let k in key) mut(k, key[k])
+        return mut
+      }
+      const oldval = store.get(key)
+      if (val !== undefined && val !== oldval) {
+        store.set(key, val)
+        if (!silent) {
+          emit('set', key, val)
+          emit('set:' + key, val)
+        }
+        return mut
+      }
+      if (!silent) {
+        emit('get', key)
+        emit('get:' + key)
+      }
+      return oldval
+    }
+    // merge data into the store Map (or Map-like) object
+    mut(data)
+
+    const syncs = $map()
+    const sync = (obj, key, prop = key) => {
+      if (!syncs.has(obj)) syncs.set(obj, $map())
+      syncs.get(obj).set(prop, on('set:' + prop, val => {
+        obj[key] = val
+      }))
+      if (store.has(key)) obj[key] = store.get(key)
+      return obj
+    }
+    sync.stop = (obj, prop) => {
+      if (has(obj)) {
+        const syncedProps = syncs.get(obj)
+        if (!prop) syncedProps.forEach(ln => ln.off()).clear()
+        else if (syncedProps.has(prop)) {
+          syncedProps.get(prop).off()
+          syncedProps.delete(prop)
+        }
+        if (!syncedProps.size) syncs.delete(obj)
+      }
+      return obj
+    }
+
+    const Async = $proxy((key, fn) => {
+      has(key) ? fn(store.get(key)) : once('set:'+key, fn)
+    }, {
+      get: (_, key) => $promise(resolve => {
+        has(key) ? resolve(store.get(key)) : once('set:' + key, resolve)
+      }),
+      set(_, key, val) {
+        val.then(mut.bind(null, key))
+      }
+    })
+
+    const validators = $map()
+    const validateProp = key => {
+      const valid = store.has(key) && validators.has(key) && validators.get(key)(store.get(key))
+      emitAsync('validate:'+key, valid)
+      emitAsync('validate', key, valid)
+      return valid
+    }
+
+    const Validation = $proxy((key, validator) => {
+      if (validator === undefined) return validateProp(key)
+      if(validator instanceof RegExp) {
+        const regexp = validator
+        validator = val => typeof val === 'string' && regexp.test(val)
+      }
+      if (validator instanceof Function) {
+        validators.set(key, validator)
+      }
+    }, {
+      get: (_, key) => validateProp(key),
+      set: (vd, key, val) => vd(key, val)
+    })
+
+    return $proxy(
+        extend(mut, extend(mitter, {has, store, sync, syncs, del})),
+        {
+          get (o, key) {
+            if (Reflect.has(o, key)) return Reflect.get(o, key)
+            if (key === 'async') return Async
+            else if (key === 'valid') return Validation
+            return mut(key)
+          },
+          set (_, key, val) {
+            if (val && val.constructor === Promise) return Async[key] = val
+            return mut(key, val)
+          },
+          delete: (_, key) => del(key)
+        }
+    )
+  }
 
   const route = notifier((hash, fn) => {
     if (!route.active) {
@@ -303,7 +412,11 @@
 
   // vpend - virtual append, add nodes and get them as a document fragment
   const vpend = (args, dfrag = frag()) => {
-    each(flatten(args), arg => dfrag.appendChild(MNT(html(arg))))
+    each(flatten(args), arg => {
+      const child = html(arg)
+      dfrag.appendChild(child)
+      MNT(child)
+    })
     return dfrag
   }
 
@@ -381,6 +494,14 @@
     removeNodes: (...nodes) => each(nodes, n => isMounted(n) && n.remove())
   }
 
+  const getTag = el => (el.tagName || '').toLowerCase()
+  const isComponent = el => components.has(getTag(el))
+  const ifComponent = (el, fn, elseFn) => {
+    const tag = getTag(el)
+    const cp = components.get(tag)
+    return cp ? fn(cp, tag) : elseFn && elseFn(el, tag)
+  }
+
   const components = $map()
   const component = (tag, config) => {
     if (!tag.includes('-')) return err(tag + ' is un-hyphenated')
@@ -390,10 +511,10 @@
     })
   }
 
-  const updateComponent = (name, element, stage) => {
-    if (!components.has(name)) return
+  const updateComponent = (name, element, stage, config = components.get(name)) => {
+    if (!config) return
+    const {create, mount, destroy, props, methods, attr} = config
 
-    const {create, mount, destroy, props, methods, attr} = components.get(name)
     if (!element.Created) {
       if (props) extend(element, props)
       if (methods) extend(element, methods)
@@ -403,21 +524,23 @@
     }
     if (!element.Mounted && stage === 'mount') {
       if (attr) {
-        each(attr, (config, name) => {
-          if (!config.init) return err('component.attr must have an init method')
+        each(attr, (cfg, name) => {
+          if (!cfg.init) return err('component.attr[name] must have an init method')
           if (element.hasAttribute(name)) {
-            handleAttribute(name, element, config)
+            handleAttribute(name, element, cfg)
           }
         })
       }
       element.Mounted = true
-      emit(element, 'mount')
+      emit(element, stage)
       if (mount) mount(element)
     } else if (stage === 'destroy') {
       element.Mounted = false
-      emit(element, 'destroy')
+      emit(element, stage)
       if (destroy) destroy(element)
     }
+
+    return element
   }
 
   const handleAttribute = (name, el, {init, update, destroy}, oldValue, val = el.getAttribute(name)) => {
@@ -440,15 +563,13 @@
   }
 
   const checkAttr = (name, el, oldValue) => {
-    if (!directives.has(name)) {
-      const tag = el.tagName.toLowerCase()
-      const {attr: {[name]: config}} = components.get(tag) || {}
+    if (directives.has(name)) return handleAttribute(name, el, directives.get(name), oldValue)
+
+    ifComponent(el, ({attr: {[name]: config}}) => {
       if (config) {
         handleAttribute(name, el, config, oldValue)
       }
-      return
-    }
-    handleAttribute(name, el, directives.get(name), oldValue)
+    })
   }
 
   const directive = (name, stages) => {
@@ -458,30 +579,38 @@
     })
   }
 
-  // node lifecycle event distributers
-  const CR = n => (!n.Created && emit(n, 'create'), n)
+  // node lifecycle event dispatchers
+  const CR = n => (!n.Created && !isComponent(n) && emit(n, 'create'), n)
+
   const MNT = n => {
-    if (!n.Mounted) {
-      runAsync(() => {
-        n.Mounted = true
-        emit(n, 'mount')
-      })
+    if (!n.Mounted && !isComponent(n)) {
+      n.Mounted = true
+      emit(n, 'mount')
     }
     return n
   }
+
   const DST = n => {
-    n.Mounted = false
-    return emit(n, 'destroy')
+    if (!isComponent(n)) {
+      n.Mounted = false
+      emit(n, 'destroy')
+    }
+    return n
   }
 
   const render = (node, host = 'body', connector = 'appendChild') => {
     CR(node)
-    dom(host).then(
+    dom(host)
+    .then(
       h => {
-        if (connector === 'after' || connector === 'before' && !isMounted(h)) {
-          once.mount(h, () => h[connector](MNT(node)))
+        if (!isMounted(h) && (connector === 'after' || connector === 'before')) {
+          once.mount(h, () => {
+            h[connector](node)
+            MNT(node)
+          })
         } else {
-          h[connector](MNT(node))
+          h[connector](node)
+          MNT(node)
         }
       },
       errs => err('render fault:', errs)
@@ -538,11 +667,11 @@
       else if (rendr) render(el, rendr)
     }
 
-    if (components.has(tag)) {
-      updateComponent(tag, el)
-      return el
-    }
-    return CR(el)
+    return ifComponent(
+      el,
+      (config, tag) => updateComponent(tag, el, NULL, config),
+      CR
+    )
   }
 
   const text = (options, txt) => {
@@ -573,25 +702,15 @@
 
   new MutationObserver(muts => {
     for (const {addedNodes:added, removedNodes:removed, target, attributeName, oldValue} of muts) {
-      if (attributeName) checkAttr(attributeName, target, oldValue)
-
+      if (attributeName) {
+        checkAttr(attributeName, target, oldValue)
+      }
       if (added.length) for (let n of added) {
-        const tag = (n.tagName || '').toLowerCase()
-        if (components.has(tag)) {
-          updateComponent(tag, n, 'mount')
-        } else {
-          MNT(n)
-        }
+        ifComponent(n, (config, tag) => updateComponent(tag, n, 'mount', config), MNT)
       }
       if (removed.length) for (let n of removed) {
-        const tag = (n.tagName || '').toLowerCase()
-        if (components.has(tag)) {
-          updateComponent(tag, n, 'destroy')
-        } else {
-          DST(n)
-        }
+        ifComponent(n, (config, tag) => updateComponent(tag, n, 'destroy', config), DST)
       }
-
     }
   })
   .observe(doc, {attributes: true, childList: true, subtree: true})
@@ -612,6 +731,7 @@
     flatten,
     not,
     notifier,
+    model,
     on,
     once,
     timeout,
@@ -620,6 +740,7 @@
     route,
     run,
     runAsync,
+    listMap,
     isMounted,
     isDef,
     isNil,
