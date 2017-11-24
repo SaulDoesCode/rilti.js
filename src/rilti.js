@@ -14,7 +14,11 @@
   const Keys = Object.keys
   const Def = Object.defineProperty
   const OwnDesc = Object.getOwnPropertyDescriptor
-  const proxy = (host, handles) => new Proxy(host, handles)
+  const funcConstruct = obj => (...args) => new obj(...args)
+  const $map = funcConstruct(Map)
+  const $set = funcConstruct(Set)
+  const $proxy = funcConstruct(Proxy)
+  const $promise = funcConstruct(Promise)
 
   const curry = (
     fn,
@@ -62,7 +66,7 @@
     return host
   }
 
-  const runAsync = (fn, ...args) => new Promise((resolve, reject) => {
+  const runAsync = (fn, ...args) => $promise((resolve, reject) => {
     try {
       resolve(fn(...args))
     } catch (e) {
@@ -102,7 +106,7 @@
   const each = (iterable, func) => {
     if (!isNil(iterable)) {
       if (iterable.forEach) iterable.forEach(func)
-      else if (iterable.length > 0) arrEach(iterable, func)
+      else if (isArrlike(iterable)) arrEach(iterable, func)
       else if (isObj(iterable)) for (let key in iterable) func(iterable[key], key, iterable)
       else if (isInt(iterable)) yieldloop(iterable, func)
       else if (iterable.entries || isIterator(iterable)) {
@@ -183,70 +187,87 @@
   const eventListenerTypeProxy = {
     get: (fn, type) => (target, handle, options = false) => fn(target, type, handle, options)
   }
-  const once = proxy(EventManager(true), eventListenerTypeProxy)
-  const on = proxy(EventManager(false), eventListenerTypeProxy)
+  const once = $proxy(EventManager(true), eventListenerTypeProxy)
+  const on = $proxy(EventManager(false), eventListenerTypeProxy)
 
-  const deleteHandle = (handles, type, handle) => {
-    if (handles.has(type) && handles.get(type).delete(handle).size < 1) handles.delete(type)
-    return handle
-  }
-  const addHandle = (handles, type, handle) => {
-    (handles.has(type) ? handles : handles.set(type, new Set())).get(type).add(handle)
-    return handle
-  }
-
-  const handleMaker = (handles, one = false) => (type, handle) => {
-    if (one) {
-      const original = handle
-      handle = (arg, arg1, arg2) => {
-        original(arg, arg1, arg2)
-        deleteHandle(handles, type, handle)
-      }
+  const listMap = (store = $map(), lm = {
+    get: name => store.get(name),
+    set (name, val) {
+      (store.has(name) ? store : store.set(name, $set())).get(name).add(val)
+      return lm
+    },
+    del (name, val) {
+      if (store.has(name) && store.get(name).delete(val).size < 1) store.delete(name)
+      return lm
+    },
+    has (name, val) {
+      const nameExists = store.has(name)
+      return val === undefined || !nameExists ? nameExists : store.get(name).has(val)
+    },
+    each (name, fn) {
+      if (lm.has(name)) store.get(name).forEach(fn)
+      return lm
     }
-    return addHandle(handles, type, extend(handle, {
-      type,
-      off: () => deleteHandle(handles, type, handle),
-      on: () => addHandle(handles, type, handle.off())
-    }))
-  }
+  }) => lm
 
-  const TypeProxy = {
-    get: (fn, key) => fn.bind(NULL, key)
-  }
+  const infinifyFN = (fn, reflect = true) => $proxy(fn, {
+    get (_, key) {
+      if (reflect && Reflect.has(fn, key)) return Reflect.get(fn, key)
+      return fn.bind(null, key)
+    }
+  })
 
   const notifier = (host = {}) => {
-    const handles = new Map()
+    const listeners = listMap()
 
-    const addHandlers = mode => (type, handle) => {
-      if (!isStr(type)) {
-        return each(type, (hndl, htype) => {
-          if (isFunc(hndl)) type[htype] = mode(htype, hndl)
-        })
-      } else if (isFunc(handle)) return mode(type, handle)
+    const armln = (name, fn) => {
+      fn.off = () => listeners.del(name, fn)
+      fn.once = () => {
+        fn.off()
+        return once(name, fn)
+      }
+      fn.on = () => {
+        fn.off()
+        return on(name, fn)
+      }
+      return fn
     }
 
-    const on = proxy(addHandlers(handleMaker(handles)), TypeProxy)
-    const once = proxy(addHandlers(handleMaker(handles, true)), TypeProxy)
-    const emit = proxy((type, arg, arg1, arg2, arg3) => {
-      if (handles.has(type)) {
-        runAsync(() => {
-          handles.get(type)
-          .forEach(handle => {
-            runAsync(handle, arg, arg1, arg2, arg3)
-          })
-        })
+    const listenMulti = (obj, fn) => {
+      for (let key in obj) {
+        obj[key] = fn(obj[key])
       }
-      return host
-    }, TypeProxy)
+    }
 
-    return extend(host, {
-      on, once, emit,
-      off: curry(deleteHandle)(handles),
-      has: key => Reflect.has(host, key),
-      hastype: type => handles.has(isFunc(type) ? type.type : type),
-      hashandle: (handle, type = handle.type) => handles.has(type) && handles.get(type).has(handle)
+    const on = infinifyFN((name, fn) => {
+      if (isObj(name)) return listenMulti(name, on)
+      listeners.set(name, fn)
+      return armln(name, fn)
     })
+
+    const once = infinifyFN((name, fn) => {
+      if (isObj(name)) return listenMulti(name, once)
+      const ln = (...vals) => {
+        listeners.del(name, ln)
+        return fn(...vals)
+      }
+      listeners.set(name, ln)
+      return armln(name, ln)
+    })
+
+    const listen = (justonce, name, fn) => (justonce ? once : on)(name, fn)
+
+    const emit = infinifyFN((name, ...vals) => {
+      listeners.each(name, ln => ln(...vals))
+    }, false)
+
+    const emitAsync = infinifyFN((name, ...vals) => {
+      runAsync(listeners.each, name, ln => runAsync(ln, ...vals))
+    }, false)
+
+    return extend(host, {emit,emitAsync,on,once,listen,listeners})
   }
+
 
   const route = notifier((hash, fn) => {
     if (!route.active) {
@@ -264,7 +285,7 @@
 
   const isReady = () => doc.readyState === 'complete' || isNode(doc.body)
 
-  const LoadStack = new Set()
+  const LoadStack = $set()
   once.DOMContentLoaded(root, () => each(LoadStack, fn => runAsync(fn)).clear())
 
   const run = fn => isReady() ? runAsync(fn) : LoadStack.add(fn)
@@ -360,9 +381,9 @@
     removeNodes: (...nodes) => each(nodes, n => isMounted(n) && n.remove())
   }
 
-  const components = new Map()
+  const components = $map()
   const component = (tag, config) => {
-    if (!tag.includes('-')) throw new Error(tag + ' is un-hyphenated')
+    if (!tag.includes('-')) return err(tag + ' is un-hyphenated')
     components.set(tag, config)
     run(() => {
       queryEach(tag, el => updateComponent(tag, el))
@@ -412,7 +433,7 @@
     }
   }
 
-  const directives = new Map()
+  const directives = $map()
   const dirInit = (el, name) => {
     el[name + '_init'] = true
     return el
@@ -530,9 +551,9 @@
   }
 
   // find a node independent of DOMContentLoaded state using a promise
-  const dom = proxy( // ah Proxy, the audacious old browser breaker :P
+  const dom = $proxy( // ah Proxy, the audacious old browser breaker :P
   extend(
-    (selector, element = doc) => new Promise((resolve, reject) => {
+    (selector, element = doc) => $promise((resolve, reject) => {
       if (isNode(selector)) resolve(selector)
       else if (selector === 'head') resolve(doc.head)
       else if (isStr(selector)) {
@@ -551,8 +572,7 @@
   })
 
   new MutationObserver(muts => {
-    muts.forEach(({addedNodes:added, removedNodes:removed, target, attributeName, oldValue}) => {
-
+    for (const {addedNodes:added, removedNodes:removed, target, attributeName, oldValue} of muts) {
       if (attributeName) checkAttr(attributeName, target, oldValue)
 
       if (added.length) for (let n of added) {
@@ -571,7 +591,8 @@
           DST(n)
         }
       }
-    })
+
+    }
   })
   .observe(doc, {attributes: true, childList: true, subtree: true})
 

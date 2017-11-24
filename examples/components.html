@@ -4,9 +4,8 @@
     <meta charset="utf-8">
     <title>rilti.component(tag, {config})</title>
     <script src="../src/rilti.js"></script>
-    <script>{
-      const {component} = rilti
-      component('rilti-component', {
+    <script>
+      rilti.component('rilti-component', {
         create(el) {
           console.log('create', el)
           el.label = rilti.dom.label({
@@ -37,7 +36,7 @@
         }
       })
 
-    }</script>
+    </script>
   </head>
   <body>
     <rilti-component txt="hello"></rilti-component>
