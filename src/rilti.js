@@ -269,6 +269,11 @@
     return extend(host, {emit,emitAsync,on,once,listen,listeners})
   }
 
+  const map2json = (map, obj = {}) => {
+    each(map, (val, key) => obj[key] = val)
+    return JSON.stringify(obj)
+  }
+
   const model = (data = {}, store = $map()) => {
 
     const mitter = notifier()
@@ -284,11 +289,11 @@
 
     const mut = (key, val, silent) => {
       if (isObj(key)) {
-        for (let k in key) mut(k, key[k])
+        each(key, (v,k) => mut(k,v, val))
         return mut
       }
       const oldval = store.get(key)
-      if (val !== undefined && val !== oldval) {
+      if (val !== undef && val !== oldval) {
         store.set(key, val)
         if (!silent) {
           emit('set', key, val)
@@ -303,15 +308,13 @@
       return oldval
     }
     // merge data into the store Map (or Map-like) object
-    mut(data)
+    runAsync(mut, data)
 
     const syncs = $map()
     const sync = (obj, key, prop = key) => {
       if (!syncs.has(obj)) syncs.set(obj, $map())
-      syncs.get(obj).set(prop, on('set:' + prop, val => {
-        obj[key] = val
-      }))
-      if (store.has(key)) obj[key] = store.get(key)
+      syncs.get(obj).set(prop, on('set:' + prop, val => obj[key] = val))
+      if (has(prop)) obj[key] = mut(prop)
       return obj
     }
     sync.stop = (obj, prop) => {
@@ -360,8 +363,10 @@
       set: (vd, key, val) => vd(key, val)
     })
 
+    const toJSON = () => map2json(store)
+
     return $proxy(
-        extend(mut, extend(mitter, {has, store, sync, syncs, del})),
+        extend(mut, extend(mitter, {has, store, sync, syncs, del, each, toJSON, each: fn => store.forEach(fn)})),
         {
           get (o, key) {
             if (Reflect.has(o, key)) return Reflect.get(o, key)
@@ -405,7 +410,7 @@
 
   const frag = inner => isPrimitive(inner) ? html(inner) : doc.createDocumentFragment()
 
-  const emit = (node, type, detail = NULL) => {
+  const emit = (node, type, detail) => {
     node.dispatchEvent(isStr(type) ? new CustomEvent(type, {detail}) : type)
     return node
   }
@@ -465,7 +470,7 @@
     hasAttr: (node, attr) => node.hasAttribute(attr),
     getAttr: (node, attr) => node.getAttribute(attr),
     setAttr: (node, attr, val = '') => node.setAttribute(attr, val),
-    attrToggle: curry((node, name, state = !node.hasAttribute(name), val = node.getAttribute(name) || '') => {
+    attrToggle: curry((node, name, state = !node.hasAttribute(name), val = node.getAttribute(name) || state) => {
       node[state ? 'setAttribute' : 'removeAttribute'](name, val)
       return node
     }, 2),
@@ -519,8 +524,8 @@
       if (props) extend(element, props)
       if (methods) extend(element, methods)
       element.Created = true
-      emit(element, 'create')
       if (create) create(element)
+      emit(element, 'create')
     }
     if (!element.Mounted && stage === 'mount') {
       if (attr) {
@@ -550,24 +555,20 @@
       } else if (update && val !== oldValue) {
         update(el, val, oldValue)
       }
-    } else if (destroy) {
+    } else if (!el.hasAttribute(name) && destroy) {
       el[name + '_init'] = false
       destroy(el, val, oldValue)
     }
   }
 
   const directives = $map()
-  const dirInit = (el, name) => {
-    el[name + '_init'] = true
-    return el
-  }
 
   const checkAttr = (name, el, oldValue) => {
     if (directives.has(name)) return handleAttribute(name, el, directives.get(name), oldValue)
 
-    ifComponent(el, ({attr: {[name]: config}}) => {
-      if (config) {
-        handleAttribute(name, el, config, oldValue)
+    ifComponent(el, config => {
+      if (config.attr && config.attr[name]) {
+        handleAttribute(name, el, config.attr[name], oldValue)
       }
     })
   }
@@ -578,6 +579,11 @@
       queryEach(`[${name}]`, checkAttr.bind(NULL, name))
     })
   }
+  const dirInit = (el, name) => {
+    el[name + '_init'] = true
+    return el
+  }
+
 
   // node lifecycle event dispatchers
   const CR = n => (!n.Created && !isComponent(n) && emit(n, 'create'), n)
@@ -618,6 +624,12 @@
     return node
   }
 
+  const asimilateProps = (el, props) => {
+    each(props, (val, prop) => {
+      prop in el ? el[prop] = val : Def(el, prop, OwnDesc(props, prop))
+    })
+  }
+
   const create = (tag, options, ...children) => {
     const el = isNode(tag) ? tag : doc.createElement(tag)
 
@@ -633,9 +645,12 @@
       if (options.src) el.src = options.src
       if (options.href) el.href = options.href
       if (options.props) {
-        each(Keys(options.props), prop => {
-          el[prop] ? el[prop] = options.props[prop] : Def(el, prop, OwnDesc(options.props, prop))
-        })
+        const {props} = options
+        if (isComponent(el)) {
+          once.create(el, () => asimilateProps(el, props))
+        } else {
+          asimilateProps(el, props)
+        }
       }
       if (options.methods) extend(el, options.methods)
       if (options.once) once(el, options.once)
@@ -691,7 +706,7 @@
           isNode(temp) ? resolve(temp) : reject([404, selector])
         })
       } else {
-        reject([403, selector])
+        reject([400, selector])
       }
     }),
     {create, query, queryAll, queryEach, html, text, frag}
@@ -705,10 +720,10 @@
       if (attributeName) {
         checkAttr(attributeName, target, oldValue)
       }
-      if (added.length) for (let n of added) {
+      if (added.length) for (const n of added) {
         ifComponent(n, (config, tag) => updateComponent(tag, n, 'mount', config), MNT)
       }
-      if (removed.length) for (let n of removed) {
+      if (removed.length) for (const n of removed) {
         ifComponent(n, (config, tag) => updateComponent(tag, n, 'destroy', config), DST)
       }
     }

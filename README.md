@@ -156,7 +156,7 @@ dom['random-tag']({
 const {on, domfn} = rilti
 const {css} = domfn
 
-rilti.Component('tick-box', {
+rilti.component('tick-box', {
   props: {
     get ticked() {
       return attr(this, 'data-ticked') === 'true'
@@ -260,8 +260,8 @@ rilti.Component('tick-box', {
 ```
 
 #### weight
-* unminified : > 18kb
-* minified : > 8kb
-* minified && compressed : > 4.5kb
+* unminified : > 30kb
+* minified : > 12kb
+* minified && compressed : > 6kb
 
 #### licence = MIT

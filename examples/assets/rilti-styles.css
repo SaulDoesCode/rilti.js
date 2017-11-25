@@ -1,0 +1,181 @@
+* {
+  position: relative;
+  box-sizing: border-box;
+  margin: 0;
+}
+
+html, body {
+  padding: 0;
+  width: 100%;
+  height: 100%;
+}
+
+body {
+  font-family: Roboto, Nunito, Helvetica, sans-serif;
+  color: hsl(0,0%,33%);
+  background: hsl(0,0%,98%);
+}
+
+.page-title {
+  padding: 1.2%;
+  text-shadow: 0 1px 3px hsla(0,0%,0%,.2);
+}
+
+.box {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-content: center;
+  align-items: center;
+  flex-flow: column;
+  flex-wrap: wrap;
+  margin: 2% auto;
+  padding: 10px;
+  width: 90%;
+  max-width: 640px;
+  border-bottom: 4px solid hsl(0,0%,90%);
+  background: hsl(0,0%,100%);
+  box-shadow: 0 2px 16px hsla(0,0%,0%,.2);
+}
+
+.box > header:first-of-type {
+  align-self: flex-start;
+  display: inline-block;
+  font-size: 1.4em;
+  margin-bottom: 15px;
+  padding: 5px 10px 5px 10px;
+  width: 100%;
+  border-bottom: 1px solid #ccc;
+}
+
+.box > article {
+  display: flex;
+  justify-content: center;
+  align-content: center;
+  align-items: flex-start;
+  flex-flow: row;
+  flex-wrap: wrap;
+  padding: 20px;
+  margin: 5px auto;
+  width: 90%;
+  border-bottom: 1px solid hsl(0,0%,95%);
+}
+
+.box > footer {
+  margin: 5px 5px 0 5px;
+  width: 100%;
+}
+
+label, input[type="text"] {
+  outline: none;
+  padding: 2.5px;
+  margin: 5px auto;
+  width: 80%;
+}
+
+input[type="text"]:last-of-type {
+  margin-bottom: 0;
+}
+
+button {
+  display: inline-block;
+  outline: none;
+  width: auto;
+  cursor: pointer;
+  margin: 5px;
+  padding: 12px;
+  font-size: 1.05em;
+  font-weight: bold;
+  border-radius: 2px;
+  border: 1px solid hsl(34,100%,60%);
+  color: hsl(34,100%,60%);
+  background: #fff;
+  transition: all 140ms ease;
+}
+
+button:hover {
+  background: hsl(34,100%,60%);
+  color: #fff;
+}
+
+button:active {
+  box-shadow: inset 0 1px 4px hsla(0,0%,0%,.2);
+  text-shadow: 0 1px 4px hsla(0,0%,0%,.2);
+}
+
+pre {
+  padding: 6px !important;
+  border-radius: 2px !important;
+}
+
+.counter {
+  display: inline-block;
+  margin: 5px;
+  padding: 12px;
+  border-radius: 2px;
+  border: 1px solid hsl(0,0%,80%);
+}
+
+section[example] {
+  margin: 40px auto;
+}
+
+tick-box {
+  display: inline-block;
+  vertical-align: middle;
+  user-select: none;
+  background: #fff;
+  border: 1px solid #ccc;
+  margin: 2px;
+  padding: 15px;
+  border-radius: 100%;
+  cursor: pointer;
+  transition: all 140ms ease;
+}
+
+tick-box[ticked] {
+  background: hsl(133,72%,64%);
+  border: 1px solid #fff;
+}
+
+todo-list, todo-item {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-content: center;
+  align-items: center;
+  flex-flow: column;
+  flex-wrap: nowrap;
+}
+
+todo-list {
+  margin: 10px auto;
+  padding: 10px;
+}
+
+todo-item {
+  flex-flow: row;
+  justify-content: space-between;
+  padding: 5px;
+  margin: 10px;
+  border-radius: 0 44px 44px 0;
+  max-width: 460px;
+  width: 100%;
+  flex: 1 1 auto;
+  box-shadow: 0 1px 10px hsla(0,0%,0%,.2);
+  background: #fff;
+}
+
+todo-item > span {
+  outline: none;
+  padding: 3px;
+  margin: 5px;
+}
+
+todo-item[state="false"] > span {
+  text-decoration: none !important;
+}
+
+todo-item[state] > span {
+  text-decoration: line-through;
+}
