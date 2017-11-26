@@ -12,7 +12,7 @@ html, body {
 
 body {
   font-family: Roboto, Nunito, Helvetica, sans-serif;
-  color: hsl(0,0%,33%);
+  color: hsl(0,0%,35%);
   background: hsl(0,0%,98%);
 }
 
@@ -181,6 +181,49 @@ todo-list > header > input[type="text"] {
   font-size: 1.055em;
 }
 
+todo-list > aside > span {
+  display: inline-block;
+  margin: 5px;
+  padding: 8px;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 2.5px;
+  cursor: pointer;
+  user-select: none;
+}
+
+todo-list[mode="all"] > aside > span:nth-child(1) {
+  border: 2px dashed hsl(133,72%,64%);
+}
+todo-list[mode="done"] > aside > span:nth-child(2) {
+  border: 2px dashed hsl(133,72%,64%);
+}
+todo-list[mode="undone"] > aside > span:nth-child(3) {
+  border: 2px dashed hsl(133,72%,64%);
+}
+
+todo-list[mode="done"] todo-item[state="false"] {
+  pointer-events: none;
+  transform: scale(0);
+  height: 0;
+  margin: 0;
+  padding: 0;
+  opacity: 0;
+}
+
+todo-list[mode="undone"] todo-item[state="true"] {
+  pointer-events: none;
+  transform: scale(0);
+  height: 0;
+  margin: 0;
+  padding: 0;
+  opacity: 0;
+}
+
+todo-list[mode="undone"] > aside > span:nth-child(3) {
+  border: 2px dashed hsl(133,72%,64%);
+}
+
 todo-item {
   padding: 4px 5px;
   margin: 12px;
@@ -189,6 +232,7 @@ todo-item {
   width: 100%;
   box-shadow: 0 1px 10px hsla(0,0%,0%,.2);
   background: #fff;
+  transition: all 140ms ease-in;
 }
 
 todo-item > .delete-todo {

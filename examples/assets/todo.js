@@ -29,8 +29,16 @@
   })
 
   var todos = model(JSON.parse(localStorage.getItem('todos') || '{}'))
+  const todoCount = () => {
+    const all = todos.store.size
+    let done = 0
+    todos.each(val => val && (done++))
+    return {all, done, undone: all - done}
+  }
+
   const updateStorage = () => {
     localStorage.setItem('todos', todos.toJSON())
+    todos.emit.update(todoCount())
   }
   todos.on.set(updateStorage)
   todos.on.delete(updateStorage)
@@ -56,9 +64,7 @@
         },
         on: {
           keydown({keyCode}) {
-            if (keyCode === 13) {
-              todoSubmit()
-            }
+            if (keyCode === 13) todoSubmit()
           }
         }
       })
@@ -74,6 +80,32 @@
         'add todo'
       )
 
+      const setMode = mode => () => {
+        attr(el, 'mode', mode)
+        localStorage.setItem('todo-mode', mode)
+      }
+      setMode(localStorage.getItem('todo-mode') || 'all')()
+
+      const allCount = span({
+        on: { click: setMode('all') }
+      })
+      const doneCount = span({
+        on: { click: setMode('done') }
+      })
+      const undoneCount = span({
+        on: { click: setMode('undone') }
+      })
+
+      const populateCounts = ({all, done, undone} = todoCount()) => {
+        allCount.textContent = `all: ${all}`
+        doneCount.textContent = `done: ${done}`
+        undoneCount.textContent = `undone: ${undone}`
+      }
+
+      populateCounts()
+      todos.on.update(populateCounts)
+
+      aside({renderAfter: tdMaker}, allCount, doneCount, undoneCount)
     }
   })
 
