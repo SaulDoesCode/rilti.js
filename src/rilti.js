@@ -521,7 +521,23 @@
     const {create, mount, destroy, props, methods, attr} = config
 
     if (!element.Created) {
-      if (props) extend(element, props)
+      if (props) {
+        const oldProps = {}
+        each(Keys(props), prop => {
+          const elValue = element[prop]
+          if (!isNil(elValue)) {
+             oldProps[prop] = elValue
+          }
+        })
+        extend(element, props)
+        if (!isEmpty(oldProps)) {
+          once.create(element, () => {
+            each(oldProps, (val, prop) => {
+              element[prop] = val
+            })
+          })
+        }
+      }
       if (methods) extend(element, methods)
       element.Created = true
       if (create) create(element)
@@ -644,14 +660,7 @@
       if (options.id) el.id = options.id
       if (options.src) el.src = options.src
       if (options.href) el.href = options.href
-      if (options.props) {
-        const {props} = options
-        if (isComponent(el)) {
-          once.create(el, () => asimilateProps(el, props))
-        } else {
-          asimilateProps(el, props)
-        }
-      }
+      if (options.props) asimilateProps(el, options.props)
       if (options.methods) extend(el, options.methods)
       if (options.once) once(el, options.once)
       if (options.on) on(el, options.on)

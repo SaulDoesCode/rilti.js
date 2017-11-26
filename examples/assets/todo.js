@@ -2,6 +2,7 @@
   const {dom,domfn,on,once,model,component,run} = rilti
   const {div,span,a,aside,article,header,input,main,p,b,html} = dom
   const {attrToggle, css, emit} = domfn
+  const tickBox = dom['tick-box']
 
   var todos = model(JSON.parse(localStorage.getItem('todos') || '{}'))
   todos.on.set(() => {
@@ -12,7 +13,7 @@
     props: {
       set ticked(val) {
         val = Boolean(val)
-        if (val != this.ticked) {
+        if (val !== this.ticked) {
           attrToggle(this, 'ticked', val)
           emit(this, 'ticked', val)
         }
@@ -23,14 +24,13 @@
     },
     attr: {
       ticked: {
-        init(el, val) {
-          el.ticked = val
-        },
+        init(el, val) { el.ticked = val },
+        destroy(el) { el.ticked = false },
         update(el, val) {
-          el.ticked = val
-        },
-        destroy(el) {
-          el.ticked = false
+          if (val === 'false' || val !== 'true') {
+            el.removeAttribute('ticked')
+            emit(el, 'ticked', false)
+          }
         }
       }
     },
@@ -52,9 +52,12 @@
       },
       set txt(val)  {
         if (val !== this.txt) {
-          todos.del(this.txt)
-          this.txt_el.textContent = (''+val).trim()
-          this.update()
+          if (this.txt_el) {
+            this.txt_el.textContent = val = (''+val).trim()
+            this.update()
+          } else {
+            on.mount(this, () => this.txt = val)
+          }
         }
       },
       get txt() {
@@ -64,36 +67,34 @@
     create(el) {
 
       el.update = () => {
-        const {txt, state} = el
+        const {txt, state, oldtxt} = el
         if (txt && txt !== 'add todo text') {
+          if (txt !== oldtxt) {
+            todos.del(oldtxt)
+            el.oldtxt = txt
+          }
           todos[txt] = state
         }
         attrToggle(el, 'state', state)
       }
 
-      let txt = el.textContent || 'add todo text'
       el.txt_el = span({
-        attr: {
-          contenteditable: true
-        },
-        on: {
-          input() {
-            todos.del(txt)
-            el.update()
-            txt = el.txt
-          }
-        }
+        attr: { contenteditable: true },
+        on: { input: el.update }
       })
 
-      el.tick_el = dom['tick-box']()
-      on.ticked(el.tick_el, el.update)
+      el.tick_el = tickBox({
+        on: { ticked: el.update }
+      })
+
     },
     mount(el) {
-      const txt = el.txt || el.textContent || 'add todo text'
+      el.oldtxt = el.textContent || 'add todo text'
+      if (!el.txt) {
+        el.txt_el.textContent = el.oldtxt
+      }
       el.innerHTML = ''
-      const {txt_el, tick_el} = el
-      txt_el.textContent = txt
-      el.append(txt_el, tick_el)
+      el.append(el.txt_el, el.tick_el)
     },
     destroy({txt}) {
       todos.del(txt)
@@ -103,12 +104,7 @@
   todos.each((val, key) => {
     dom['todo-item']({
       render: 'todo-list',
-      props: {
-        state: val
-      }
-    },
-      key
-    )
+      props: { state: val }
+    }, key)
   })
-
 }
