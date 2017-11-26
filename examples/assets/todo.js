@@ -47,12 +47,14 @@
     create(el) {
       const tdMaker = header({render: el})
 
-      const todoSubmit = (txt = tdInput.value, state = false) => {
-        dom['todo-item']({
-          render: el,
-          attr: {state}
-        }, txt)
-        todos.emit.newTodo()
+      const todoSubmit = (txt = tdInput.value.trim(), state = false) => {
+        if (txt && txt.length) {
+          dom['todo-item']({
+            render: el,
+            attr: {state}
+          }, txt)
+          todos.emit.newTodo()
+        }
       }
 
       todos.each((val, key) => todoSubmit(key, val))
