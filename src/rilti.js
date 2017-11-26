@@ -449,17 +449,14 @@
     }, 2),
     hasClass: curry((node, name) => node.classList.contains(name)),
     attr: curry((node, attr, val) => {
-      if (node.attributes) {
-        if (isObj(attr)) {
-          each(attr, (v, a) => {
-            node.setAttribute(a, v)
-            checkAttr(a, node)
-          })
-        } else if (isStr(attr)) {
-          if (!isPrimitive(val)) return node.getAttribute(attr)
-          node.setAttribute(attr, val)
-          checkAttr(attr, node)
-        }
+      if (!node.attributes) return node
+      if (isObj(attr)) {
+        each(attr, (v, a) => {
+          node.setAttribute(a, v)
+        })
+      } else if (isStr(attr)) {
+        if (!isPrimitive(val)) return node.getAttribute(attr)
+        node.setAttribute(attr, val)
       }
       return node
     }, 2),
@@ -546,7 +543,6 @@
     if (!element.Mounted && stage === 'mount') {
       if (attr) {
         each(attr, (cfg, name) => {
-          if (!cfg.init) return err('component.attr[name] must have an init method')
           if (element.hasAttribute(name)) {
             handleAttribute(name, element, cfg)
           }
@@ -565,15 +561,18 @@
   }
 
   const handleAttribute = (name, el, {init, update, destroy}, oldValue, val = el.getAttribute(name)) => {
+    const nameInit = name+'_init'
+    const hasAttr = el.hasAttribute(name)
     if (isPrimitive(val)) {
-      if (!el[name + '_init']) {
-        init(dirInit(el, name), val)
+      if (hasAttr && !el[nameInit]) {
+        el[nameInit] = true
+        if (init) init(el, val)
       } else if (update && val !== oldValue) {
         update(el, val, oldValue)
       }
-    } else if (!el.hasAttribute(name) && destroy) {
-      el[name + '_init'] = false
-      destroy(el, val, oldValue)
+    } else if (!hasAttr) {
+      el[nameInit] = false
+      if (destroy) destroy(el, val, oldValue)
     }
   }
 
@@ -595,11 +594,6 @@
       queryEach(`[${name}]`, checkAttr.bind(NULL, name))
     })
   }
-  const dirInit = (el, name) => {
-    el[name + '_init'] = true
-    return el
-  }
-
 
   // node lifecycle event dispatchers
   const CR = n => (!n.Created && !isComponent(n) && emit(n, 'create'), n)

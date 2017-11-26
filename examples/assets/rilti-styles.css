@@ -79,11 +79,13 @@ input[type="text"]:last-of-type {
 
 button {
   display: inline-block;
+  vertical-align: middle;
+  flex: 1 0 auto;
   outline: none;
   width: auto;
   cursor: pointer;
   margin: 5px;
-  padding: 12px;
+  padding: 10px;
   font-size: 1.05em;
   font-weight: bold;
   border-radius: 2px;
@@ -138,7 +140,12 @@ tick-box[ticked] {
   border: 1px solid #fff;
 }
 
-todo-list, todo-item {
+tick-box[ticked="false"] {
+  background: #fff;
+  border: 1px solid #ccc;
+}
+
+todo-list, todo-list > header, todo-item {
   position: relative;
   display: flex;
   justify-content: center;
@@ -153,29 +160,70 @@ todo-list {
   padding: 10px;
 }
 
-todo-item {
+todo-list > header, todo-item {
   flex-flow: row;
   justify-content: space-between;
-  padding: 5px;
-  margin: 10px;
-  border-radius: 0 44px 44px 0;
-  max-width: 460px;
+  width: 90%;
+  max-width: 500px;
+  flex: 1 0 auto;
+}
+
+todo-list > header > * {
+  flex: 1 0 auto;
+  margin: 2px !important;
+}
+
+todo-list > header > input[type="text"] {
+  padding: 9.5px;
+  border: 1px solid #ccc;
+  border-radius: 2px;
+  color: hsl(0,0%,33%);
+  font-size: 1.055em;
+}
+
+todo-item {
+  padding: 4px 5px;
+  margin: 12px;
+  border-radius: 5px 45px 45px 5px;
+  max-width: 500px;
   width: 100%;
-  flex: 1 1 auto;
   box-shadow: 0 1px 10px hsla(0,0%,0%,.2);
   background: #fff;
 }
 
-todo-item > span {
+todo-item > .delete-todo {
+  display: inline-block;
+  vertical-align: middle;
+  border-radius: 5px;
+  color: hsl(356,86%,60%);
+  background: hsl(0,0%,95%);
+  border: 1px solid #fff;
+  font-size: 1.1em;
+  text-align: center;
+  cursor: pointer;
+  width: 31px;
+  height: 31px;
+  line-height: 30px;
+  margin: 0 5px 0 2px;
+  transition: all 140ms ease-in;
+}
+
+todo-item > .delete-todo:hover {
+  border: 1px solid hsla(356,86%,60%,.6);
+  text-shadow: 0 0 3px hsla(0,0%,0%,.2);
+}
+
+todo-item > .txt {
   outline: none;
   padding: 3px;
   margin: 5px;
 }
 
-todo-item[state="false"] > span {
+
+todo-item[state="false"] > .txt {
   text-decoration: none !important;
 }
 
-todo-item[state] > span {
+todo-item[state] > .txt {
   text-decoration: line-through;
 }
