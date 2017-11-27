@@ -2,7 +2,9 @@
 
 a small flavorful and unapologetic view layer library built for the front-end
 
-##### currently in alpha phase and subject to breaking changes
+[![JavaScript Style Guide](https://cdn.rawgit.com/standard/standard/master/badge.svg)](https://github.com/standard/standard)
+
+##### currently in beta phase and potentially subject to breaking changes
 Feel free to fork or raise issues. Constructive criticism is welcome
 
 ## features
@@ -29,25 +31,25 @@ Feel free to fork or raise issues. Constructive criticism is welcome
 ### API
 | method | description  |
 |--------|--------------|
-| ``dom["any-tag"]( {=object}, {...children} )`` | where the magic happens, define behavior for elements and see them come to life |
-| ``dom( {string/node}, {=string/node} )`` | same as querySelector but returns a promise, it's essentially an async querySelector |
-| ``dom.query( {string}, {=string/node} )`` | improved alternative to ``document.querySelector``|
-| ``dom.queryAll( {string}, {=string/node} )`` | improved alternative to ``document.querySelectorAll``|
-| ``dom.queryEach( {string}, {=string/node}, {function} )`` | queries nodes returned by selector and iterates over them like ``.forEach`` would|
-| ``dom.html( {string} )`` | converts strings to html nodes |
-| ``on( {target}, {type}, {listener}, {=options} )`` | generates event listener |
-| ``once( {target}, {type}, {listener}, {=options} )`` | generates event listener that triggers only once |
-| ``render( {node}, {string/node}, {=connector})`` | renders nodes to a node of your choice, independent of ready state |
-| ``run( {function} )`` | executes a given function when the DOM is loaded |
-| ``route( {=hashString}, {function})`` | detect and respond to location.hash changes |
-| ``curry( {functions} )`` | curries a function |
-| ``compose( {...functions} )`` | compose functions, compose(fn1,fn2,fn3)(val) // -> result |
-| ``each( {iterable}, {function} )`` | loop through objects, numbers, array(like)s, sets, maps... |
-| ``extend( {host object}, {object}, {=safe bool} )`` | extends host object with all props of other object, won't overwrite if safe is true |
-| ``flatten( {arraylike} )`` | flattens multidimensional arraylike objects |
-| ``notifier( {=obj} )`` | extendable event system /pub sub pattern |
-| ``DOMcontains( {node}, {=parent node} )`` | determines whether or not the dom or other node contains a specific node |
-| ``(from WC plugin) .Component(tag, config = {create, mount, destroy, adopted, attr, props, methods})`` | define custom elements |
+| ``.dom["any-tag"]( {=obj}, {...children})`` | where the magic happens, define behavior for elements and see them come to life |
+| ``.dom( {string/node}, {=string/node} )`` | same as querySelector but returns a promise, it's essentially an async querySelector |
+| ``.dom.query( {string}, {=string/node} )`` | improved alternative to ``document.querySelector``|
+| ``.dom.queryAll( {string}, {=string/node} )`` | improved alternative to ``document.querySelectorAll``|
+| ``.dom.queryEach( {string}, {=string/node}, {func} )`` | queries nodes returned by selector and iterates over them like ``.forEach`` would|
+| ``.dom.html( {string} )`` | converts strings to html nodes |
+| ``.on( {target}, {type}, {listener}, {=options} )`` | generates event listener |
+| ``.once( {target}, {type}, {listener}, {=options} )`` | generates event listener that triggers only once |
+| ``.render( {node}, {string/node}, {=connector})`` | renders nodes to a node of your choice, independent of ready state |
+| ``.run( {function} )`` | executes a given function when the DOM is loaded |
+| ``.route( {=hashString}, {function})`` | detect and respond to location.hash changes |
+| ``.curry( {func}, {=argumentLimit} )`` | curries a function |
+| ``.compose( {...func} )`` | compose functions, compose(fn1,fn2,fn3)(val) // -> result |
+| ``.each( {iterable}, {function} )`` | loop through objects, numbers, array(like)s, sets, maps... |
+| ``.extend( {host-object}, {object}, {=safe bool} )`` | extends host object with all props of other object, won't overwrite if safe is true |
+| ``.flatten( {arraylike} )`` | flattens multidimensional arraylike objects |
+| ``.notifier( {=obj} )`` | extendable event system /pub sub pattern |
+| ``.DOMcontains( {node}, {=parent node} )`` | determines whether or not the dom or other node contains a specific node |
+| ``.component(tag, config = {create, mount, destroy, attr, props, methods})`` | define custom elements, no polyfills needed |
 
 ##### rilti also exports a couple of useful type testing functions
 usage : ``rilti.isX( {any} ) // -> boolean``
@@ -60,6 +62,7 @@ isArr, isArrlike,
 isMap, isSet,
 isEl, isNode, isNodeList,
 isInput, isPrimitive
+isPromise
 
 #### example time!!!
 
@@ -87,7 +90,7 @@ otherwise such as with has/get(this/that) type functions
 
 ```
 #### examples of rilti used to build things
-[rilti.js todomvc](https://github.com/SaulDoesCode/rilti.js-todomvc)   
+[rilti.js todomvc {slightly outdated, will fix}](https://github.com/SaulDoesCode/rilti.js-todomvc)
 [grimstack.io blog site](https://grimstack.io)    
 
 #### basic practical examples
@@ -100,16 +103,18 @@ const {Class, hasClass, attr, css} = domfn
 const goHome = () => location.replace("https://mysite.xyz/#home")
 
 const navbutton = (inner, click) => div({
-  class : 'navbar-button',
-  on : { click }
-}, inner)
+  class: 'navbar-button',
+  on: {click}
+},
+  inner
+)
 
 const navbar = nav({
     render: 'body',
-    class : 'navbar',
-    css : { color : '#fff' },
-    attr : { id : 'mainbar' },
-    toggle() {
+    class: 'navbar',
+    css: { color : '#fff' },
+    attr: { id : 'mainbar' },
+    toggle () {
       // this toggles .hidden on the navbar
       Class(navbar, 'hidden', !this.toggled)
       // it would still toggle without !this.toggled
@@ -131,9 +136,9 @@ run(() => {
 
 // observe attributes with vue-like directives
 rilti.directive('custom-attr', {
-  init(element, value) { ... },
-  update(element, value, oldValue) { ... },
-  destroy(element, value, oldValue) { ... }
+  init (element, value) { ... },
+  update (element, value, oldValue) { ... },
+  destroy (element, value, oldValue) { ... }
 })
 // revoke a directive
 rilti.directives.delete('custom-attr')
@@ -143,25 +148,23 @@ dom['random-tag']({
   render: ".main > header", // render to dom using selectors or nodes
   lifecycle: {
     // manage the element's lifecycle
-    create() { ... },
-    mount() { ... },
-    destroy() { ... }
+    create () { ... },
+    mount () { ... },
+    destroy () { ... }
   }
 })
 ```
 
 #### Web Components / Custom Elements
 ```js
-// Web Components using the rilti-webcomponents.js plugin
-const {on, domfn} = rilti
-const {css} = domfn
+const {component, domfn: {css}, on} = rilti
 
-rilti.component('tick-box', {
+component('tick-box', {
   props: {
-    get ticked() {
+    get ticked () {
       return attr(this, 'data-ticked') === 'true'
     },
-    set ticked(val) {
+    set ticked (val) {
       if(!this.disabled) {
         attr(this, 'data-ticked', val)
         css(this, {
@@ -171,7 +174,7 @@ rilti.component('tick-box', {
       }
     }
   },
-  create() {
+  create () {
     css(element, {
       display: 'block',
       width: '20px',
@@ -181,17 +184,19 @@ rilti.component('tick-box', {
       backgroundColor: element.ticked ? 'dimgrey' : 'white',
       border: `1px solid ${element.ticked ? 'white' : 'dimgrey'}`
     })
-    on.click(el, () => element.ticked = !element.ticked)
+    on.click(el, () => {
+      element.ticked = !element.ticked
+    })
   },
-  mount(element) {
+  mount (element) {
     console.log('tick-box mounted to document')
   },
-  destroy(element) {
+  destroy (element) {
    console.log('tick-box is no more :(')
   },
   attr: {
     disabled: {
-      init(oldValue, value, element) {
+      init (oldValue, value, element) {
         css(element, 'cursor', value === 'true' ? 'not-allowed' : '')
       }
     }
@@ -230,7 +235,7 @@ rilti.component('tick-box', {
   testRiltiBlocking(); // -> this usually takes ~ 7800ms on my i5 machine
 
   const testRiltiChunked = (count = 10000) => {
-    const { each, dom:{span} } = rilti
+    const { each, dom: {span} } = rilti
     const start = performance.now()
     // int loops are chunked making heavy loads less blocking
     each(count, i =>

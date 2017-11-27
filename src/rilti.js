@@ -28,17 +28,17 @@
   const arrEach = curry(arrMeth, 2)('forEach')
   const not = fn => (...args) => !fn(...args)
   // all the is this that stuff
+  const isFunc = o => o && o instanceof Function
+  const isObj = o => o && o.constructor === Object
+  const isPromise = o => o && o.constructor === Promise
   const isArr = Array.isArray
-  const isArrlike = o => o && !(o instanceof Function) && isNum(o.length)
+  const isArrlike = o => o && !isFunc(o) && isNum(o.length)
   const isBool = o => o === true || o === false
   const isDef = o => o !== undef && o !== NULL
   const isNil = o => o === undef || o === NULL
   const isNull = o => o === NULL
   const isNum = o => typeof o === 'number'
   const isStr = o => typeof o === 'string'
-  const isFunc = o => o && o instanceof Function
-  const isObj = o => o && o.constructor === Object
-  const isPromise = o => o && o.constructor === Promise
   const isPrimitive = some(isStr, isBool, isNum)
   const isIterator = o => o && o.toString().includes('Iterator')
   const isInt = o => isNum(o) && o % 1 === 0
@@ -104,10 +104,15 @@
     if (!isNil(iterable)) {
       if (iterable.forEach) iterable.forEach(func)
       else if (isArrlike(iterable)) arrEach(iterable, func)
-      else if (isObj(iterable)) for (let key in iterable) func(iterable[key], key, iterable)
-      else if (isInt(iterable)) yieldloop(iterable, func)
+      else if (isObj(iterable)) {
+        for (let key in iterable) {
+          func(iterable[key], key, iterable)
+        }
+      } else if (isInt(iterable)) yieldloop(iterable, func)
       else if (iterable.entries || isIterator(iterable)) {
-        for (const [key, value] of iterable) func(key, value, iterable)
+        for (const [key, value] of iterable) {
+          func(key, value, iterable)
+        }
       }
     }
     return iterable

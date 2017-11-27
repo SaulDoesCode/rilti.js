@@ -97,9 +97,11 @@
           })
           return true
         },
-        get: (_, key) => (
-          Reflect.has(store, key) ? Reflect.get(store, key) :
-          new Promise((resolve, reject) => {
+        get: (_, key) => {
+          if (Reflect.has(store, key)) {
+            return Reflect.get(store, key)
+          }
+          return new Promise((resolve, reject) => {
             const getItem = () => {
               store.getItem(key, (err, val) => {
                 if (err) {
@@ -113,7 +115,7 @@
 
             ready ? getItem() : store.once.ready(getItem)
           })
-        )
+        }
       }
     )
 
