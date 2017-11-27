@@ -1,18 +1,19 @@
 {
   "name": "rilti.js",
-  "version": "0.3.0",
-  "description": "opinionated small view layer for the front end written in ES7 with no apologies",
+  "version": "0.4.0",
+  "description": "small opinionated furture forward frontend framework",
   "main": "init.js",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/sauldoescode/rilti.js.git"
   },
   "keywords": [
-    "es6",
-    "es7",
+    "ES6",
+    "ES7",
     "view",
     "library",
-    "front-end"
+    "front-end",
+    "framework"
   ],
   "author": "Saul van der Walt",
   "license": "MIT",
@@ -22,9 +23,8 @@
   "homepage": "https://github.com/sauldoescode/rilti.js#readme",
   "devDependencies": {
     "babel-cli": "^6.26.0",
+    "babel-core": "^6.26.0",
     "babel-minify": "^0.2.0",
-    "babel-preset-minify": "^0.2.0",
-    "iltorb": "^1.3.6",
-    "ws": "^3.2.0"
+    "babel-preset-minify": "^0.2.0"
   }
 }

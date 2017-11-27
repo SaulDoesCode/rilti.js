@@ -5,17 +5,13 @@
 * @licence MIT
 **/
 {
-  /* global Node NodeList Element CustomEvent location MutationObserver */
+  /* global Node NodeList Element CustomEvent location MutationObserver Text */
+  const {assign, keys: Keys, defineProperty: Def, getOwnPropertyDescriptor: OwnDesc} = Object
   const root = window
   const doc = document
   const undef = void 0
   const NULL = null
-  const assign = Object.assign
-  const Keys = Object.keys
-  const Def = Object.defineProperty
-  const OwnDesc = Object.getOwnPropertyDescriptor
-  const noop = () => {}
-  const funcConstruct = obj => (...args) => new obj(...args)
+  const funcConstruct = Obj => (...args) => new Obj(...args)
   const $map = funcConstruct(Map)
   const $set = funcConstruct(Set)
   const $proxy = funcConstruct(Proxy)
@@ -117,18 +113,19 @@
     return iterable
   }
 
-  const flatten = arr => (
-    isArrlike(arr) ?
-    arrMeth(
-      'reduce',
-      arr,
-      (flat, toFlatten) => (
-        flat.concat(isArr(toFlatten) ? flatten(toFlatten) : toFlatten)
-      ),
-      []
-    ) :
-    [arr]
-  )
+  const flatten = arr => {
+    if (isArrlike(arr)) {
+      return arrMeth(
+        'reduce',
+        arr,
+        (flat, toFlatten) => (
+          flat.concat(isArr(toFlatten) ? flatten(toFlatten) : toFlatten)
+        ),
+        []
+      )
+    }
+    return [arr]
+  }
 
   const compose = (...fns) => fns.reduce((f, g) => (...args) => f(g(...args)))
 
@@ -266,18 +263,19 @@
       runAsync(listeners.each, name, ln => runAsync(ln, ...vals))
     }, false)
 
-    return extend(host, {emit,emitAsync,on,once,listen,listeners})
+    return extend(host, {emit, emitAsync, on, once, listen, listeners})
   }
 
   const map2json = (map, obj = {}) => {
-    each(map, (val, key) => obj[key] = val)
+    each(map, (val, key) => {
+      obj[key] = val
+    })
     return JSON.stringify(obj)
   }
 
   const model = (data = {}, store = $map()) => {
-
     const mitter = notifier()
-    const {emit,emitAsync,on,once,listen} = mitter
+    const {emit, emitAsync, on, once} = mitter
 
     const del = key => {
       store.delete(key)
@@ -289,7 +287,7 @@
 
     const mut = (key, val, silent) => {
       if (isObj(key)) {
-        each(key, (v,k) => mut(k,v, val))
+        each(key, (v, k) => mut(k, v, val))
         return mut
       }
       const oldval = store.get(key)
@@ -313,7 +311,9 @@
     const syncs = $map()
     const sync = (obj, key, prop = key) => {
       if (!syncs.has(obj)) syncs.set(obj, $map())
-      syncs.get(obj).set(prop, on('set:' + prop, val => obj[key] = val))
+      syncs.get(obj).set(prop, on('set:' + prop, val => {
+        obj[key] = val
+      }))
       if (has(prop)) obj[key] = mut(prop)
       return obj
     }
@@ -331,12 +331,12 @@
     }
 
     const Async = $proxy((key, fn) => {
-      has(key) ? fn(store.get(key)) : once('set:'+key, fn)
+      has(key) ? fn(store.get(key)) : once('set:' + key, fn)
     }, {
       get: (_, key) => $promise(resolve => {
         has(key) ? resolve(store.get(key)) : once('set:' + key, resolve)
       }),
-      set(_, key, val) {
+      set (_, key, val) {
         val.then(mut.bind(null, key))
       }
     })
@@ -344,14 +344,14 @@
     const validators = $map()
     const validateProp = key => {
       const valid = store.has(key) && validators.has(key) && validators.get(key)(store.get(key))
-      emitAsync('validate:'+key, valid)
+      emitAsync('validate:' + key, valid)
       emitAsync('validate', key, valid)
       return valid
     }
 
     const Validation = $proxy((key, validator) => {
       if (validator === undefined) return validateProp(key)
-      if(validator instanceof RegExp) {
+      if (validator instanceof RegExp) {
         const regexp = validator
         validator = val => typeof val === 'string' && regexp.test(val)
       }
@@ -367,19 +367,21 @@
 
     return $proxy(
         extend(mut, extend(mitter, {has, store, sync, syncs, del, each, toJSON, each: fn => store.forEach(fn)})),
-        {
-          get (o, key) {
-            if (Reflect.has(o, key)) return Reflect.get(o, key)
-            if (key === 'async') return Async
-            else if (key === 'valid') return Validation
-            return mut(key)
-          },
-          set (_, key, val) {
-            if (val && val.constructor === Promise) return Async[key] = val
-            return mut(key, val)
-          },
-          delete: (_, key) => del(key)
-        }
+      {
+        get (o, key) {
+          if (Reflect.has(o, key)) return Reflect.get(o, key)
+          if (key === 'async') return Async
+          else if (key === 'valid') return Validation
+          return mut(key)
+        },
+        set (_, key, val) {
+          if (isPromise(val)) {
+            return (Async[key] = val)
+          }
+          return mut(key, val)
+        },
+        delete: (_, key) => del(key)
+      }
     )
   }
 
@@ -523,7 +525,7 @@
         each(Keys(props), prop => {
           const elValue = element[prop]
           if (!isNil(elValue)) {
-             oldProps[prop] = elValue
+            oldProps[prop] = elValue
           }
         })
         extend(element, props)
@@ -561,7 +563,7 @@
   }
 
   const handleAttribute = (name, el, {init, update, destroy}, oldValue, val = el.getAttribute(name)) => {
-    const nameInit = name+'_init'
+    const nameInit = name + '_init'
     const hasAttr = el.hasAttribute(name)
     if (isPrimitive(val)) {
       if (hasAttr && !el[nameInit]) {
@@ -596,7 +598,10 @@
   }
 
   // node lifecycle event dispatchers
-  const CR = n => (!n.Created && !isComponent(n) && emit(n, 'create'), n)
+  const CR = n => {
+    if (!n.Created && !isComponent(n)) emit(n, 'create')
+    return n
+  }
 
   const MNT = n => {
     if (!n.Mounted && !isComponent(n)) {
@@ -649,8 +654,9 @@
     if (isObj(options)) {
       if (options.attr) domfn.attr(el, options.attr)
       if (options.css) domfn.css(el, options.css)
-      if (options.className) el.className = options.class
-      else if (options.class) el.className = options.class
+      if (options.class || options.className) {
+        el.className = options.class || options.className
+      }
       if (options.id) el.id = options.id
       if (options.src) el.src = options.src
       if (options.href) el.href = options.href
@@ -660,12 +666,10 @@
       if (options.on) on(el, options.on)
       if (options.lifecycle) {
         const {mount, destroy, create} = options.lifecycle
-        if (create) {
-          once.create(el, () => {
-            el.Created = true
-            create(el)
-          })
-        }
+        once.create(el, () => {
+          el.Created = true
+          if (create) create.call(el, el)
+        })
 
         if (mount) {
           var mountListener = once.mount(el, mount.bind(el, el))
@@ -673,7 +677,7 @@
 
         if (mountListener || destroy) {
           on.destroy(el, () => {
-            if (destroy) destroy(el)
+            if (destroy) destroy.call(el, el)
             if (mountListener) mountListener.on()
           })
         }
@@ -719,15 +723,19 @@
   })
 
   new MutationObserver(muts => {
-    for (const {addedNodes:added, removedNodes:removed, target, attributeName, oldValue} of muts) {
+    for (const {addedNodes: added, removedNodes: removed, target, attributeName, oldValue} of muts) {
       if (attributeName) {
         checkAttr(attributeName, target, oldValue)
       }
-      if (added.length) for (const n of added) {
-        ifComponent(n, (config, tag) => updateComponent(tag, n, 'mount', config), MNT)
+      if (added.length) {
+        for (const n of added) {
+          ifComponent(n, (config, tag) => updateComponent(tag, n, 'mount', config), MNT)
+        }
       }
-      if (removed.length) for (const n of removed) {
-        ifComponent(n, (config, tag) => updateComponent(tag, n, 'destroy', config), DST)
+      if (removed.length) {
+        for (const n of removed) {
+          ifComponent(n, (config, tag) => updateComponent(tag, n, 'destroy', config), DST)
+        }
       }
     }
   })

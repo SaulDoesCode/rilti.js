@@ -80,7 +80,6 @@ input[type="text"]:last-of-type {
 button {
   display: inline-block;
   vertical-align: middle;
-  flex: 1 0 auto;
   outline: none;
   width: auto;
   cursor: pointer;
@@ -103,6 +102,17 @@ button:hover {
 button:active {
   box-shadow: inset 0 1px 4px hsla(0,0%,0%,.2);
   text-shadow: 0 1px 4px hsla(0,0%,0%,.2);
+}
+
+
+.green-btn {
+  border: 1px solid hsl(133,72%,64%);
+  color: hsl(133,72%,64%);
+}
+
+.green-btn:hover {
+  background: hsl(133,72%,64%);
+  color: #fff;
 }
 
 pre {
@@ -156,29 +166,37 @@ todo-list, todo-list > header, todo-item {
 }
 
 todo-list {
-  margin: 10px auto;
-  padding: 10px;
+  margin: 1% auto;
+  padding: 8px;
 }
 
 todo-list > header, todo-item {
   flex-flow: row;
-  justify-content: space-between;
-  width: 90%;
+  flex-wrap: wrap;
+  width: 100%;
   max-width: 500px;
   flex: 1 0 auto;
 }
 
 todo-list > header > * {
   flex: 1 0 auto;
+  height: 42px;
   margin: 2px !important;
 }
 
 todo-list > header > input[type="text"] {
-  padding: 9.5px;
+  padding: 4px;
   border: 1px solid #ccc;
   border-radius: 2px;
   color: hsl(0,0%,33%);
-  font-size: 1.055em;
+  max-width: 79%;
+  min-width: 330px;
+  font-size: 1.05em;
+}
+
+todo-list > header > button {
+  flex: 1 0 auto;
+  max-width: 94px;
 }
 
 todo-list > aside > span {
@@ -225,12 +243,13 @@ todo-list[mode="undone"] > aside > span:nth-child(3) {
 }
 
 todo-item {
+  justify-content: space-between;
   padding: 4px 5px;
   margin: 12px;
   border-radius: 5px 45px 45px 5px;
   max-width: 500px;
   width: 100%;
-  box-shadow: 0 1px 10px hsla(0,0%,0%,.2);
+  box-shadow: 0 1px 10px -1px hsla(0,0%,0%,.2);
   background: #fff;
   transition: all 140ms ease-in;
 }

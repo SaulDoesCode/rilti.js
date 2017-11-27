@@ -1,7 +1,8 @@
 // Please note this rilti extention requires rilti-model.js and localForage.js to work
 
 {
-  const {isObj, isStr, isFunc, isArr, model, notifier, extend, each} = rilti
+  /* global rilti WebSocket btoa localStorage localforage fetch */
+  const {isObj, isArr, model, notifier, extend, each} = rilti
 
   rilti.ws = (loc, conf = {}) => {
     const state = notifier()
@@ -63,7 +64,9 @@
       store.removeItem(key, err => {
         if (err) {
           store.emit.error(key, err)
-          return reject(' an error occured while attempting to delete ' + key)
+          return reject(
+            new Error(' an error occured while attempting to delete ' + key)
+          )
         }
         resolve(key + ' deleted')
         store.emit['delete:' + key]()
@@ -77,10 +80,16 @@
     })
 
     const cache = new Proxy(
-      obj => obj && each(obj, (val, key) => cache[key] = val),
+      obj => obj && each(obj, (val, key) => {
+        cache[key] = val
+      }),
       {
         set (_, key, val) {
-          if (!ready) return store.once.ready(() => cache[key] = val)
+          if (!ready) {
+            return store.once.ready(() => {
+              cache[key] = val
+            })
+          }
 
           store.setItem(key, val, err => {
             if (err) return store.emit.error(key, err)

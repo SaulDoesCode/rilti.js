@@ -1,7 +1,7 @@
 {
-  const {dom,domfn,on,once,model,component,run} = rilti
-  const {div,span,a,aside,article,button,header,input,main,p,b,html} = dom
-  const {attr, attrToggle, css, emit} = domfn
+  /* global localStorage rilti */
+  const {dom, domfn: {attr, emit}, on, model, component} = rilti
+  const {span, aside, button, header, input} = dom
   const tickBox = dom['tick-box']
 
   const strBool = str => {
@@ -11,17 +11,21 @@
 
   component('tick-box', {
     props: {
-      get ticked() { return strBool(attr(this, 'ticked')) },
-      set ticked(val) {
+      get ticked () { return strBool(attr(this, 'ticked')) },
+      set ticked (val) {
         if ((val = strBool(val)) !== this.ticked) {
           attr(this, 'ticked', val)
         }
       }
     },
-    create: el => on.click(el, () => el.ticked = !el.ticked),
+    create (el) {
+      on.click(el, () => {
+        el.ticked = !el.ticked
+      })
+    },
     attr: {
       ticked: {
-        update(el) {
+        update (el) {
           emit(el, 'ticked', el.ticked)
         }
       }
@@ -43,8 +47,8 @@
   todos.on.set(updateStorage)
   todos.on.delete(updateStorage)
 
-  component('todo-list',  {
-    create(el) {
+  component('todo-list', {
+    create (el) {
       const tdMaker = header({render: el})
 
       const todoSubmit = (txt = tdInput.value.trim(), state = false) => {
@@ -65,19 +69,20 @@
           type: 'text'
         },
         on: {
-          keydown({keyCode}) {
+          keydown ({keyCode}) {
             if (keyCode === 13) todoSubmit()
           }
         }
       })
 
-      todos.on.newTodo(() => tdInput.value = '')
+      todos.on.newTodo(() => {
+        tdInput.value = ''
+      })
 
-      const tdSubmitBtn = button({
+      button({
         render: tdMaker,
-        on: {
-          click: () => todoSubmit()
-        }
+        class: 'green-btn',
+        on: {click: todoSubmit}
       },
         'add todo'
       )
@@ -86,17 +91,16 @@
         attr(el, 'mode', mode)
         localStorage.setItem('todo-mode', mode)
       }
+
       setMode(localStorage.getItem('todo-mode') || 'all')()
 
-      const allCount = span({
-        on: { click: setMode('all') }
+      const setModeOnClick = mode => ({
+        on: { click: setMode(mode) }
       })
-      const doneCount = span({
-        on: { click: setMode('done') }
-      })
-      const undoneCount = span({
-        on: { click: setMode('undone') }
-      })
+
+      const allCount = span(setModeOnClick('all'))
+      const doneCount = span(setModeOnClick('done'))
+      const undoneCount = span(setModeOnClick('undone'))
 
       const populateCounts = ({all, done, undone} = todoCount()) => {
         allCount.textContent = `all: ${all}`
@@ -113,28 +117,29 @@
 
   component('todo-item', {
     props: {
-      get state() { return strBool(attr(this, 'state')) },
-      set state(val) {
+      get state () { return strBool(attr(this, 'state')) },
+      set state (val) {
         if ((val = strBool(val)) !== this.state) {
           attr(this, 'state', val)
         }
       },
-      set txt(val)  {
+      set txt (val) {
         if (val !== this.txt) {
           if (this.txt_el) {
-            this.txt_el.textContent = val = (''+val).trim()
+            this.txt_el.textContent = val = ('' + val).trim()
             this.update()
           } else {
-            on.mount(this, () => this.txt = val)
+            on.mount(this, () => {
+              this.txt = val
+            })
           }
         }
       },
-      get txt() {
+      get txt () {
         return this.txt_el ? this.txt_el.textContent.trim() : ''
       }
     },
-    create(el) {
-
+    create (el) {
       el.del = () => {
         el.remove()
         todos.del(el.txt)
@@ -166,14 +171,13 @@
       el.tick_el = tickBox({
         attr: { ticked: el.state },
         on: {
-          ticked() {
+          ticked () {
             el.state = el.tick_el.ticked
           }
         }
       })
-
     },
-    mount(el) {
+    mount (el) {
       el.oldtxt = el.textContent || 'add todo text'
       if (!el.txt) {
         el.txt_el.textContent = el.oldtxt
@@ -182,14 +186,13 @@
       el.append(el.del_el, el.txt_el, el.tick_el)
       el.update()
     },
-    destroy(el) {
+    destroy (el) {
       el.del()
     },
     attr: {
       state: {
-        update(el) { el.update() }
+        update (el) { el.update() }
       }
     }
   })
-
 }
