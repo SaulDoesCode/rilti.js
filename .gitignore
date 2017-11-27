@@ -88,3 +88,11 @@ $RECYCLE.BIN/
 
 # Windows shortcuts
 *.lnk
+
+# Syncthing
+*.tmp
+
+# Other
+lock
+LOCK
+*.out
