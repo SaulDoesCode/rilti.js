@@ -197,6 +197,7 @@ todo-list > header > input[type="text"] {
 todo-list > header > button {
   flex: 1 0 auto;
   max-width: 94px;
+  white-space: nowrap;
 }
 
 todo-list > aside > span {

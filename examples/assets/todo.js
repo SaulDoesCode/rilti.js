@@ -82,7 +82,11 @@
       button({
         render: tdMaker,
         class: 'green-btn',
-        on: {click: todoSubmit}
+        on: {
+          click () {
+            todoSubmit()
+          }
+        }
       },
         'add todo'
       )
