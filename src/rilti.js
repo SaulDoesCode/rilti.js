@@ -57,7 +57,9 @@
   const extend = (host = {}, obj, safe = false, keys = Keys(obj)) => {
     if (keys.length) {
       each(keys, key => {
-        if (!safe || (safe && !(key in host))) Def(host, key, OwnDesc(obj, key))
+        if (!safe || (safe && !(key in host))) {
+          Def(host, key, OwnDesc(obj, key))
+        }
       })
     }
     return host
@@ -394,7 +396,7 @@
     if (!route.active) {
       on.hashchange(root, () => {
         const h = location.hash
-        route.emit(route.hastype(h) ? h : 'default', h)
+        route.emit(route.listeners.has(h) ? h : 'default', h)
       })
       route.active = true
     }
@@ -645,8 +647,12 @@
   }
 
   const asimilateProps = (el, props) => {
-    each(props, (val, prop) => {
-      prop in el ? el[prop] = val : Def(el, prop, OwnDesc(props, prop))
+    each(Keys(props), prop => {
+      if (prop in el) {
+        el[prop] = props[prop]
+      } else {
+        Def(el, prop, OwnDesc(props, prop))
+      }
     })
   }
 

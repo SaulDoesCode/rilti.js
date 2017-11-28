@@ -56,6 +56,8 @@ fs.watch('./src/', onlyOncePerN((type, filename) => {
 
     try {
       minfiyScript(fileLoc, minfileLoc)
-    } catch (e) {}
+    } catch (err) {
+      console.log(`something's fishy: `, err)
+    }
   }
 }))

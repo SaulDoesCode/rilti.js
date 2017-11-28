@@ -82,7 +82,7 @@
         })
       )
 
-      var onWindowResize = on(window, 'resize', () => {
+      var onWindowResize = on.rezise(window, () => {
         const offset = `${element.offsetWidth * 2}`
         css(glareElement, {width: offset, height: offset})
       })
@@ -112,15 +112,18 @@
       // let percentageX = x * 100
       let percentageY = y * 100
 
-      element.style.transform = `perspective(${settings.perspective}px)
-          rotateX(${settings.axis === 'x' ? 0 : tiltY}deg)
-          rotateY(${settings.axis === 'y' ? 0 : tiltX}deg)
-          scale3d(${settings.scale},${settings.scale},${settings.scale})`
+      element.style.transform = `
+        perspective(${settings.perspective}px)
+        rotateX(${settings.axis === 'x' ? 0 : tiltY}deg)
+        rotateY(${settings.axis === 'y' ? 0 : tiltX}deg)
+        scale3d(${settings.scale},${settings.scale},${settings.scale})`
 
-      glare && css(glareElement, {
-        transform: `rotate(${angle}deg) translate(-50%, -50%)`,
-        opacity: `${percentageY * settings['max-glare'] / 100}`
-      })
+      if (glare) {
+        css(glareElement, {
+          transform: `rotate(${angle}deg) translate(-50%, -50%)`,
+          opacity: `${percentageY * settings['max-glare'] / 100}`
+        })
+      }
 
       updateCall = NULL
     }
@@ -153,10 +156,12 @@
           element.style.transform = `perspective(${settings.perspective}px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)`
         })
 
-        glare && css(glareElement, {
-          transform: 'rotate(180deg) translate(-50%, -50%)',
-          opacity: '0'
-        })
+        if (glare) {
+          css(glareElement, {
+            transform: 'rotate(180deg) translate(-50%, -50%)',
+            opacity: '0'
+          })
+        }
       }
     })
 
@@ -172,6 +177,7 @@
       delete element.tiltOff
       return element
     }
+
     return element
   }
 

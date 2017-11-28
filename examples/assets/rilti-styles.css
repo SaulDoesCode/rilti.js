@@ -12,7 +12,7 @@ html, body {
 
 body {
   font-family: Roboto, Nunito, Helvetica, sans-serif;
-  color: hsl(0,0%,35%);
+  color: hsl(0,0%,36%);
   background: hsl(0,0%,98%);
 }
 
@@ -188,7 +188,7 @@ todo-list > header > input[type="text"] {
   padding: 4px;
   border: 1px solid #ccc;
   border-radius: 2px;
-  color: hsl(0,0%,33%);
+  color: hsl(0,0%,35%);
   max-width: 79%;
   min-width: 330px;
   font-size: 1.05em;
@@ -211,25 +211,14 @@ todo-list > aside > span {
   user-select: none;
 }
 
-todo-list[mode="all"] > aside > span:nth-child(1) {
-  border: 2px dashed hsl(133,72%,64%);
-}
-todo-list[mode="done"] > aside > span:nth-child(2) {
-  border: 2px dashed hsl(133,72%,64%);
-}
+todo-list[mode="all"] > aside > span:nth-child(1),
+todo-list[mode="done"] > aside > span:nth-child(2),
 todo-list[mode="undone"] > aside > span:nth-child(3) {
-  border: 2px dashed hsl(133,72%,64%);
+  border: 1px dashed hsl(133,72%,64%);
+  text-shadow: 0 1px 3px hsla(0,0%,0%,.15);
 }
 
-todo-list[mode="done"] todo-item[state="false"] {
-  pointer-events: none;
-  transform: scale(0);
-  height: 0;
-  margin: 0;
-  padding: 0;
-  opacity: 0;
-}
-
+todo-list[mode="done"] todo-item[state="false"],
 todo-list[mode="undone"] todo-item[state="true"] {
   pointer-events: none;
   transform: scale(0);
@@ -237,10 +226,6 @@ todo-list[mode="undone"] todo-item[state="true"] {
   margin: 0;
   padding: 0;
   opacity: 0;
-}
-
-todo-list[mode="undone"] > aside > span:nth-child(3) {
-  border: 2px dashed hsl(133,72%,64%);
 }
 
 todo-item {
@@ -286,8 +271,10 @@ todo-item > .txt {
 
 todo-item[state="false"] > .txt {
   text-decoration: none !important;
+  color: inherit !important;
 }
 
 todo-item[state] > .txt {
   text-decoration: line-through;
+  color: hsl(0,0%,60%);
 }
