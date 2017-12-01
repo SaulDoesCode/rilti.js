@@ -150,51 +150,6 @@
     parent === descendant || Boolean(parent.compareDocumentPosition(descendant) & 16)
   )
 
-  const EventManager = curry((once, target, type, handle, options = false) => {
-    if (isStr(target)) target = query(target)
-    if (!target.addEventListener) return err('EventManager: target invalid')
-    if (isObj(type)) return each(type, (fn, name) => EventManager(once, target, name, fn, options))
-    if (!isFunc(handle)) return EventManager.bind(undef, once, target, type)
-
-    handle = handle.bind(target)
-
-    const handler = evt => {
-      handle(evt, target)
-      if (once) remove()
-    }
-
-    const remove = () => {
-      target.removeEventListener(type, handler)
-      return manager
-    }
-
-    const add = mode => {
-      once = !!mode
-      target.addEventListener(type, handler, options)
-      return manager
-    }
-
-    const manager = {
-      handler,
-      type,
-      reseat (newTarget, shouldRemoveOriginal) {
-        if (shouldRemoveOriginal) remove()
-        return EventManager(once, newTarget, type, handle, options)
-      },
-      on: add,
-      once: () => add(true),
-      off: () => remove()
-    }
-
-    return add(once)
-  }, 3)
-
-  const eventListenerTypeProxy = {
-    get: (fn, type) => (target, handle, options = false) => fn(target, type, handle, options)
-  }
-  const once = $proxy(EventManager(true), eventListenerTypeProxy)
-  const on = $proxy(EventManager(false), eventListenerTypeProxy)
-
   const listMap = (store = $map(), lm = {
     get: name => store.get(name),
     set (name, val) {
@@ -225,25 +180,6 @@
   const notifier = (host = {}) => {
     const listeners = listMap()
 
-    const armln = (name, fn) => {
-      fn.off = () => listeners.del(name, fn)
-      fn.once = () => {
-        fn.off()
-        return once(name, fn)
-      }
-      fn.on = () => {
-        fn.off()
-        return on(name, fn)
-      }
-      return fn
-    }
-
-    const listenMulti = (obj, fn) => {
-      for (let key in obj) {
-        obj[key] = fn(obj[key])
-      }
-    }
-
     const on = infinifyFN((name, fn) => {
       if (isObj(name)) return listenMulti(name, on)
       listeners.set(name, fn)
@@ -261,6 +197,28 @@
     })
 
     const listen = (justonce, name, fn) => (justonce ? once : on)(name, fn)
+
+    const armln = (name, fn) => {
+      fn.off = () => {
+        listeners.del(name, fn)
+        return fn
+      }
+      fn.once = () => {
+        fn.off()
+        return once(name, fn)
+      }
+      fn.on = () => {
+        fn.off()
+        return on(name, fn)
+      }
+      return fn
+    }
+
+    const listenMulti = (obj, fn) => {
+      for (const key in obj) {
+        obj[key] = fn(obj[key])
+      }
+    }
 
     const emit = infinifyFN((name, ...vals) => {
       listeners.each(name, ln => ln(...vals))
@@ -373,7 +331,20 @@
     const toJSON = () => map2json(store)
 
     return $proxy(
-        extend(mut, extend(mitter, {has, store, sync, syncs, del, each, toJSON, each: fn => store.forEach(fn)})),
+      extend(mut,
+        extend(
+          mitter,
+          {
+            each: store.forEach.bind(store),
+            has,
+            store,
+            sync,
+            syncs,
+            del,
+            toJSON
+          }
+        )
+      ),
       {
         get (o, key) {
           if (Reflect.has(o, key)) return Reflect.get(o, key)
@@ -391,6 +362,51 @@
       }
     )
   }
+
+  const EventManager = curry((once, target, type, handle, options = false) => {
+    if (isStr(target)) target = query(target)
+    if (!target.addEventListener) return err('EventManager: target invalid')
+    if (isObj(type)) return each(type, (fn, name) => EventManager(once, target, name, fn, options))
+    if (!isFunc(handle)) return EventManager.bind(undef, once, target, type)
+
+    handle = handle.bind(target)
+
+    const handler = evt => {
+      handle(evt, target)
+      if (once) remove()
+    }
+
+    const remove = () => {
+      target.removeEventListener(type, handler)
+      return manager
+    }
+
+    const add = mode => {
+      once = !!mode
+      target.addEventListener(type, handler, options)
+      return manager
+    }
+
+    const manager = {
+      handler,
+      type,
+      reseat (newTarget, shouldRemoveOriginal) {
+        if (shouldRemoveOriginal) remove()
+        return EventManager(once, newTarget, type, handle, options)
+      },
+      on: add,
+      once: () => add(true),
+      off: () => remove()
+    }
+
+    return add(once)
+  }, 3)
+
+  const eventListenerTypeProxy = {
+    get: (fn, type) => (target, handle, options = false) => fn(target, type, handle, options)
+  }
+  const once = $proxy(EventManager(true), eventListenerTypeProxy)
+  const on = $proxy(EventManager(false), eventListenerTypeProxy)
 
   const route = notifier((hash, fn) => {
     if (!route.active) {
