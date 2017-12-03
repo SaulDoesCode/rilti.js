@@ -750,17 +750,17 @@
   })
 
   new MutationObserver(muts => {
-    for (const {addedNodes: added, removedNodes: removed, target, attributeName, oldValue} of muts) {
+    for (const {addedNodes, removedNodes, target, attributeName, oldValue} of muts) {
       if (attributeName) {
         checkAttr(attributeName, target, oldValue)
       }
-      if (added.length) {
-        for (const n of added) {
+      if (addedNodes.length) {
+        for (const n of addedNodes) {
           ifComponent(n, (config, tag) => updateComponent(tag, n, 'mount', config), MNT)
         }
       }
-      if (removed.length) {
-        for (const n of removed) {
+      if (removedNodes.length) {
+        for (const n of removedNodes) {
           ifComponent(n, (config, tag) => updateComponent(tag, n, 'destroy', config), DST)
         }
       }

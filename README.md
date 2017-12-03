@@ -93,12 +93,57 @@ otherwise such as with has/get(this/that) type functions
 [rilti.js todomvc {slightly outdated, will fix}](https://github.com/SaulDoesCode/rilti.js-todomvc)
 [grimstack.io blog site](https://grimstack.io)    
 
+
+#### Create Elements with any tag
+```javascript
+// create elements with any tag
+// dom['any-arbitrary-tag']( =options, ...children) -> Node/Element
+
+dom['random-tag']({
+  // render to dom using selectors or nodes
+  render: '.main > header',
+  // add attributes
+  attr: {
+    contenteditable: 'true',
+  },
+  // attach properties to the element
+  props: {
+    // getter/setters work too
+    oldtxt: '',
+    get txt() { return this.innerText.trim() },
+    set txt(val) { this.innerText = val.trim() }
+  },
+  // listen for events
+  on: {
+    click(event, element) {
+      element.oldtxt = element.txt
+      element.txt = 'Sure you want to remove random-tag?'
+    },
+    mouseout(event, element) {
+      element.txt = element.oldtxt
+    }
+  },
+  // listen for events just once
+  once: {
+    dblclick(event, element) {
+      element.remove()
+    }
+  },
+  lifecycle: {
+    // manage the element's lifecycle
+    create () { ... },
+    mount () { ... },
+    destroy () { ... }
+  }
+})
+```
+
 #### basic practical examples
 ```js
 
-const {dom, run, render} = rilti
+const {dom, domfn, run, render} = rilti
+const {attr, css, Class, hasClass} = dom
 const {div, nav} = dom
-const {Class, hasClass, attr, css} = domfn
 
 const goHome = () => location.replace("https://mysite.xyz/#home")
 
@@ -113,15 +158,15 @@ const navbar = nav({
     render: 'body',
     class: 'navbar',
     css: { color : '#fff' },
-    attr: { id : 'mainbar' },
-    toggle () {
-      // this toggles .hidden on the navbar
-      Class(navbar, 'hidden', !this.toggled)
-      // it would still toggle without !this.toggled
-      // becase state = !hasClass by default
-    },
-    get toggled() {
-      return hasClass(navbar, 'hidden')
+    props: {
+      get toggle() {
+        return hasClass(this, 'hidden')
+      },
+      set toggle(state) {
+        // This adds or removes the .hidden class on the element
+        // Class(element, 'className', state = !hasClass(element))
+        Class(this, 'hidden', state)
+      }
     }
   },    
   'My Company Title',
@@ -130,10 +175,16 @@ const navbar = nav({
 
 run(() => {
   // run post-dom-load code here
-  navbar.toggle()
+  navbar.toggle = true
   console.log(navbar.toggled)
 })
 
+
+```
+
+#### Directives / Custom Attributes
+
+```javascript
 // observe attributes with vue-like directives
 rilti.directive('custom-attr', {
   init (element, value) { ... },
@@ -142,20 +193,9 @@ rilti.directive('custom-attr', {
 })
 // revoke a directive
 rilti.directives.delete('custom-attr')
-
-// create elements with any tag
-dom['random-tag']({
-  render: ".main > header", // render to dom using selectors or nodes
-  lifecycle: {
-    // manage the element's lifecycle
-    create () { ... },
-    mount () { ... },
-    destroy () { ... }
-  }
-})
 ```
 
-#### Web Components / Custom Elements
+#### Web Components / Custom Elements, no polyfills needed
 ```js
 const {component, domfn: {css}, on} = rilti
 
@@ -265,8 +305,8 @@ component('tick-box', {
 ```
 
 #### weight
-* unminified : > 30kb
-* minified : > 12kb
+* unminified : > 26kb
+* minified : > 11kb
 * minified && compressed : > 6kb
 
 #### licence = MIT

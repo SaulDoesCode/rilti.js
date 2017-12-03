@@ -1,13 +1,11 @@
-{
-  /* global localStorage rilti */
+{ /* global localStorage rilti */
   const {dom, domfn: {attr, emit}, on, model, component} = rilti
   const {span, aside, button, header, input} = dom
   const tickBox = dom['tick-box']
 
-  const strBool = str => {
-    if (str === true || str === false) return str
-    return str !== 'false'
-  }
+  const strBool = str => (
+    str === true || str === false ? str : str !== 'false'
+  )
 
   component('tick-box', {
     props: {
@@ -19,15 +17,11 @@
       }
     },
     create (el) {
-      on.click(el, () => {
-        el.ticked = !el.ticked
-      })
+      on.click(el, () => { el.ticked = !el.ticked })
     },
     attr: {
       ticked: {
-        update (el) {
-          emit(el, 'ticked', el.ticked)
-        }
+        update (el) { emit(el, 'ticked', el.ticked) }
       }
     }
   })
@@ -65,9 +59,7 @@
 
       const tdInput = input({
         render: tdMaker,
-        attr: {
-          type: 'text'
-        },
+        attr: { type: 'text' },
         on: {
           keydown ({keyCode}) {
             if (keyCode === 13) todoSubmit()
@@ -83,25 +75,16 @@
         render: tdMaker,
         class: 'green-btn',
         on: {
-          click () {
-            todoSubmit()
-          }
+          click () { todoSubmit() }
         }
-      },
-        'add todo'
-      )
+      }, 'add todo')
 
       const setMode = mode => () => {
         attr(el, 'mode', mode)
         localStorage.setItem('todo-mode', mode)
       }
 
-      setMode(localStorage.getItem('todo-mode') || 'all')()
-
-      const setModeOnClick = mode => ({
-        on: { click: setMode(mode) }
-      })
-
+      const setModeOnClick = mode => ({ on: { click: setMode(mode) } })
       const allCount = span(setModeOnClick('all'))
       const doneCount = span(setModeOnClick('done'))
       const undoneCount = span(setModeOnClick('undone'))
@@ -112,6 +95,7 @@
         undoneCount.textContent = `undone: ${undone}`
       }
 
+      setMode(localStorage.getItem('todo-mode') || 'all')()
       populateCounts()
       todos.on.update(populateCounts)
 
@@ -133,9 +117,7 @@
             this.txt_el.textContent = val = ('' + val).trim()
             this.update()
           } else {
-            on.mount(this, () => {
-              this.txt = val
-            })
+            on.mount(this, () => { this.txt = val })
           }
         }
       },
