@@ -806,6 +806,7 @@
     isNum,
     isInt,
     isIterator,
+    isRenderable,
     isObj,
     isArr,
     isArrlike,
