@@ -125,21 +125,21 @@ these fucntions will all return the node passed as the first argument unless spe
 otherwise such as with has/get(this/that) type functions
 
 ```js
-  const {
-    replace,
-    css, // (node, stylePropery, val) || (node, { styleProp:'4em' }) set element.style properties
-    Class, // (node, class, =state) add/remove or toggle classes
-    hasClass, // (node, class) -> bool
-    attr, // (node, attrNameOrObj, =value): attr(el, 'href', '/') or attr(el, 'href') -> '/'
-    rmAttr, // (node, attrName) removes attributes
-    hasAttr, // hasAttr(node, attrName) -> bool
-    getAttr, // getAttr(node, attrName) -> string
-    setAttr, // setAttr(node, attrName, value)
-    attrToggle, // (node, attrName, state = !hasAttr, =val = getAttr(name) || '')
-    emit, // (node, {type string/Event/CustomEvent}) dispatchEvents on node
-    append, prepend, appendTo, prependTo, // (node, selectorOrNode)
-    remove // (node, =afterMS) // remove node or remove after timeout
-  } = rilti.domfn
+const {
+  replace,
+  css, // (node, stylePropery, val) || (node, { styleProp:'4em' }) set element.style properties
+  Class, // (node, class, =state) add/remove or toggle classes
+  hasClass, // (node, class) -> bool
+  attr, // (node, attrNameOrObj, =value): attr(el, 'href', '/') or attr(el, 'href') -> '/'
+  rmAttr, // (node, attrName) removes attributes
+  hasAttr, // hasAttr(node, attrName) -> bool
+  getAttr, // getAttr(node, attrName) -> string
+  setAttr, // setAttr(node, attrName, value)
+  attrToggle, // (node, attrName, state = !hasAttr, =val = getAttr(name) || '')
+  emit, // (node, {type string/Event/CustomEvent}) dispatchEvents on node
+  append, prepend, appendTo, prependTo, // (node, selectorOrNode)
+  remove // (node, =afterMS) // remove node or remove after timeout
+} = rilti.domfn
 ```
 #### examples of rilti used to build things
 [rilti.js todomvc {slightly outdated, will fix}](https://github.com/SaulDoesCode/rilti.js-todomvc)      
@@ -167,22 +167,20 @@ dom['random-tag']({
   },
   // listen for events
   on: {
-    click(event, element) {
-      element.oldtxt = element.txt
-      element.txt = 'Sure you want to remove random-tag?'
+    click(evt, el) {
+      el.oldtxt = el.txt
+      el.txt = 'Sure you want to remove random-tag?'
     },
-    mouseout(event, element) {
-      element.txt = element.oldtxt
+    mouseout(evt, el) {
+      el.txt = el.oldtxt
     }
   },
   // listen for events just once
   once: {
-    dblclick(event, element) {
-      element.remove()
-    }
+    dblclick : (evt, el) => el.remove()
   },
+  // manage the element's lifecycle
   lifecycle: {
-    // manage the element's lifecycle
     create () { ... },
     mount () { ... },
     destroy () { ... }
@@ -236,16 +234,18 @@ component('tick-box', {
       element.ticked = !element.ticked
     })
   },
-  mount (element) {
+  mount (el) {
     console.log('tick-box mounted to document')
   },
-  destroy (element) {
+  destroy (el) {
    console.log('tick-box is no more :(')
   },
   attr: {
     disabled: {
-      init (oldValue, value, element) {
-        css(element, 'cursor', value === 'true' ? 'not-allowed' : '')
+      init (el, val) {
+        css(el, {
+          cursor: val === 'true' ? 'not-allowed' : 'pointer'
+        })
       }
     }
   }
