@@ -220,19 +220,17 @@ component('tick-box', {
       }
     }
   },
-  create () {
-    css(element, {
+  create (el) {
+    css(el, {
       display: 'block',
       width: '20px',
       height: '20px',
       margin: '5px auto',
       cursor: 'pointer',
-      backgroundColor: element.ticked ? 'dimgrey' : 'white',
-      border: `1px solid ${element.ticked ? 'white' : 'dimgrey'}`
+      backgroundColor: el.ticked ? 'dimgrey' : 'white',
+      border: `1px solid ${el.ticked ? 'white' : 'dimgrey'}`
     })
-    on.click(el, () => {
-      element.ticked = !element.ticked
-    })
+    on.click(el, () => { el.ticked = !el.ticked })
   },
   mount (el) {
     console.log('tick-box mounted to document')
