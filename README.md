@@ -130,14 +130,14 @@ otherwise such as with has/get(this/that) type functions
     css, // (node, stylePropery, val) || (node, { styleProp:'4em' }) set element.style properties
     Class, // (node, class, =state) add/remove or toggle classes
     hasClass, // (node, class) -> bool
-    attr, // (node, attrNameOrObj, =value) set attrs with objects or string pairs or get attr('type') // -> val
+    attr, // (node, attrNameOrObj, =value): attr(el, 'href', '/') or attr(el, 'href') -> '/'
     rmAttr, // (node, attrName) removes attributes
     hasAttr, // hasAttr(node, attrName) -> bool
     getAttr, // getAttr(node, attrName) -> string
     setAttr, // setAttr(node, attrName, value)
-    attrToggle, // (node, name, state = !node.hasAttribute(name), val = node.getAttribute(name) || '') toggle attrs
+    attrToggle, // (node, attrName, state = !hasAttr, =val = getAttr(name) || '')
     emit, // (node, {type string/Event/CustomEvent}) dispatchEvents on node
-    append, prepend, appendTo, prependTo, // (node, {other string/node})
+    append, prepend, appendTo, prependTo, // (node, selectorOrNode)
     remove // (node, =afterMS) // remove node or remove after timeout
   } = rilti.domfn
 ```
