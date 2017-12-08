@@ -49,7 +49,7 @@ Feel free to fork or raise issues. Constructive criticism is welcome
 | ``.flatten(arraylike)`` | flattens multidimensional arraylike objects |
 | ``.notifier(=obj)`` | extendable event system /pub sub pattern |
 | ``.DOMcontains(node, =parentNode)`` | determines whether or not the dom or other node contains a specific node |
-| ``.component(tag, ={create, mount, destroy, attr, props, methods})`` | define custom elements, no polyfills needed |
+| ``.component(tag, {create, mount, destroy, attr, props, methods})`` | define custom elements, no polyfills needed |
 
 ##### rilti also exports a couple of useful type testing functions
 usage : ``rilti.isX( {any} ) // -> boolean``
@@ -71,8 +71,7 @@ Stop writing html (yes JSX too)!
 Just generate everything, it's so simple.
 
 ```js
-  const {dom, domfn: {Class}} = rilti
-  const {a, nav, span, h1} = dom
+  const {dom: {a, nav, span, h1}} = rilti
 
   const navbar = ({title, render, buttons}) => nav({
     render,
