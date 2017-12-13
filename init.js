@@ -1,6 +1,7 @@
 const fs = require('fs')
 const babel = require('babel-core')
 const childProc = require('child_process')
+const zlib = require('zlib')
 
 const exec = cmd => {
   return new Promise((resolve, reject) => {
@@ -31,21 +32,25 @@ const minfiyScript = (filename, minfile) => {
     try {
       const srcSize = formatBytes(fs.statSync(filename).size)
       const distSize = formatBytes(fs.statSync(minfile).size)
-      console.log(`unminified: ${filename} ${srcSize} \tminified: ${minfile} ${distSize}`)
+      const gzipSize = formatBytes(Buffer.byteLength(zlib.gzipSync(code)))
+      console.log(`
+  | raw: ${filename} ${srcSize}
+  | min: ${minfile} ${distSize}
+  | min+gz: ${gzipSize}
+   _______________________________
+      `)
     } catch (e) {
       console.log('there was an error with the minification of ' + filename)
     }
   })
 }
 
-const onlyOncePerN = (fn, n = 1000, canRun = true) => (...args) => {
+const onlyOncePerN = (fn, n = 800, canRun = true) => (...args) => {
   if (canRun) {
     fn(...args)
     canRun = false
   }
-  setTimeout(() => {
-    canRun = true
-  }, n)
+  setTimeout(() => {canRun = true}, n)
 }
 
 fs.watch('./src/', onlyOncePerN((type, filename) => {
@@ -53,7 +58,7 @@ fs.watch('./src/', onlyOncePerN((type, filename) => {
     const minname = filename.split('.').map(e => e === 'js' ? 'min.js' : e).join('.')
     const minfileLoc = `./dist/${minname}`
     const fileLoc = `./src/${filename}`
-
+    console.log(fileLoc, ' changed');
     try {
       minfiyScript(fileLoc, minfileLoc)
     } catch (err) {
@@ -61,3 +66,7 @@ fs.watch('./src/', onlyOncePerN((type, filename) => {
     }
   }
 }))
+
+console.log(`
+  Listening for file changes...
+`)

@@ -23,16 +23,16 @@
     next = (...args) => (...more) => ((more.length + args.length) >= arity ? fn : next)(...args.concat(more))
   ) => next() // love this
 
-  const some = (...cases) => match => cases.some(Case => match === Case || (isFunc(Case) && Case(match)))
-  const arrMeth = (meth, val, ...args) => Array.prototype[meth].apply(val, args)
-  const arrEach = curry(arrMeth, 2)('forEach')
   const not = fn => (...args) => !fn(...args)
-  // all the is this that stuff
+  // all the is this that related stuff
+  const {isArray: isArr, prototype: ArrProto} = Array
+  const isEqual = curry((match, Case) => match === Case || (isFunc(Case) && Case(match)))
+  const matchCases = method => (...cases) => match => cases[method](isEqual(match))
+  const some = matchCases('some')
+  const all = matchCases('every')
   const isFunc = o => o && o instanceof Function
   const isObj = o => o && o.constructor === Object
   const isPromise = o => o && o.constructor === Promise
-  const isArr = Array.isArray
-  const isArrlike = o => o && !isFunc(o) && isNum(o.length)
   const isBool = o => o === true || o === false
   const isDef = o => o !== undef && o !== NULL
   const isNil = o => o === undef || o === NULL
@@ -42,14 +42,14 @@
   const isPrimitive = some(isStr, isBool, isNum)
   const isIterator = o => o && o.toString().includes('Iterator')
   const isInt = o => isNum(o) && o % 1 === 0
+  const isArrlike = o => !isFunc(o) && isInt(o.length)
   const isEmpty = o => !o || !((isObj(o) ? Keys(o) : isNum(o.length) && o).length || o.size)
   const isEl = o => o && o instanceof Element
   const isNode = o => o && o instanceof Node
-  const isNodeList = o => o && (o instanceof NodeList || (isArrlike(o) && arrMeth('every', o, isNode)))
+  const isNodeList = o => o && (o instanceof NodeList || (isArrlike(o) && ArrProto.every.call(o, isNode)))
   const isMap = o => o && o instanceof Map
   const isSet = o => o && o instanceof Set
   const isInput = o => isEl(o) && 'INPUT TEXTAREA'.includes(o.tagName)
-  const isEq = curry((o1, ...vals) => vals.every(isFunc(o1) ? i => o1(i) : i => o1 === i), 2)
   const isRenderable = some(isNode, isArrlike, isPrimitive)
 
   const err = console.error.bind(console)
@@ -76,10 +76,7 @@
   const timeout = (fn, ms = 1000, current) => assign(fn, {
     ms,
     start () {
-      current = setTimeout(() => {
-        fn()
-        fn.ran = true
-      }, ms)
+      current = setTimeout(() => fn(), fn.ms)
       return fn
     },
     stop (run = false) {
@@ -105,7 +102,7 @@
   const each = (iterable, func) => {
     if (!isNil(iterable)) {
       if (iterable.forEach) iterable.forEach(func)
-      else if (isArrlike(iterable)) arrEach(iterable, func)
+      else if (isArrlike(iterable)) ArrProto.forEach.call(iterable, func)
       else if (isObj(iterable)) {
         for (let key in iterable) {
           func(iterable[key], key, iterable)
@@ -120,19 +117,8 @@
     return iterable
   }
 
-  const flatten = arr => {
-    if (isArrlike(arr)) {
-      return arrMeth(
-        'reduce',
-        arr,
-        (flat, toFlatten) => (
-          flat.concat(isArr(toFlatten) ? flatten(toFlatten) : toFlatten)
-        ),
-        []
-      )
-    }
-    return [arr]
-  }
+  const flatReduceFn = (arr, toFlatten) => arr.concat(isArr(toFlatten) ? flatten(toFlatten) : toFlatten)
+  const flatten = arr => isArrlike(arr) ? ArrProto.reduce.call(arr, flatReduceFn, []) : [arr]
 
   const compose = (...fns) => fns.reduce((f, g) => (...args) => f(g(...args)))
 
@@ -460,7 +446,7 @@
         each(styles, (p, key) => {
           node.style[key] = p
         })
-      } else if (isEq(isStr, styles, prop)) {
+      } else if(isStr(prop)) {
         node.style[styles] = prop
       }
       return node
@@ -605,7 +591,6 @@
 
   const checkAttr = (name, el, oldValue) => {
     if (directives.has(name)) return handleAttribute(name, el, directives.get(name), oldValue)
-
     ifComponent(el, config => {
       if (config.attr && config.attr[name]) {
         handleAttribute(name, el, config.attr[name], oldValue)
@@ -691,8 +676,8 @@
       if (options.methods) extend(el, options.methods)
       if (options.once) once(el, options.once)
       if (options.on) on(el, options.on)
-      if (options.lifecycle) {
-        const {mount, destroy, create} = options.lifecycle
+      if (options.lifecycle || options.cycle) {
+        const {mount, destroy, create} = options.lifecycle || options.cycle
         once.create(el, () => {
           el.Created = true
           if (create) create.call(el, el)
@@ -770,6 +755,7 @@
 
   // I'm really sorry but I don't believe in module loaders, besides who calls their library rilti?
   root.rilti = {
+    all,
     some,
     curry,
     compose,
@@ -812,7 +798,7 @@
     isArrlike,
     isEmpty,
     isEl,
-    isEq,
+    isEqual,
     isNode,
     isNodeList,
     isInput,
