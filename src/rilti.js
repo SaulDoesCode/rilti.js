@@ -49,6 +49,7 @@
   const isNodeList = o => o && (o instanceof NodeList || (isArrlike(o) && ArrProto.every.call(o, isNode)))
   const isMap = o => o && o instanceof Map
   const isSet = o => o && o instanceof Set
+  const isRegExp = o => o && o instanceof RegExp
   const isInput = o => isEl(o) && 'INPUT TEXTAREA'.includes(o.tagName)
   const isRenderable = some(isNode, isArrlike, isPrimitive)
 
@@ -104,7 +105,7 @@
       if (iterable.forEach) iterable.forEach(func)
       else if (isArrlike(iterable)) ArrProto.forEach.call(iterable, func)
       else if (isObj(iterable)) {
-        for (let key in iterable) {
+        for (const key in iterable) {
           func(iterable[key], key, iterable)
         }
       } else if (isInt(iterable)) yieldloop(iterable, func)
@@ -147,8 +148,8 @@
       return lm
     },
     has (name, val) {
-      const nameExists = store.has(name)
-      return val === undefined || !nameExists ? nameExists : store.get(name).has(val)
+      const exists = store.has(name)
+      return val === undefined ? exists : exists && store.get(name).has(val)
     },
     each (name, fn) {
       if (lm.has(name)) store.get(name).forEach(fn)
@@ -262,9 +263,7 @@
     const syncs = $map()
     const sync = (obj, key, prop = key) => {
       if (!syncs.has(obj)) syncs.set(obj, $map())
-      syncs.get(obj).set(prop, on('set:' + prop, val => {
-        obj[key] = val
-      }))
+      syncs.get(obj).set(prop, on('set:' + prop, val => {obj[key] = val}))
       if (has(prop)) obj[key] = mut(prop)
       return obj
     }
@@ -281,14 +280,12 @@
       return obj
     }
 
-    const Async = $proxy((key, fn) => {
-      has(key) ? fn(store.get(key)) : once('set:' + key, fn)
-    }, {
+    const Async = $proxy((key, fn) => has(key) ? fn(store.get(key)) : once('set:' + key, fn), {
       get: (_, key) => $promise(resolve => {
         has(key) ? resolve(store.get(key)) : once('set:' + key, resolve)
       }),
       set (_, key, val) {
-        val.then(mut.bind(null, key))
+        val.then(mut.bind(undef, key))
       }
     })
 
@@ -301,12 +298,12 @@
     }
 
     const Validation = $proxy((key, validator) => {
-      if (validator === undefined) return validateProp(key)
-      if (validator instanceof RegExp) {
+      if (isNil(validator)) return validateProp(key)
+      if (isRegExp(validator)) {
         const regexp = validator
-        validator = val => typeof val === 'string' && regexp.test(val)
+        validator = val => isStr(val) && regexp.test(val)
       }
-      if (validator instanceof Function) {
+      if (isFunc(validator)) {
         validators.set(key, validator)
       }
     }, {
@@ -601,7 +598,7 @@
   const directive = (name, stages) => {
     directives.set(name, stages)
     run(() => {
-      queryEach(`[${name}]`, checkAttr.bind(NULL, name))
+      queryEach(`[${name}]`, checkAttr.bind(undef, name))
     })
   }
 
@@ -694,11 +691,11 @@
           })
         }
       }
-      if (options.run) run(options.run.bind(el, el))
-      const {renderBefore, renderAfter, render: rendr} = options
+      const {renderBefore, renderAfter, render: rendr, run: rn} = options
       if (renderBefore) render(el, renderBefore, 'before')
       else if (renderAfter) render(el, renderAfter, 'after')
       else if (rendr) render(el, rendr)
+      if (rn) run(rn.bind(el, el))
     }
 
     return ifComponent(
@@ -730,7 +727,7 @@
     }),
     {create, query, queryAll, queryEach, html, text, frag}
   ), {
-    get: (d, key) => key in d ? d[key] : create.bind(NULL, key), // get the d
+    get: (d, key) => key in d ? d[key] : create.bind(undef, key), // get the d
     set: (d, key, val) => (d[key] = val)
   })
 
@@ -793,6 +790,7 @@
     isInt,
     isIterator,
     isRenderable,
+    isRegExp,
     isObj,
     isArr,
     isArrlike,
