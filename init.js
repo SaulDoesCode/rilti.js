@@ -11,11 +11,11 @@ const exec = cmd => {
   })
 }
 
-const formatBytes = (bytes, decimals) => {
+const formatBytes = (bytes, decimals = 2) => {
   if (bytes === 0) return '0 Bytes'
   const k = 1000
   const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return (bytes / Math.pow(k, i)).toPrecision(decimals + 1 || 3) + ' ' + 'Bytes,KB,MB,GB,TB,PB,EB,ZB,YB'.split(',')[i]
+  return (bytes / Math.pow(k, i)).toPrecision(decimals + 1) + ' ' + 'Bytes,KB,MB,GB,TB,PB,EB,ZB,YB'.split(',')[i]
 }
 
 const minfiyScript = (filename, minfile) => {
@@ -31,11 +31,11 @@ const minfiyScript = (filename, minfile) => {
     if (err) throw err
     try {
       const srcSize = formatBytes(fs.statSync(filename).size)
-      const distSize = formatBytes(fs.statSync(minfile).size)
+      const minSize = formatBytes(fs.statSync(minfile).size)
       const gzipSize = formatBytes(Buffer.byteLength(zlib.gzipSync(code)))
       console.log(`
   | raw: ${filename} ${srcSize}
-  | min: ${minfile} ${distSize}
+  | min: ${minfile} ${minSize}
   | min+gz: ${gzipSize}
    _______________________________
       `)

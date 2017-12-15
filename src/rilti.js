@@ -144,7 +144,7 @@
       return lm
     },
     del (name, val) {
-      if (store.has(name) && store.get(name).delete(val).size < 1) store.delete(name)
+      store.has(name) && store.get(name).delete(val).size < 1 && store.delete(name)
       return lm
     },
     has (name, val) {
@@ -263,7 +263,7 @@
     const syncs = $map()
     const sync = (obj, key, prop = key) => {
       if (!syncs.has(obj)) syncs.set(obj, $map())
-      syncs.get(obj).set(prop, on('set:' + prop, val => {obj[key] = val}))
+      syncs.get(obj).set(prop, on('set:' + prop, val => { obj[key] = val }))
       if (has(prop)) obj[key] = mut(prop)
       return obj
     }
@@ -443,7 +443,7 @@
         each(styles, (p, key) => {
           node.style[key] = p
         })
-      } else if(isStr(prop)) {
+      } else if (isStr(prop)) {
         node.style[styles] = prop
       }
       return node

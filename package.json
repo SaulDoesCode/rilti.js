@@ -20,11 +20,26 @@
   "bugs": {
     "url": "https://github.com/sauldoescode/rilti.js/issues"
   },
+  "scripts": {
+    "standard": "standard"
+  },
+  "standard": {
+    "ignore": [
+      "./dist/",
+      "./examples/",
+      "./examples/assets/",
+      "*.min.js",
+      "init.js",
+      "prism.js"
+    ]
+  },
   "homepage": "https://github.com/sauldoescode/rilti.js#readme",
   "devDependencies": {
     "babel-cli": "^6.26.0",
     "babel-core": "^6.26.0",
+    "babel-eslint": "^8.0.3",
     "babel-minify": "^0.2.0",
-    "babel-preset-minify": "^0.2.0"
+    "babel-preset-minify": "^0.2.0",
+    "standard": "^10.0.3"
   }
 }
