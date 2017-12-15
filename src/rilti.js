@@ -152,7 +152,7 @@
       return val === undefined ? exists : exists && store.get(name).has(val)
     },
     each (name, fn) {
-      if (lm.has(name)) store.get(name).forEach(fn)
+      store.has(name) && store.get(name).forEach(fn)
       return lm
     }
   }) => lm
