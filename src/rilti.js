@@ -148,8 +148,8 @@
       return lm
     },
     has (name, val) {
-      const exists = store.has(name)
-      return val === undefined ? exists : exists && store.get(name).has(val)
+      const list = store.get(name)
+      return isDef(val) ? list && list.has(val) : !!list
     },
     each (name, fn) {
       store.has(name) && store.get(name).forEach(fn)
