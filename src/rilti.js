@@ -42,7 +42,7 @@
   const isPrimitive = some(isStr, isBool, isNum)
   const isIterator = o => o && o.toString().includes('Iterator')
   const isInt = o => isNum(o) && o % 1 === 0
-  const isArrlike = o => !isFunc(o) && isInt(o.length)
+  const isArrlike = o => o && !isFunc(o) && o.length % 1 === 0
   const isEmpty = o => !o || !((isObj(o) ? Keys(o) : isNum(o.length) && o).length || o.size)
   const isEl = o => o && o instanceof Element
   const isNode = o => o && o instanceof Node
