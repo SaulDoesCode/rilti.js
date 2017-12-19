@@ -160,74 +160,56 @@
   const infinifyFN = (fn, reflect = true) => $proxy(fn, {
     get (_, key) {
       if (reflect && Reflect.has(fn, key)) return Reflect.get(fn, key)
-      return fn.bind(null, key)
+      return fn.bind(NULL, key)
     }
   })
 
   const notifier = (host = {}) => {
     const listeners = listMap()
-
-    const on = infinifyFN((name, fn) => {
-      if (isObj(name)) return listenMulti(name, on)
-      listeners.set(name, fn)
-      return armln(name, fn)
+    // extract listener functions from object and arm them
+    const listenMulti = (obj, justonce) => each(obj, (fn, name) => {
+      obj[name] = listen(justonce, name, fn)
     })
-
-    const once = infinifyFN((name, fn) => {
-      if (isObj(name)) return listenMulti(name, once)
-      const ln = (...vals) => {
+    // arm listener
+    const listen = (name, fn, justonce = false) => {
+      if (isObj(name)) return listenMulti(name, justonce)
+      const ln = (...data) => fn(...data)
+      const setln = state => {
         listeners.del(name, ln)
-        return fn(...vals)
+        ln.once = state
+        listeners.set(name, ln)
+        return ln
       }
-      listeners.set(name, ln)
-      return armln(name, ln)
-    })
-
-    const listen = (justonce, name, fn) => (justonce ? once : on)(name, fn)
-
-    const armln = (name, fn) => {
-      fn.off = () => {
-        listeners.del(name, fn)
-        return fn
+      ln.off = () => {
+        listeners.del(name, ln)
+        return ln
       }
-      fn.once = () => {
-        fn.off()
-        return once(name, fn)
-      }
-      fn.on = () => {
-        fn.off()
-        return on(name, fn)
-      }
-      return fn
+      ln.on = () => setln(false)
+      ln.once = () => setln(true)
+      return setln(justonce)
     }
 
-    const listenMulti = (obj, fn) => {
-      for (const key in obj) {
-        obj[key] = fn(obj[key])
-      }
-    }
+    const on = infinifyFN((name, fn) => listen(name, fn))
+    const once = infinifyFN((name, fn) => listen(name, fn, true))
 
-    const emit = infinifyFN((name, ...vals) => {
-      listeners.each(name, ln => ln(...vals))
+    const emit = infinifyFN((name, ...data) => {
+      listeners.each(name, ln => {
+        runAsync(ln, ...data)
+        if (ln.once) ln.off()
+      })
     }, false)
 
-    const emitAsync = infinifyFN((name, ...vals) => {
-      runAsync(listeners.each, name, ln => runAsync(ln, ...vals))
-    }, false)
-
-    return extend(host, {emit, emitAsync, on, once, listen, listeners})
+    return extend(host, {emit, on, once, listen, listeners})
   }
 
   const map2json = (map, obj = {}) => {
-    each(map, (val, key) => {
-      obj[key] = val
-    })
+    each(map, (val, key) => { obj[key] = val })
     return JSON.stringify(obj)
   }
 
   const model = (data = {}, store = $map()) => {
     const mitter = notifier()
-    const {emit, emitAsync, on, once} = mitter
+    const {emit, on, once} = mitter
 
     const del = key => {
       store.delete(key)
@@ -243,7 +225,7 @@
         return mut
       }
       const oldval = store.get(key)
-      if (val !== undef && val !== oldval) {
+      if (isDef(val) && val !== oldval) {
         store.set(key, val)
         if (!silent) {
           emit('set', key, val)
@@ -292,8 +274,8 @@
     const validators = $map()
     const validateProp = key => {
       const valid = store.has(key) && validators.has(key) && validators.get(key)(store.get(key))
-      emitAsync('validate:' + key, valid)
-      emitAsync('validate', key, valid)
+      emit('validate:' + key, valid)
+      emit('validate', key, valid)
       return valid
     }
 
@@ -303,9 +285,7 @@
         const regexp = validator
         validator = val => isStr(val) && regexp.test(val)
       }
-      if (isFunc(validator)) {
-        validators.set(key, validator)
-      }
+      if (isFunc(validator)) validators.set(key, validator)
     }, {
       get: (_, key) => validateProp(key),
       set: (vd, key, val) => vd(key, val)
@@ -336,10 +316,7 @@
           return mut(key)
         },
         set (_, key, val) {
-          if (isPromise(val)) {
-            return (Async[key] = val)
-          }
-          return mut(key, val)
+          return isPromise(val) ? (Async[key] = val) : mut(key, val)
         },
         delete: (_, key) => del(key)
       }
