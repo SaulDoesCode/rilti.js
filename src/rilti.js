@@ -137,25 +137,20 @@
     parent === descendant || Boolean(parent.compareDocumentPosition(descendant) & 16)
   )
 
-  const listMap = (store = $map(), lm = {
-    get: name => store.get(name),
-    set (name, val) {
-      (store.has(name) ? store : store.set(name, $set())).get(name).add(val)
-      return lm
-    },
-    del (name, val) {
-      store.has(name) && store.get(name).delete(val).size < 1 && store.delete(name)
-      return lm
-    },
-    has (name, val) {
-      const list = store.get(name)
-      return isDef(val) ? list && list.has(val) : !!list
-    },
-    each (name, fn) {
-      store.has(name) && store.get(name).forEach(fn)
-      return lm
+  const listMap = (map = new Map()) => Object.assign(
+    (key, val) => isDef(val) ? (map.has(key) ? map : map.set(key, new Set())).get(key).add(val) : map.get(key),
+    {
+      map,
+      del (key, val) {
+        map.has(key) && map.get(key).delete(val).size < 1 && map.delete(key)
+      },
+      has (key, val) {
+        const list = map.get(key)
+        return isDef(val) ? list && list.has(val) : !!list
+      },
+      each (key, fn) { map.has(key) && map.get(key).forEach(fn) }
     }
-  }) => lm
+  )
 
   const infinifyFN = (fn, reflect = true) => $proxy(fn, {
     get (_, key) {
@@ -177,7 +172,7 @@
       const setln = state => {
         listeners.del(name, ln)
         ln.once = state
-        listeners.set(name, ln)
+        listeners(name, ln)
         return ln
       }
       ln.off = () => {

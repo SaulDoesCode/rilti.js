@@ -310,6 +310,34 @@ component('tick-box', {
 </script>
 ```
 
+**listMap** is just a utility to manage a ``Map`` that contains ``Set``s
+```javascript
+  const lm = rilti.listMap()
+
+  // set
+  lm('key', 'value0')
+  lm('key', 'value1')
+  // get
+  lm('key') // -> Set['value0', 'value1']
+  // get the base map
+  lm.map // -> Map{key: Set[...]}
+  // has
+  lm.has('key') // -> true
+  lm.has('key', 'value2') // -> false
+  // delete a value
+  lm.del('key', 'value0')
+  // or
+  lm('key').delete('value0')
+
+  // loop over contents
+  lm.each('key', value => {
+    console.log(value)
+  })
+  // value0
+  // value1
+  // ...
+```
+
 #### weight
 * unminified : > 26kb
 * minified : > 11kb
