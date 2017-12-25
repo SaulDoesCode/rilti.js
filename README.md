@@ -28,42 +28,6 @@ Feel free to fork or raise issues. Constructive criticism is welcome
 #### planned features
 * offer collection of useful optional plugins
 
-### API
-| method | description  |
-|--------|--------------|
-| ``.dom["any-tag"](=options, ...children)`` | where the magic happens, define behavior for elements and see them come to life |
-| ``.dom(StringOrNode, StringOrNode)`` | same as querySelector but returns a promise, it's essentially an async querySelector |
-| ``.dom.query(string, StringOrNode)`` | improved alternative to ``document.querySelector``|
-| ``.dom.queryAll(string, StringOrNode)`` | improved alternative to ``document.querySelectorAll``|
-| ``.dom.queryEach(string, StringOrNode, func)`` | queries nodes returned by selector and iterates over them like ``.forEach`` would|
-| ``.dom.html(string)`` | convert a string to an html document fragment |
-| ``.on(target, type, listener, =options)`` | generates event listener |
-| ``.once(target, type, listener, =options)`` | generates event listener that triggers only once |
-| ``.render(node, StringOrNode, =connector)`` | renders nodes to a node of your choice, independent of ready state |
-| ``.run(func)`` | asynchronously executes a given function when the DOM is loaded |
-| ``.route(=hashString, func)`` | detect and respond to location.hash changes |
-| ``.curry(func, =argsLimit)`` | curries a function |
-| ``.compose(...func)`` | compose functions, compose(fn1,fn2,fn3)(val) // -> result |
-| ``.each(iterable, func)`` | loop through objects, numbers, array(like)s, sets, maps... |
-| ``.extend(hostObj, obj, =safeMode)`` | extends host object with all props of other object, won't overwrite if safe is true |
-| ``.flatten(arraylike)`` | flattens multidimensional arraylike objects |
-| ``.notifier(=obj)`` | extendable event system /pub sub pattern |
-| ``.DOMcontains(node, =parentNode)`` | determines whether or not the dom or other node contains a specific node |
-| ``.component(tag, {create, mount, destroy, attr, props, methods})`` | define custom elements, no polyfills needed |
-
-##### rilti also exports a couple of useful type testing functions
-usage : ``rilti.isX( {any} ) // -> boolean``
-isBool, isFunc,
-isDef, isUndef,
-isNull, isEmpty,
-isNum, isInt,
-isStr,isObj,
-isArr, isArrlike,
-isMap, isSet,
-isEl, isNode, isNodeList,
-isInput, isPrimitive
-isPromise
-
 ## Example time!!!
 
 ### Simple Site Navbar
@@ -117,6 +81,42 @@ The Above produces this html
   </span>
 </nav>
 ```
+
+### API
+| method | description  |
+|--------|--------------|
+| ``.dom["any-tag"](=options, ...children)`` | where the magic happens, define behavior for elements and see them come to life |
+| ``.dom(StringOrNode, StringOrNode)`` | same as querySelector but returns a promise, it's essentially an async querySelector |
+| ``.dom.query(string, StringOrNode)`` | improved alternative to ``document.querySelector``|
+| ``.dom.queryAll(string, StringOrNode)`` | improved alternative to ``document.querySelectorAll``|
+| ``.dom.queryEach(string, StringOrNode, func)`` | queries nodes returned by selector and iterates over them like ``.forEach`` would|
+| ``.dom.html(string)`` | convert a string to an html document fragment |
+| ``.on(target, type, listener, =options)`` | generates event listener |
+| ``.once(target, type, listener, =options)`` | generates event listener that triggers only once |
+| ``.render(node, StringOrNode, =connector)`` | renders nodes to a node of your choice, independent of ready state |
+| ``.run(func)`` | asynchronously executes a given function when the DOM is loaded |
+| ``.route(=hashString, func)`` | detect and respond to location.hash changes |
+| ``.curry(func, =argsLimit)`` | curries a function |
+| ``.compose(...func)`` | compose functions, compose(fn1,fn2,fn3)(val) // -> result |
+| ``.each(iterable, func)`` | loop through objects, numbers, array(like)s, sets, maps... |
+| ``.extend(hostObj, obj, =safeMode)`` | extends host object with all props of other object, won't overwrite if safe is true |
+| ``.flatten(arraylike)`` | flattens multidimensional arraylike objects |
+| ``.notifier(=obj)`` | extendable event system /pub sub pattern |
+| ``.DOMcontains(node, =parentNode)`` | determines whether or not the dom or other node contains a specific node |
+| ``.component(tag, {create, mount, destroy, attr, props, methods})`` | define custom elements, no polyfills needed |
+
+##### rilti also exports a couple of useful type testing functions
+usage : ``rilti.isX( {any} ) // -> boolean``
+isBool, isFunc,
+isDef, isUndef,
+isNull, isEmpty,
+isNum, isInt,
+isStr,isObj,
+isArr, isArrlike,
+isMap, isSet,
+isEl, isNode, isNodeList,
+isInput, isPrimitive
+isPromise
 
 
 ### DOM manipulation
