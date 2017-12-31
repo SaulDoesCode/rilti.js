@@ -101,33 +101,33 @@
   ) => chunk()
 
   const each = (iterable, func) => {
-    if (!isNil(iterable)) {
-      if (iterable.forEach) iterable.forEach(func)
-      else if (isArrlike(iterable)) ArrProto.forEach.call(iterable, func)
-      else if (isObj(iterable)) {
-        for (const key in iterable) {
-          func(iterable[key], key, iterable)
-        }
-      } else if (isInt(iterable)) yieldloop(iterable, func)
-      else if (iterable.entries || isIterator(iterable)) {
-        for (const [key, value] of iterable) {
-          func(key, value, iterable)
-        }
-      }
+    if (isNil(iterable)) return
+    if (iterable.forEach) iterable.forEach(func)
+    else if (isArrlike(iterable)) ArrProto.forEach.call(iterable, func)
+    else if (isObj(iterable)) {
+      for (const key in iterable) func(iterable[key], key, iterable)
+    } else if (isInt(iterable)) yieldloop(iterable, func)
+    else if (iterable.entries || isIterator(iterable)) {
+      for (const [key, value] of iterable) func(key, value, iterable)
     }
     return iterable
   }
 
-  const flatReduceFn = (arr, toFlatten) => arr.concat(isArr(toFlatten) ? flatten(toFlatten) : toFlatten)
-  const flatten = arr => isArrlike(arr) ? ArrProto.reduce.call(arr, flatReduceFn, []) : [arr]
+  const flatReduceFn = (arr, toFlatten) => (
+    arr.concat(isArr(toFlatten) ? flatten(toFlatten) : toFlatten)
+  )
+  const flatten = arr => (
+    isArrlike(arr) ? ArrProto.reduce.call(arr, flatReduceFn, []) : [arr]
+  )
 
   const compose = (...fns) => fns.reduce((f, g) => (...args) => f(g(...args)))
 
-  const query = (selector, element = doc) => (
-    // return if node else query dom
+  const query = (selector, element = doc) => ( // return if node else query dom
     isNode(selector) ? selector : query(element).querySelector(selector)
   )
-  const queryAll = (selector, element = doc) => Array.from(query(element).querySelectorAll(selector))
+  const queryAll = (selector, element = doc) => (
+    Array.from(query(element).querySelectorAll(selector))
+  )
   const queryEach = (selector, func, element = doc) => {
     if (!isFunc(func)) [func, element] = [element, doc]
     return each(queryAll(selector, element), func)
@@ -138,7 +138,9 @@
   )
 
   const listMap = (map = new Map()) => Object.assign(
-    (key, val) => isDef(val) ? (map.has(key) ? map : map.set(key, new Set())).get(key).add(val) : map.get(key),
+    (key, val) => (
+      isDef(val) ? (map.has(key) ? map : map.set(key, new Set())).get(key).add(val) : map.get(key)
+    ),
     {
       map,
       del (key, val) {
@@ -598,8 +600,7 @@
 
   const render = (node, host = 'body', connector = 'appendChild') => {
     CR(node)
-    dom(host)
-    .then(
+    dom(host).then(
       h => {
         if (!isMounted(h) && (connector === 'after' || connector === 'before')) {
           once.mount(h, () => {
