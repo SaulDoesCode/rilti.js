@@ -76,7 +76,7 @@ The Above produces this html
   <span class="navbar-btn">
     <a href="#/about">about</a>
   </span>
-  <span style="backgroundColor: rgb(52, 52, 52); color: rgb(255, 255, 255);" class="navbar-btn">
+  <span style="background-color: rgb(52, 52, 52); color: rgb(255, 255, 255);" class="navbar-btn">
     <a href="https://github.com/SaulDoesCode/rilti.js">📓 fork me! 🍴</a>
   </span>
 </nav>
@@ -98,16 +98,17 @@ The Above produces this html
 | ``.route(=hashString, func)`` | detect and respond to location.hash changes |
 | ``.curry(func, =argsLimit)`` | curries a function |
 | ``.compose(...func)`` | compose functions, compose(fn1,fn2,fn3)(val) // -> result |
+| ``.component(tag, {create, mount, destroy, attr, props, methods})`` | define custom elements, no polyfills needed |
 | ``.each(iterable, func)`` | loop through objects, numbers, array(like)s, sets, maps... |
 | ``.extend(hostObj, obj, =safeMode)`` | extends host object with all props of other object, won't overwrite if safe is true |
 | ``.flatten(arraylike)`` | flattens multidimensional arraylike objects |
 | ``.notifier(=obj)`` | extendable event system /pub sub pattern |
+| ``.model(=obj)`` | Backbone like model with validation, please see [SuperModel.js](https://github.com/SaulDoesCode/SuperModel.js) it's the same |
 | ``.DOMcontains(node, =parentNode)`` | determines whether or not the dom or other node contains a specific node |
-| ``.component(tag, {create, mount, destroy, attr, props, methods})`` | define custom elements, no polyfills needed |
 
 ##### rilti also exports a couple of useful type testing functions
-usage : ``rilti.isX( {any} ) // -> boolean``
-isBool, isFunc,
+usage : ``rilti.isX( {any} ) // -> boolean``   
+``isBool, isFunc,
 isDef, isUndef,
 isNull, isEmpty,
 isNum, isInt,
@@ -116,8 +117,7 @@ isArr, isArrlike,
 isMap, isSet,
 isEl, isNode, isNodeList,
 isInput, isPrimitive
-isPromise
-
+isPromise, isIterator``
 
 ### DOM manipulation
 rilti contains a ``domfn`` that contains several useful dom manipulation functions.
@@ -146,7 +146,25 @@ const {
 [grimstack.io blog site](https://grimstack.io)     
 
 
-#### Create Elements with any tag
+#### Simple Databinding with ``.model``, see [SuperModel.js](https://github.com/SaulDoesCode/SuperModel.js) for more
+SuperModel.js is the same as rilti.model, I'll write docs eventually but you can see how to use ``rilti.model({...data})`` there.
+
+```javascript
+  const {on, model} = rilti
+  const M = model()
+
+  const textarea = dom.textarea({render: 'body'})
+  const article = dom.article({render: 'body'})
+
+  M.sync(txtdisplay, 'innerText', 'txt')
+  M.txt = txtarea.value.trim()
+
+  on.input(textarea, e => {
+    model.txt = textarea.value.trim()
+  })
+```
+
+#### Create Elements with Any Tag
 ```javascript
 // create elements with any tag
 // dom['any-arbitrary-tag']( =options, ...children) -> Node/Element
@@ -181,9 +199,9 @@ dom['random-tag']({
   },
   // manage the element's lifecycle
   lifecycle: {
-    create () { ... },
-    mount () { ... },
-    destroy () { ... }
+    create () { /*...*/ },
+    mount () { /*...*/ },
+    destroy () { /*...*/ }
   }
 })
 ```
