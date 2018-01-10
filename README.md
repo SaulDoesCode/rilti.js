@@ -20,6 +20,7 @@ Feel free to fork or raise issues. Constructive criticism is welcome
 * powerful yet petite notifier system (pub/sub)
 * no classes, no this, no extra fuzz, functional positive
 * no old javascript, we use modern features like Proxy
+* A Gziped rilti.js weighs less than 4.4kb
 
 #### Plugins:
 * rilti-tilt.js - compact mouse motion based element tilting effect, based on vanilla-tilt.js
@@ -106,7 +107,7 @@ The Above produces this html
 | ``.model(=obj)`` | Backbone like model with validation, please see [SuperModel.js](https://github.com/SaulDoesCode/SuperModel.js) it's the same |
 | ``.DOMcontains(node, =parentNode)`` | determines whether or not the dom or other node contains a specific node |
 
-##### rilti also exports a couple of useful type testing functions
+##### rilti also exports a couple of useful Type-Testing functions
 usage : ``rilti.isX( {any} ) // -> boolean``   
 ``isBool, isFunc,
 isDef, isUndef,
@@ -146,18 +147,32 @@ const {
 [grimstack.io blog site](https://grimstack.io)     
 
 
+#### Async Property accessors with ``.model().async`` and Async/Await
+
+```js
+  // view.js
+  const NewsApp = rilti.model()
+  feed.render(await NewsApp.async.latest)
+
+  export default NewsApp
+  
+  // news.js
+  import NewsApp from 'view.js'
+
+  NewsApp.latest = (await fetch('/news/latest')).json()
+```
+
 #### Simple Databinding with ``.model``, see [SuperModel.js](https://github.com/SaulDoesCode/SuperModel.js) for more
 SuperModel.js is the same as rilti.model, I'll write docs eventually but you can see how to use ``rilti.model({...data})`` there.
 
 ```javascript
-  const {on, model} = rilti
-  const M = model()
+  const {dom, on, model} = rilti
 
   const textarea = dom.textarea({render: 'body'})
   const article = dom.article({render: 'body'})
 
+  const M = model({txt: textarea.value.trim()})
   M.sync(txtdisplay, 'innerText', 'txt')
-  M.txt = txtarea.value.trim()
 
   on.input(textarea, e => {
     model.txt = textarea.value.trim()
@@ -358,7 +373,7 @@ component('tick-box', {
 
 #### weight
 * unminified:  > 24kb
-* minified: > 10.5kb
-* minified && compressed: > 5.5kb
+* minified: > 10kb
+* minified && compressed: > 4.4kb
 
 #### licence = MIT
