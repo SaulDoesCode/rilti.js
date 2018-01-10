@@ -11,7 +11,6 @@ Feel free to fork or raise issues. Constructive criticism is welcome
 * lifecycle hooks
 * dom event management
 * models, sync/async accessors, observe props
-* create and observe custom attributes
 * create elements in javascript don't write clunky html
 * components aka custom-elements, no polyfill needed!
 * vue-like directives aka custom attributes
@@ -94,9 +93,6 @@ The Above produces this html
 | ``.dom.html(string)`` | convert a string to an html document fragment |
 | ``.on(target, type, listener, =options)`` | generates event listener |
 | ``.once(target, type, listener, =options)`` | generates event listener that triggers only once |
-| ``.render(node, StringOrNode, =connector)`` | renders nodes to a node of your choice, independent of ready state |
-| ``.run(func)`` | asynchronously executes a given function when the DOM is loaded |
-| ``.route(=hashString, func)`` | detect and respond to location.hash changes |
 | ``.curry(func, =argsLimit)`` | curries a function |
 | ``.compose(...func)`` | compose functions, compose(fn1,fn2,fn3)(val) // -> result |
 | ``.component(tag, {create, mount, destroy, attr, props, methods})`` | define custom elements, no polyfills needed |
@@ -105,20 +101,39 @@ The Above produces this html
 | ``.flatten(arraylike)`` | flattens multidimensional arraylike objects |
 | ``.notifier(=obj)`` | extendable event system /pub sub pattern |
 | ``.model(=obj)`` | Backbone like model with validation, please see [SuperModel.js](https://github.com/SaulDoesCode/SuperModel.js) it's the same |
-| ``.DOMcontains(node, =parentNode)`` | determines whether or not the dom or other node contains a specific node |
+| ``.render(node, StringOrNode, =connector)`` | renders nodes to a node of your choice, independent of ready state |
+| ``.run(func)`` | asynchronously executes a given function when the DOM is loaded |
+| ``.runAsync(func, ...args)`` | run a function asynchronously, and it doesn't even use setTimeout |
+| ``.route(=hashString, func(hash))`` | detect and respond to location.hash changes |
+| ``.isMounted(node, =parentNode)`` | determines whether or not the dom or other node contains a specific node |
 
 ##### rilti also exports a couple of useful Type-Testing functions
 usage : ``rilti.isX( {any} ) // -> boolean``   
-``isBool, isFunc,
-isDef, isUndef,
-isNull, isEmpty,
-isNum, isInt,
-isStr,isObj,
-isArr, isArrlike,
-isMap, isSet,
-isEl, isNode, isNodeList,
-isInput, isPrimitive
-isPromise, isIterator``
+``isMounted,
+isDef,
+isNil,
+isPromise,
+isPrimitive,
+isNull,
+isFunc,
+isStr,
+isBool,
+isNum,
+isInt,
+isIterator,
+isRenderable,
+isRegExp,
+isObj,
+isArr,
+isArrlike,
+isEmpty,
+isEl,
+isEqual,
+isNode,
+isNodeList,
+isInput,
+isMap,
+isSet``
 
 ### DOM manipulation
 rilti contains a ``domfn`` that contains several useful dom manipulation functions.
@@ -151,15 +166,19 @@ const {
 
 ```js
   // view.js
+  import Feed from 'news-feed.js'
   const NewsApp = rilti.model()
-  feed.render(await NewsApp.async.latest)
+
+  NewsApp.async.latest.then(Feed.render)
 
   export default NewsApp
 
   // news.js
   import NewsApp from 'view.js'
 
-  NewsApp.latest = (await fetch('/news/latest')).json()
+  fetch('/news/latest').then(res => {
+    NewsApp.latest = res.json()
+  })
 ```
 
 #### Simple Databinding with ``.model``, see [SuperModel.js](https://github.com/SaulDoesCode/SuperModel.js) for more
@@ -228,7 +247,7 @@ dom['random-tag']({
 rilti.directive('custom-attr', {
   init (element, value) { ... },
   update (element, value, oldValue) { ... },
-  destroy (element, value, oldValue) { ... }
+  destroy (element, value) { ... }
 })
 // revoke a directive
 rilti.directives.delete('custom-attr')
@@ -314,7 +333,7 @@ component('tick-box', {
   testRiltiBlocking(); // -> this usually takes ~ 7800ms on my i5 machine
 
   const testRiltiChunked = (count = 10000) => {
-    const { each, dom: {span} } = rilti
+    const {each, dom: {span}} = rilti
     const start = performance.now()
     // int loops are chunked making heavy loads less blocking
     each(count, i =>
