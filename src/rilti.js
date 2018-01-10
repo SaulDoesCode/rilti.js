@@ -66,13 +66,18 @@
     return host
   }
 
-  const runAsync = (fn, ...args) => $promise((resolve, reject) => {
-    try {
-      resolve(fn(...args))
-    } catch (e) {
-      reject(e)
-    }
-  })
+  const runAsync = async (fn, ...args) => (await new Promise(resolve => resolve(fn)))(...args)
+  /* Incase your browser doesn't support async/await
+     const runAsync = (fn, ...args) => $promise((resolve, reject) => {
+      setTimeout(() => {
+        try {
+          resolve(fn(...args))
+        } catch (e) {
+          reject(e)
+        }
+      }, 0)
+    })
+  */
 
   const timeout = (fn, ms = 1000, current) => assign(fn, {
     ms,
@@ -157,7 +162,7 @@
   const infinifyFN = (fn, reflect = true) => $proxy(fn, {
     get (_, key) {
       if (reflect && Reflect.has(fn, key)) return Reflect.get(fn, key)
-      return fn.bind(NULL, key)
+      return fn.bind(undef, key)
     }
   })
 
@@ -237,7 +242,7 @@
       return oldval
     }
     // merge data into the store Map (or Map-like) object
-    runAsync(mut, data)
+    mut(data)
 
     const syncs = $map()
     const sync = (obj, key, prop = key) => {
@@ -637,7 +642,7 @@
       if (options.attr) domfn.attr(el, options.attr)
       if (options.css) domfn.css(el, options.css)
       if (options.class || options.className) {
-        el.className = options.class || options.className
+        el.className += options.class || options.className
       }
       if (options.id) el.id = options.id
       if (options.src) el.src = options.src
@@ -664,16 +669,15 @@
           })
         }
       }
-      const {renderBefore, renderAfter, render: rendr, run: rn} = options
+      const {renderBefore, renderAfter, render: rendr} = options
       if (renderBefore) render(el, renderBefore, 'before')
       else if (renderAfter) render(el, renderAfter, 'after')
       else if (rendr) render(el, rendr)
-      if (rn) run(rn.bind(el, el))
     }
 
     return ifComponent(
       el,
-      (config, tag) => updateComponent(tag, el, NULL, config),
+      (config, tag) => updateComponent(tag, el, undef, config),
       CR
     )
   }

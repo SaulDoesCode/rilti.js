@@ -357,8 +357,8 @@ component('tick-box', {
 ```
 
 #### weight
-* unminified : > 26kb
-* minified : > 11kb
-* minified && compressed : > 6kb
+* unminified:  > 24kb
+* minified: > 10.5kb
+* minified && compressed: > 5.5kb
 
 #### licence = MIT
