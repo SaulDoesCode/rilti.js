@@ -155,7 +155,7 @@ const {
   feed.render(await NewsApp.async.latest)
 
   export default NewsApp
-  
+
   // news.js
   import NewsApp from 'view.js'
 
@@ -172,7 +172,7 @@ SuperModel.js is the same as rilti.model, I'll write docs eventually but you can
   const article = dom.article({render: 'body'})
 
   const M = model({txt: textarea.value.trim()})
-  M.sync(txtdisplay, 'innerText', 'txt')
+  M.sync(article, 'textContent', 'txt')
 
   on.input(textarea, e => {
     model.txt = textarea.value.trim()
