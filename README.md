@@ -19,7 +19,10 @@ Feel free to fork or raise issues. Constructive criticism is welcome
 * powerful yet petite notifier system (pub/sub)
 * no classes, no this, no extra fuzz, functional positive
 * no old javascript, we use modern features like Proxy
-* A Gziped rilti.js weighs less than 4.4kb
+* A Gziped rilti.min.js weighs less than 4.4kb
+
+
+To use Rilti just download **/dist/rilti.min.js** and pop it in a script tag. **If you have any issues just tell me, I'm on it.**
 
 #### Plugins:
 * rilti-tilt.js - compact mouse motion based element tilting effect, based on vanilla-tilt.js
@@ -28,7 +31,7 @@ Feel free to fork or raise issues. Constructive criticism is welcome
 #### planned features
 * offer collection of useful optional plugins
 
-## Example time!!!
+## Example time!!
 
 ### Simple Site Navbar
 Stop writing html (yes JSX too)!
@@ -38,8 +41,8 @@ Just generate everything, it's so simple.
   const {dom: {a, nav, span, h1}} = rilti
 
   const navbar = ({title, render, buttons}) => nav({
-    render,
-    class: 'navbar'
+    id: 'navbar',
+    render
   },
     h1(title),
     buttons.map(([name, href, css = {}]) => (
@@ -62,10 +65,10 @@ Just generate everything, it's so simple.
     ]
   })
 ```
-The Above produces this html
+The above produces this html
 
 ```html
-<nav class="navbar">
+<nav id="navbar">
   <h1>My Wicked Website</h1>
   <span class="navbar-btn">
     <a href="#/home">home</a>
@@ -232,7 +235,7 @@ dom['random-tag']({
     dblclick : (evt, el) => el.remove()
   },
   // manage the element's lifecycle
-  lifecycle: {
+  cycle: {
     create () { /*...*/ },
     mount () { /*...*/ },
     destroy () { /*...*/ }
