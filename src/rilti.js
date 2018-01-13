@@ -30,9 +30,9 @@
   const matchCases = method => (...cases) => match => cases[method](isEqual(match))
   const some = matchCases('some')
   const all = matchCases('every')
+  const isPromise = o => o && o instanceof Promise
   const isFunc = o => o && o instanceof Function
   const isObj = o => o && o.constructor === Object
-  const isPromise = o => o && o.constructor === Promise
   const isBool = o => o === true || o === false
   const isDef = o => o !== undef && o !== NULL
   const isNil = o => o === undef || o === NULL
