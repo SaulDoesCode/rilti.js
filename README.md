@@ -1,6 +1,6 @@
 # :dizzy: rilti.js :dizzy:
 
-a small flavorful and unapologetic view layer library built for the front-end
+a small flavorful and unapologetic library built for the modern web
 
 [![JavaScript Style Guide](https://cdn.rawgit.com/standard/standard/master/badge.svg)](https://github.com/standard/standard)
 

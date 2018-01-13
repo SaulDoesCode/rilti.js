@@ -1,6 +1,6 @@
 {
   /* global rilti Prism */
-  const {dom, run, isFunc} = rilti
+  const {dom, isFunc} = rilti
   const {pre, code, section, article, footer, header, html} = dom
 
   const highlight = source => pre({

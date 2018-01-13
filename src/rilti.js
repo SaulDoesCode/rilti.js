@@ -66,18 +66,7 @@
     return host
   }
 
-  const runAsync = async (fn, ...args) => (await new Promise(resolve => resolve(fn)))(...args)
-  /* Incase your browser doesn't support async/await
-     const runAsync = (fn, ...args) => $promise((resolve, reject) => {
-      setTimeout(() => {
-        try {
-          resolve(fn(...args))
-        } catch (e) {
-          reject(e)
-        }
-      }, 0)
-    })
-  */
+  const runAsync = (fn, ...args) => Promise.resolve(fn).then(f => f(...args))
 
   const timeout = (fn, ms = 1000, current) => assign(fn, {
     ms,
