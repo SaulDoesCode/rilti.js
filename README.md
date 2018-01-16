@@ -8,6 +8,7 @@ a small flavorful and unapologetic library built for the modern web
 Feel free to fork or raise issues. Constructive criticism is welcome
 
 ## features
+* Elm-like ideas about architecture
 * lifecycle hooks
 * dom event management
 * models, sync/async accessors, observe props
@@ -31,7 +32,7 @@ To use Rilti just download **/dist/rilti.min.js** and pop it in a script tag. **
 #### planned features
 * offer collection of useful optional plugins
 
-## Example time!!
+## Example time!
 
 ### Simple Site Navbar
 Stop writing html (yes JSX too)!
@@ -45,7 +46,7 @@ Just generate everything, it's so simple.
     render
   },
     h1(title),
-    buttons.map(([name, href, css = {}]) => (
+    buttons.map(([name, href, css]) => (
       span({class: 'navbar-btn', css}, a({href}, name))
     ))
   )
@@ -79,7 +80,7 @@ The above produces this html
   <span class="navbar-btn">
     <a href="#/about">about</a>
   </span>
-  <span style="background-color: rgb(52, 52, 52); color: rgb(255, 255, 255);" class="navbar-btn">
+  <span class="navbar-btn" style="background-color: rgb(52, 52, 52); color: rgb(255, 255, 255);">
     <a href="https://github.com/SaulDoesCode/rilti.js">📓 fork me! 🍴</a>
   </span>
 </nav>
@@ -160,9 +161,37 @@ const {
   remove // (node, =afterMS) // remove node or remove after timeout
 } = rilti.domfn
 ```
-#### examples of rilti used to build things
-[rilti.js todomvc {slightly outdated, will fix}](https://github.com/SaulDoesCode/rilti.js-todomvc)      
+
+## The Dao of Rilti
+
+1. Nominalism Good | Idealism Bad
+   * Object Oriented anything is evil (no classes, no this)
+   * Reserve identities only for things that would be otherwise obscure
+   * Data/Message passing before abstraction
+   * Logic is also just data (with potential) so pass it around too
+   * [Factory-Functions always](https://gist.github.com/mpj/17d8d73275bca303e8d2)
+2. No HTML, Text & Elements are Objects too!
+   * Selectors & Templates? I can't even...
+   * Writing plain HTML adds extra complexity to javascript driven sites
+   * Webpages should be alive, don't fear the DOM mess with it
+3. MASA: Minimal API Surface Area.
+   * Polymorphic functions/functions-as-class-like-objects
+   * Infer data, good structure or Proxies instead of 12 parameter long functions
+   * As Functional As Possible
+   * Perspectivism vs Pragmatism, people won't always use an API the same way.
+   * Leave some internals or lower level API features accessible for extendibility
+
+A MASA example is ``rilti.listMap`` where the get/set methods are one function that is both the object and its interface.
+``listMap() -> {each, has, del, map} = fn(key, val)``    
+
+``rilti.on`` which this ``on['any-event'](node, func, =options)``,
+as well as ``on('any-event', node)(func, =options)``, there are different equally valid ways to go about doing.
+
+#### examples of rilti used to build things in the wild
+[clone repo and open up ./examples/todo.html](https://github.com/SaulDoesCode/rilti.js/archive/master.zip)
+[rilti.js todomvc {slightly outdated, will fix eventually}](https://github.com/SaulDoesCode/rilti.js-todomvc)      
 [grimstack.io blog site](https://grimstack.io)     
+[My WIP Portfolio site](https://grimstack.io/portfolio)     
 
 
 #### Async Property accessors with ``.model().async`` and Async/Await
