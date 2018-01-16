@@ -188,7 +188,7 @@ A MASA example is ``rilti.listMap`` where the get/set methods are one function t
 as well as ``on('any-event', node)(func, =options)``, there are different equally valid ways to go about doing.
 
 #### examples of rilti used to build things in the wild
-[clone repo and open up ./examples/todo.html](https://github.com/SaulDoesCode/rilti.js/archive/master.zip)
+[clone repo and open up ./examples/todo.html](https://github.com/SaulDoesCode/rilti.js/archive/master.zip)      
 [rilti.js todomvc {slightly outdated, will fix eventually}](https://github.com/SaulDoesCode/rilti.js-todomvc)      
 [grimstack.io blog site](https://grimstack.io)     
 [My WIP Portfolio site](https://grimstack.io/portfolio)     
