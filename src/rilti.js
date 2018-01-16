@@ -14,6 +14,7 @@
   const funcConstruct = Obj => (...args) => new Obj(...args)
   const $map = funcConstruct(Map)
   const $set = funcConstruct(Set)
+  const $weakset = funcConstruct(WeakSet)
   const $proxy = funcConstruct(Proxy)
   const $promise = funcConstruct(Promise)
 
@@ -131,19 +132,16 @@
     parent === descendant || Boolean(parent.compareDocumentPosition(descendant) & 16)
   )
 
-  const listMap = (map = new Map()) => Object.assign(
+  const listMap = (map = $map()) => Object.assign(
     (key, val) => (
-      isDef(val) ? (map.has(key) ? map : map.set(key, new Set())).get(key).add(val) : map.get(key)
+      isDef(val) ? (map.has(key) ? map : map.set(key, $set())).get(key).add(val) : map.get(key)
     ),
     {
       map,
       del (key, val) {
         map.has(key) && map.get(key).delete(val).size < 1 && map.delete(key)
       },
-      has (key, val) {
-        const list = map.get(key)
-        return isDef(val) ? list && list.has(val) : !!list
-      },
+      has: (key, val, list = map.get(key)) => isDef(val) ? list && list.has(val) : !!list,
       each (key, fn) { map.has(key) && map.get(key).forEach(fn) }
     }
   )
@@ -472,6 +470,16 @@
     removeNodes: (...nodes) => each(nodes, n => isMounted(n) && n.remove())
   }
 
+  const mutateSet = weakset => (n, state) => (
+    weakset[isBool(state) ? state ? 'add' : 'delete' : 'has'](n)
+  )
+
+  const createdNodes = $weakset()
+  const Created = mutateSet(createdNodes)
+
+  const mountedNodes = $weakset()
+  const Mounted = mutateSet(mountedNodes)
+
   const getTag = el => (el.tagName || '').toLowerCase()
   const isComponent = el => components.has(getTag(el))
   const ifComponent = (el, fn, elseFn) => {
@@ -493,7 +501,7 @@
     if (!config) return
     const {create, mount, destroy, props, methods, attr} = config
 
-    if (!element.Created) {
+    if (!Created(element)) {
       if (props) {
         const oldProps = {}
         each(Keys(props), prop => {
@@ -512,11 +520,11 @@
         }
       }
       if (methods) extend(element, methods)
-      element.Created = true
+      Created(element, true)
       if (create) create(element)
       emit(element, 'create')
     }
-    if (!element.Mounted && stage === 'mount') {
+    if (!Mounted(element) && stage === 'mount') {
       if (attr) {
         each(attr, (cfg, name) => {
           if (element.hasAttribute(name)) {
@@ -524,11 +532,11 @@
           }
         })
       }
-      element.Mounted = true
+      Mounted(element, true)
       emit(element, stage)
       if (mount) mount(element)
     } else if (stage === 'destroy') {
-      element.Mounted = false
+      Mounted(element, false)
       emit(element, stage)
       if (destroy) destroy(element)
     }
@@ -572,13 +580,13 @@
 
   // node lifecycle event dispatchers
   const CR = n => {
-    if (!n.Created && !isComponent(n)) emit(n, 'create')
+    if (!Created(n) && !isComponent(n)) emit(n, 'create')
     return n
   }
 
   const MNT = n => {
-    if (!n.Mounted && !isComponent(n)) {
-      n.Mounted = true
+    if (!Mounted(n) && !isComponent(n)) {
+      Mounted(n, true)
       emit(n, 'mount')
     }
     return n
@@ -586,7 +594,7 @@
 
   const DST = n => {
     if (!isComponent(n)) {
-      n.Mounted = false
+      Mounted(n, false)
       emit(n, 'destroy')
     }
     return n
@@ -643,7 +651,7 @@
       if (options.lifecycle || options.cycle) {
         const {mount, destroy, create} = options.lifecycle || options.cycle
         once.create(el, () => {
-          el.Created = true
+          Created(el, true)
           if (create) create.call(el, el)
         })
 
