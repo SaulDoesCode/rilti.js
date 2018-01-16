@@ -52,13 +52,13 @@ Just generate everything, it's so simple.
 
   navbar({
     title: 'My Wicked Website',
-    render: 'body',
+    render: 'body', // <- asynchronously insert into document.body
     buttons: [
-      ['home', '#/home'],
+      ['home', '#/'],
       ['blog', '#/blog'],
       ['about', '#/about'],
       [
-        '📓 fork me! 🍴',
+        '🍴 fork me! 🔗',
         'https://github.com/SaulDoesCode/rilti.js',
         {backgroundColor: '#343434', color: '#fff'}
       ]
@@ -180,6 +180,7 @@ const {
   import NewsApp from 'view.js'
 
   fetch('/news/latest').then(res => {
+    // Promises are automagically handled
     NewsApp.latest = res.json()
   })
 ```
