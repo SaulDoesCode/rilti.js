@@ -18,13 +18,12 @@
   const $proxy = funcConstruct(Proxy)
   const $promise = funcConstruct(Promise)
 
-  const curry = (
-    fn,
-    arity = fn.length,
-    next = (...args) => (...more) => ((more.length + args.length) >= arity ? fn : next)(...args.concat(more))
-  ) => next() // love this
+  const curry = (fn, arity = fn.length, ...args) => (
+    arity <= args.length ? fn(...args) : curry.bind(undef, fn, arity, ...args)
+  )
 
   const not = fn => (...args) => !fn(...args)
+
   // all the is this that related stuff
   const {isArray: isArr, prototype: ArrProto} = Array
   const isEqual = curry((match, Case) => match === Case || (isFunc(Case) && Case(match)))
