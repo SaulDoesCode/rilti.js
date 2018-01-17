@@ -39,21 +39,22 @@ Stop writing html (yes JSX too)!
 Just generate everything, it's so simple.
 
 ```js
-  const {dom: {a, nav, span, h1}} = rilti
+  const {compose, dom: {a, button, h1, header, nav, section}} = rilti
 
-  const navbar = ({title, render, buttons}) => nav({
+  const navbar = ({render = 'body', title, buttons}) => section({
     id: 'navbar',
-    render
+    render // <- asynchronously insert into DOM
   },
-    h1(title),
-    buttons.map(([name, href, css]) => (
-      span({class: 'navbar-btn', css}, a({href}, name))
-    ))
+    compose(header, h1)(title),
+    nav(
+      buttons.map(([name, href, css]) => (
+        a({href, css, class: 'navbar-btn'}, button(name))
+      ))
+    )
   )
 
   navbar({
     title: 'My Wicked Website',
-    render: 'body', // <- asynchronously insert into document.body
     buttons: [
       ['home', '#/'],
       ['blog', '#/blog'],
@@ -69,21 +70,25 @@ Just generate everything, it's so simple.
 The above produces this html
 
 ```html
-<nav id="navbar">
-  <h1>My Wicked Website</h1>
-  <span class="navbar-btn">
-    <a href="#/home">home</a>
-  </span>
-  <span class="navbar-btn">
-    <a href="#/blog">blog</a>
-  </span>
-  <span class="navbar-btn">
-    <a href="#/about">about</a>
-  </span>
-  <span class="navbar-btn" style="background-color: rgb(52, 52, 52); color: rgb(255, 255, 255);">
-    <a href="https://github.com/SaulDoesCode/rilti.js">📓 fork me! 🍴</a>
-  </span>
-</nav>
+<section id="navbar">
+  <header>
+    <h1>My Wicked Website</h1>
+  </header>
+  <nav>
+    <a href="#/" class="navbar-btn">
+      <button>home</button>
+    </a>
+    <a href="#/blog" class="navbar-btn">
+      <button>blog</button>
+    </a>
+    <a href="#/about" class="navbar-btn">
+      <button>about</button>
+    </a>
+    <a href="https://github.com/SaulDoesCode/rilti.js" class="navbar-btn" style="background-color: rgb(52, 52, 52); color: rgb(255, 255, 255);">
+      <button>🍴 fork me! 🔗</button>
+    </a>
+  </nav>
+</section>
 ```
 
 ### API

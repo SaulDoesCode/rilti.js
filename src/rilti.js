@@ -561,19 +561,19 @@
 
   const directives = $map()
 
+  const directive = (name, stages) => {
+    directives.set(name, stages)
+    run(() => {
+      queryEach(`[${name}]`, checkAttr.bind(undef, name))
+    })
+  }
+
   const checkAttr = (name, el, oldValue) => {
     if (directives.has(name)) return handleAttribute(name, el, directives.get(name), oldValue)
     ifComponent(el, config => {
       if (config.attr && config.attr[name]) {
         handleAttribute(name, el, config.attr[name], oldValue)
       }
-    })
-  }
-
-  const directive = (name, stages) => {
-    directives.set(name, stages)
-    run(() => {
-      queryEach(`[${name}]`, checkAttr.bind(undef, name))
     })
   }
 
