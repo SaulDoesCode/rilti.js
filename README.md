@@ -181,17 +181,17 @@ const {
    * Perspectivism vs Pragmatism, people won't always use an API the same way.
    * Leave some internals or lower level API features accessible for extendibility
 
-A MASA example is ``rilti.listMap`` where the get/set methods are one function that is both the object and its interface.
+A MASA example is ``rilti.listMap`` where the get/set methods are one function that is both the object and its interface.      
 ``listMap() -> {each, has, del, map} = fn(key, val)``    
 
-``rilti.on`` which this ``on['any-event'](node, func, =options)``,
-as well as ``on('any-event', node)(func, =options)``, there are different equally valid ways to go about doing.
+Also look at ``rilti.on`` which can be used like this ``on['any-event'](node, func, =options)``,
+as well as like this ``on('any-event', node)(func, =options)``, different strokes for different folks.
 
 #### examples of rilti used to build things in the wild
-[clone repo and open up ./examples/todo.html](https://github.com/SaulDoesCode/rilti.js/archive/master.zip)      
-[rilti.js todomvc {slightly outdated, will fix eventually}](https://github.com/SaulDoesCode/rilti.js-todomvc)      
-[grimstack.io blog site](https://grimstack.io)     
-[My WIP Portfolio site](https://grimstack.io/portfolio)     
+* [clone and open ./examples/todo.html](https://github.com/SaulDoesCode/rilti.js/archive/master.zip)      
+* [rilti.js todomvc {slightly outdated}](https://github.com/SaulDoesCode/rilti.js-todomvc)      
+* [grimstack.io blog site](https://grimstack.io)     
+* [grimstack.io/portfolio WIP Portfolio](https://grimstack.io/portfolio)     
 
 
 #### Async Property accessors with ``.model().async`` and Async/Await
@@ -288,7 +288,7 @@ rilti.directives.delete('custom-attr')
 
 #### Web Components / Custom Elements, no polyfills needed
 ```js
-const {component, domfn: {css}, on} = rilti
+const {domfn: {css, attr}, on, component} = rilti
 
 component('tick-box', {
   props: {
@@ -326,9 +326,7 @@ component('tick-box', {
   attr: {
     disabled: {
       init (el, val) {
-        css(el, {
-          cursor: val === 'true' ? 'not-allowed' : 'pointer'
-        })
+        css(el, {cursor: val === 'true' ? 'not-allowed' : 'pointer'})
       }
     }
   }
