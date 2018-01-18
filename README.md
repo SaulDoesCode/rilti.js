@@ -193,10 +193,11 @@ Also look at ``rilti.on`` which can be used like this ``on['any-event'](node, fu
 as well as like this ``on('any-event', node)(func, =options)``, different strokes for different folks.
 
 #### examples of rilti used to build things in the wild
+* [Rilti News - Progressive Web App](https://grimstack.io/news/)
 * [clone and open ./examples/todo.html](https://github.com/SaulDoesCode/rilti.js/archive/master.zip)      
-* [rilti.js todomvc {slightly outdated}](https://github.com/SaulDoesCode/rilti.js-todomvc)      
 * [grimstack.io blog site](https://grimstack.io)     
 * [grimstack.io/portfolio WIP Portfolio](https://grimstack.io/portfolio)     
+* [rilti.js todomvc {slightly outdated}](https://github.com/SaulDoesCode/rilti.js-todomvc)      
 
 
 #### Async Property accessors with ``.model().async`` and Async/Await
@@ -320,7 +321,7 @@ component('tick-box', {
       backgroundColor: el.ticked ? 'dimgrey' : 'white',
       border: `1px solid ${el.ticked ? 'white' : 'dimgrey'}`
     })
-    on.click(el, () => { el.ticked = !el.ticked })
+    on.click(el, e => el.ticked = !el.ticked)
   },
   mount (el) {
     console.log('tick-box mounted to document')
