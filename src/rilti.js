@@ -30,15 +30,15 @@
   const matchCases = method => (...cases) => match => cases[method](isEqual(match))
   const some = matchCases('some')
   const all = matchCases('every')
-  const isPromise = o => o && o instanceof Promise
-  const isFunc = o => o && o instanceof Function
-  const isObj = o => o && o.constructor === Object
-  const isBool = o => o === true || o === false
   const isDef = o => o !== undef && o !== NULL
+  const isPromise = o => o && 'then' in o
+  const isFunc = o => o instanceof Function
+  const isObj = o => o && o.constructor === Object
+  const isStr = o => o && o.constructor === String
+  const isBool = o => o === true || o === false
+  const isNum = o => typeof o === 'number'
   const isNil = o => o === undef || o === NULL
   const isNull = o => o === NULL
-  const isNum = o => typeof o === 'number'
-  const isStr = o => typeof o === 'string'
   const isPrimitive = some(isStr, isBool, isNum)
   const isIterator = o => o && o.toString().includes('Iterator')
   const isInt = o => isNum(o) && o % 1 === 0
@@ -384,15 +384,14 @@
   const frag = inner => isPrimitive(inner) ? html(inner) : doc.createDocumentFragment()
 
   const emit = (node, type, detail) => {
-    node.dispatchEvent(isStr(type) ? new CustomEvent(type, {detail}) : type)
-    return node
+    node.dispatchEvent(new CustomEvent(type, detail ? {detail} : undef))
   }
 
   // vpend - virtual append, add nodes and get them as a document fragment
-  const vpend = (args, dfrag = frag()) => {
-    each(flatten(args), arg => {
-      const child = html(arg)
-      dfrag.appendChild(child)
+  const vpend = (children, dfrag = frag()) => {
+    flatten(children)
+    .forEach(child => {
+      dfrag.appendChild(child = html(child))
       MNT(child)
     })
     return dfrag
@@ -445,8 +444,9 @@
       return node
     }, 2),
     emit,
-    append: curry((node, ...args) => {
-      dom(node).then(n => n.appendChild(vpend(args)))
+    append: curry((node, ...children) => {
+      children = vpend(children)
+      dom(node).then(n => n.appendChild(children))
       return node
     }, 2),
     prepend: curry((node, ...args) => {
@@ -479,65 +479,54 @@
   const mountedNodes = $weakset()
   const Mounted = mutateSet(mountedNodes)
 
-  const getTag = el => (el.tagName || '').toLowerCase()
+  const getTag = el => (el.tagName || String(el)).toLowerCase()
   const isComponent = el => components.has(getTag(el))
-  const ifComponent = (el, fn, elseFn) => {
-    const tag = getTag(el)
-    const cp = components.get(tag)
-    return cp ? fn(cp, tag) : elseFn && elseFn(el, tag)
-  }
 
   const components = $map()
   const component = (tag, config) => {
     if (!tag.includes('-')) return err(tag + ' is un-hyphenated')
     components.set(tag, config)
-    run(() => {
-      queryEach(tag, el => updateComponent(tag, el))
-    })
+    run(() => queryEach(tag, updateComponent))
   }
 
-  const updateComponent = (name, element, stage, config = components.get(name)) => {
-    if (!config) return
+  const componentConf = tag => components.get(tag && tag.tagName ? getTag(tag) : tag)
+
+  const updateComponent = (element, config, stage) => {
+    const name = getTag(element)
+    if (!components.has(name)) return
+    else if (isStr(config)) [stage, config] = [config, components.get(name)]
+    else if (!isObj(config)) config = components.get(name)
+
     const {create, mount, destroy, props, methods, attr} = config
 
     if (!Created(element)) {
       if (props) {
         const oldProps = {}
-        each(Keys(props), prop => {
+        Keys(props).forEach(prop => {
           const elValue = element[prop]
-          if (!isNil(elValue)) {
-            oldProps[prop] = elValue
-          }
+          if (!isNil(elValue)) oldProps[prop] = elValue
         })
         extend(element, props)
-        if (!isEmpty(oldProps)) {
-          once.create(element, () => {
-            each(oldProps, (val, prop) => {
-              element[prop] = val
-            })
-          })
-        }
+        !isEmpty(oldProps) && once(
+          'create',
+          element,
+          () => each(oldProps, (val, prop) => { element[prop] = val })
+        )
       }
-      if (methods) extend(element, methods)
+      methods && extend(element, methods)
       Created(element, true)
-      if (create) create(element)
+      create && create(element)
       emit(element, 'create')
     }
     if (!Mounted(element) && stage === 'mount') {
-      if (attr) {
-        each(attr, (cfg, name) => {
-          if (element.hasAttribute(name)) {
-            handleAttribute(name, element, cfg)
-          }
-        })
-      }
+      attr && each(attr, (cfg, name) => handleAttribute(name, element, cfg))
       Mounted(element, true)
       emit(element, stage)
       if (mount) mount(element)
     } else if (stage === 'destroy') {
       Mounted(element, false)
       emit(element, stage)
-      if (destroy) destroy(element)
+      destroy && destroy(element)
     }
 
     return element
@@ -549,13 +538,13 @@
     if (isPrimitive(val)) {
       if (hasAttr && !el[nameInit]) {
         el[nameInit] = true
-        if (init) init(el, val)
+        init && init(el, val)
       } else if (update && val !== oldValue) {
         update(el, val, oldValue)
       }
     } else if (!hasAttr) {
       el[nameInit] = false
-      if (destroy) destroy(el, val, oldValue)
+      destroy && destroy(el, val, oldValue)
     }
   }
 
@@ -568,27 +557,26 @@
     })
   }
 
+  // Thanks A. Sharif, for medium.com/javascript-inside/safely-accessing-deeply-nested-values-in-javascript-99bf72a0855a
+  const extract = (obj, path) => path
+  .replace(/\[(\w+)\]/g, '.$1')
+  .replace(/^\./, '')
+  .split('.')
+  .reduce((xs, x) => (xs && xs[x]) ? xs[x] : undef, obj)
+
   const checkAttr = (name, el, oldValue) => {
-    if (directives.has(name)) return handleAttribute(name, el, directives.get(name), oldValue)
-    ifComponent(el, config => {
-      if (config.attr && config.attr[name]) {
-        handleAttribute(name, el, config.attr[name], oldValue)
-      }
-    })
+    const attr = directives.get(name) || extract(componentConf(el), 'attr.' + name)
+    attr && handleAttribute(name, el, attr, oldValue)
   }
 
   // node lifecycle event dispatchers
-  const CR = n => {
-    if (!Created(n) && !isComponent(n)) emit(n, 'create')
-    return n
-  }
+  const CR = n => !(Created(n) && isComponent(n)) && emit(n, 'create')
 
   const MNT = n => {
     if (!Mounted(n) && !isComponent(n)) {
       Mounted(n, true)
       emit(n, 'mount')
     }
-    return n
   }
 
   const DST = n => {
@@ -596,7 +584,6 @@
       Mounted(n, false)
       emit(n, 'destroy')
     }
-    return n
   }
 
   const render = (node, host = 'body', connector = 'appendChild') => {
@@ -651,7 +638,7 @@
         const {mount, destroy, create} = options.lifecycle || options.cycle
         once.create(el, () => {
           Created(el, true)
-          if (create) create.call(el, el)
+          create && create.call(el, el)
         })
 
         if (mount) {
@@ -660,8 +647,8 @@
 
         if (mountListener || destroy) {
           on.destroy(el, () => {
-            if (destroy) destroy.call(el, el)
-            if (mountListener) mountListener.on()
+            destroy && destroy.call(el, el)
+            mountListener && mountListener.on()
           })
         }
       }
@@ -671,11 +658,8 @@
       else if (rendr) render(el, rendr)
     }
 
-    return ifComponent(
-      el,
-      (config, tag) => updateComponent(tag, el, undef, config),
-      CR
-    )
+    (isComponent(tag) ? updateComponent : CR)(el)
+    return el
   }
 
   const text = (options, txt) => {
@@ -706,17 +690,15 @@
 
   new MutationObserver(muts => {
     for (const {addedNodes, removedNodes, target, attributeName, oldValue} of muts) {
-      if (attributeName) {
-        checkAttr(attributeName, target, oldValue)
-      }
+      if (attributeName) checkAttr(attributeName, target, oldValue)
       if (addedNodes.length) {
         for (const n of addedNodes) {
-          ifComponent(n, (config, tag) => updateComponent(tag, n, 'mount', config), MNT)
+          isComponent(n) ? updateComponent(n, 'mount') : MNT(n)
         }
       }
       if (removedNodes.length) {
         for (const n of removedNodes) {
-          ifComponent(n, (config, tag) => updateComponent(tag, n, 'destroy', config), DST)
+          isComponent(n) ? updateComponent(n, 'destroy') : DST(n)
         }
       }
     }
@@ -737,6 +719,7 @@
     directives,
     each,
     extend,
+    extract,
     flatten,
     not,
     notifier,
