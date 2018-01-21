@@ -31,7 +31,7 @@
   const some = matchCases('some')
   const all = matchCases('every')
   const isDef = o => o !== undef && o !== NULL
-  const isPromise = o => o && 'then' in o
+  const isPromise = o => typeof o === 'object' && 'then' in o
   const isFunc = o => o instanceof Function
   const isObj = o => o && o.constructor === Object
   const isStr = o => o && o.constructor === String
