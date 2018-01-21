@@ -107,6 +107,7 @@ The above produces this html
 | ``.component(tag, {create, mount, destroy, attr, props, methods})`` | define custom elements, no polyfills needed |
 | ``.each(iterable, func)`` | loop through objects, numbers, array(like)s, sets, maps... |
 | ``.extend(hostObj, obj, =safeMode)`` | extends host object with all props of other object, won't overwrite if safe is true |
+| ``.extract(obj, path)``  | safely extract deeply nested values from objects e.g. ``extract({a: {b: [{c: 1}] } }, 'a.b.0.c') -> 1`` |
 | ``.flatten(arraylike)`` | flattens multidimensional arraylike objects |
 | ``.notifier(=obj)`` | extendable event system /pub sub pattern |
 | ``.model(=obj)`` | Backbone like model with validation, please see [SuperModel.js](https://github.com/SaulDoesCode/SuperModel.js) it's the same |
