@@ -56,13 +56,9 @@
   const err = console.error.bind(console)
 
   const extend = (host = {}, obj, safe = false, keys = Keys(obj)) => {
-    if (keys.length) {
-      each(keys, key => {
-        if (!safe || (safe && !(key in host))) {
-          Def(host, key, OwnDesc(obj, key))
-        }
-      })
-    }
+    keys.length && keys.forEach(key => {
+      if (!safe || (safe && !(key in host))) Def(host, key, OwnDesc(obj, key))
+    })
     return host
   }
 
@@ -107,12 +103,12 @@
     return iterable
   }
 
-  const flatReduceFn = (arr, toFlatten) => (
-    arr.concat(isArr(toFlatten) ? flatten(toFlatten) : toFlatten)
-  )
-  const flatten = arr => (
-    isArrlike(arr) ? ArrProto.reduce.call(arr, flatReduceFn, []) : [arr]
-  )
+  const flatten = (arr, result = []) => {
+    for (const value of arr) {
+      isArr(value) ? flatten(value, result) : result.push(value)
+    }
+    return result
+  }
 
   const compose = (...fns) => fns.reduce((f, g) => (...args) => f(g(...args)))
 
@@ -183,7 +179,7 @@
     const emit = infinifyFN((name, ...data) => {
       listeners.each(name, ln => {
         runAsync(ln, ...data)
-        if (ln.once) ln.off()
+        ln.once && ln.off()
       })
     }, false)
 
@@ -195,8 +191,7 @@
     return JSON.stringify(obj)
   }
 
-  const model = (data = {}, store = $map()) => {
-    const mitter = notifier()
+  const model = (data = {}, mitter = notifier(), store = $map()) => {
     const {emit, on, once} = mitter
 
     const del = key => {
@@ -389,8 +384,7 @@
 
   // vpend - virtual append, add nodes and get them as a document fragment
   const vpend = (children, dfrag = frag()) => {
-    flatten(children)
-    .forEach(child => {
+    flatten(children).forEach(child => {
       dfrag.appendChild(child = html(child))
       MNT(child)
     })
@@ -422,11 +416,8 @@
     hasClass: curry((node, name) => node.classList.contains(name)),
     attr: curry((node, attr, val) => {
       if (!node.attributes) return node
-      if (isObj(attr)) {
-        each(attr, (v, a) => {
-          node.setAttribute(a, v)
-        })
-      } else if (isStr(attr)) {
+      if (isObj(attr)) each(attr, (v, a) => { node.setAttribute(a, v) })
+      else if (isStr(attr)) {
         if (!isPrimitive(val)) return node.getAttribute(attr)
         node.setAttribute(attr, val)
       }
@@ -449,16 +440,17 @@
       dom(node).then(n => n.appendChild(children))
       return node
     }, 2),
-    prepend: curry((node, ...args) => {
-      dom(node).then(n => n.prepend(vpend(args)))
+    prepend: curry((node, ...children) => {
+      children = vpend(children)
+      dom(node).then(n => n.prepend(children))
       return node
     }, 2),
-    appendTo: curry((node, val) => {
-      dom(val).then(v => v.appendChild(node))
+    appendTo: curry((node, host) => {
+      dom(host).then(v => v.appendChild(node))
       return node
     }),
-    prependTo: curry((node, val) => {
-      dom(val).then(v => v.prepend(node))
+    prependTo: curry((node, host) => {
+      dom(host).then(v => v.prepend(node))
       return node
     }),
     remove (node, after) {
