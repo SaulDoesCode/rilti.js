@@ -397,13 +397,8 @@
       return newnode
     },
     css: curry((node, styles, prop) => {
-      if (isObj(styles)) {
-        each(styles, (p, key) => {
-          node.style[key] = p
-        })
-      } else if (isStr(prop)) {
-        node.style[styles] = prop
-      }
+      if (isObj(styles)) each(styles, (p, key) => { node.style[key] = p })
+      else if (isStr(styles)) node.style[styles] = prop
       return node
     }, 2),
     Class: curry((node, c, state = !node.classList.contains(c)) => {
@@ -597,15 +592,9 @@
     return node
   }
 
-  const asimilateProps = (el, props) => {
-    each(Keys(props), prop => {
-      if (prop in el) {
-        el[prop] = props[prop]
-      } else {
-        Def(el, prop, OwnDesc(props, prop))
-      }
-    })
-  }
+  const asimilateProps = (el, props) => Keys(props).forEach(prop => {
+    prop in el ? el[prop] = props[prop] : Def(el, prop, OwnDesc(props, prop))
+  })
 
   const create = (tag, options, ...children) => {
     const el = isNode(tag) ? tag : doc.createElement(tag)
@@ -628,17 +617,17 @@
       if (options.on) on(el, options.on)
       if (options.lifecycle || options.cycle) {
         const {mount, destroy, create} = options.lifecycle || options.cycle
-        once.create(el, () => {
+        once(el, 'create', e => {
           Created(el, true)
           create && create.call(el, el)
         })
 
         if (mount) {
-          var mountListener = once.mount(el, mount.bind(el, el))
+          var mountListener = once(el, 'mount', mount.bind(el, el))
         }
 
         if (mountListener || destroy) {
-          on.destroy(el, () => {
+          on(el, 'destroy', e => {
             destroy && destroy.call(el, el)
             mountListener && mountListener.on()
           })
@@ -683,19 +672,10 @@
   new MutationObserver(muts => {
     for (const {addedNodes, removedNodes, target, attributeName, oldValue} of muts) {
       if (attributeName) checkAttr(attributeName, target, oldValue)
-      if (addedNodes.length) {
-        for (const n of addedNodes) {
-          isComponent(n) ? updateComponent(n, 'mount') : MNT(n)
-        }
-      }
-      if (removedNodes.length) {
-        for (const n of removedNodes) {
-          isComponent(n) ? updateComponent(n, 'destroy') : DST(n)
-        }
-      }
+      if (addedNodes.length) for (const n of addedNodes) updateComponent(n, 'mount') || MNT(n)
+      if (removedNodes.length) for (const n of removedNodes) updateComponent(n, 'destroy') || DST(n)
     }
-  })
-  .observe(doc, {attributes: true, childList: true, subtree: true})
+  }).observe(doc, {attributes: true, childList: true, subtree: true})
 
   // I'm really sorry but I don't believe in module loaders, besides who calls their library rilti?
   root.rilti = {
