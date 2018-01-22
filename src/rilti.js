@@ -345,11 +345,11 @@
     return add(once)
   }, 3)
 
-  const eventListenerTypeProxy = {
+  const evtlnProxyConf = {
     get: (fn, type) => (target, handle, options = false) => fn(target, type, handle, options)
   }
-  const once = $proxy(EventManager(true), eventListenerTypeProxy)
-  const on = $proxy(EventManager(false), eventListenerTypeProxy)
+  const once = $proxy(EventManager(true), evtlnProxyConf)
+  const on = $proxy(EventManager(false), evtlnProxyConf)
 
   const route = notifier((hash, fn) => {
     if (!route.active) {
@@ -365,12 +365,12 @@
     return route.on(hash, fn)
   })
 
-  const isReady = () => doc.readyState === 'complete' || isNode(doc.body)
+  const isReady = () => doc.readyState === 'complete' || !!doc.body
 
-  const LoadStack = $set()
-  once.DOMContentLoaded(root, () => each(LoadStack, fn => runAsync(fn)).clear())
+  const loadStack = $set()
+  once.DOMContentLoaded(root, e => each(loadStack, runAsync).clear())
 
-  const run = fn => isReady() ? runAsync(fn) : LoadStack.add(fn)
+  const run = fn => isReady() ? runAsync(fn) : loadStack.add(fn)
 
   const html = input => (
     isFunc(input) ? html(input()) : isNode(input) ? input : doc.createRange().createContextualFragment(input)
@@ -456,8 +456,8 @@
     removeNodes: (...nodes) => each(nodes, n => isMounted(n) && n.remove())
   }
 
-  const mutateSet = weakset => (n, state) => (
-    weakset[isBool(state) ? state ? 'add' : 'delete' : 'has'](n)
+  const mutateSet = set => (n, state) => (
+    set[isBool(state) ? state ? 'add' : 'delete' : 'has'](n)
   )
 
   const createdNodes = $weakset()
@@ -549,7 +549,7 @@
   .replace(/\[(\w+)\]/g, '.$1')
   .replace(/^\./, '')
   .split('.')
-  .reduce((xs, x) => (xs && xs[x]) ? xs[x] : undef, obj)
+  .reduce((xs, x) => xs && xs[x] ? xs[x] : undef, obj)
 
   const checkAttr = (name, el, oldValue) => {
     const attr = directives.get(name) || extract(componentConf(el), 'attr.' + name)
@@ -675,7 +675,7 @@
       if (addedNodes.length) for (const n of addedNodes) updateComponent(n, 'mount') || MNT(n)
       if (removedNodes.length) for (const n of removedNodes) updateComponent(n, 'destroy') || DST(n)
     }
-  }).observe(doc, {attributes: true, childList: true, subtree: true})
+  }).observe(doc, {attributes: true, attributeOldValue: true, childList: true, subtree: true})
 
   // I'm really sorry but I don't believe in module loaders, besides who calls their library rilti?
   root.rilti = {
