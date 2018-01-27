@@ -92,12 +92,15 @@
 
   const each = (iterable, func) => {
     if (isNil(iterable)) return
-    if (iterable.forEach) iterable.forEach(func)
-    else if (isArrlike(iterable)) ArrProto.forEach.call(iterable, func)
-    else if (isObj(iterable)) {
+    else if ('forEach' in iterable) {
+      iterable.forEach(func)
+    } else if (isArrlike(iterable)) {
+      ArrProto.forEach.call(iterable, func)
+    } else if (isObj(iterable)) {
       for (const key in iterable) func(iterable[key], key, iterable)
-    } else if (isInt(iterable)) yieldloop(iterable, func)
-    else if (iterable.entries || isIterator(iterable)) {
+    } else if (isInt(iterable)) {
+      yieldloop(iterable, func)
+    } else if (iterable.entries || isIterator(iterable)) {
       for (const [key, value] of iterable) func(key, value, iterable)
     }
     return iterable
@@ -316,7 +319,7 @@
 
     const handler = evt => {
       handle(evt, target)
-      if (once) remove()
+      once && remove()
     }
 
     const remove = () => {
@@ -372,11 +375,16 @@
 
   const run = fn => isReady() ? runAsync(fn) : loadStack.add(fn)
 
-  const html = input => (
-    isFunc(input) ? html(input()) : isNode(input) ? input : doc.createRange().createContextualFragment(input)
-  )
+  const html = input => {
+    if (isFunc(input)) input = input()
+    return (
+      isNode(input) ? input : doc.createRange().createContextualFragment(input)
+    )
+  }
 
-  const frag = inner => isPrimitive(inner) ? html(inner) : doc.createDocumentFragment()
+  const frag = input => (
+    isNil(input) ? doc.createDocumentFragment() : html(input)
+  )
 
   const emit = (node, type, detail) => {
     node.dispatchEvent(new CustomEvent(type, detail ? {detail} : undef))
@@ -410,16 +418,18 @@
     }, 2),
     hasClass: curry((node, name) => node.classList.contains(name)),
     attr: curry((node, attr, val) => {
-      if (!node.attributes) return node
-      if (isObj(attr)) each(attr, (v, a) => { node.setAttribute(a, v) })
-      else if (isStr(attr)) {
+      if (isObj(attr)) {
+        each(attr, (v, a) => {
+          node[isNil(v) ? 'removeAttribute' : 'setAttribute'](a, v)
+        })
+      } else if (isStr(attr)) {
         if (!isPrimitive(val)) return node.getAttribute(attr)
         node.setAttribute(attr, val)
       }
       return node
     }, 2),
-    rmAttr (node, attr) {
-      node.removeAttribute(attr)
+    rmAttr (node, ...attrs) {
+      attrs.forEach(attr => node.removeAttribute(attr))
       return node
     },
     hasAttr: (node, attr) => node.hasAttribute(attr),
@@ -540,7 +550,7 @@
   const directive = (name, stages) => {
     directives.set(name, stages)
     run(() => {
-      queryEach(`[${name}]`, checkAttr.bind(undef, name))
+      queryEach(`[${name}]`, el => checkAttr(name, el))
     })
   }
 
@@ -551,10 +561,12 @@
   .split('.')
   .reduce((xs, x) => xs && xs[x] ? xs[x] : undef, obj)
 
-  const checkAttr = (name, el, oldValue) => {
-    const attr = directives.get(name) || extract(componentConf(el), 'attr.' + name)
-    attr && handleAttribute(name, el, attr, oldValue)
-  }
+  const checkAttr = (
+    name,
+    el,
+    oldValue,
+    attr = directives.get(name) || extract(componentConf(el), 'attr.' + name)
+  ) => attr && handleAttribute(name, el, attr, oldValue)
 
   // node lifecycle event dispatchers
   const CR = n => !(Created(n) && isComponent(n)) && emit(n, 'create')
