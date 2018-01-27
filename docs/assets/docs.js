@@ -1,6 +1,7 @@
 {
-  const {dom, domfn: {Class}, on, component, model, route} = rilti
-  const {h2, header, footer, nav, aside, section, main, div, span} = dom
+  /* global rilti Prism */
+  const {dom, domfn: {Class}, component, on, model} = rilti
+  const {h2, header, nav, article, section, main, div, span, p, pre, code, html} = dom
 
   var hub = model()
 
@@ -24,9 +25,8 @@
       class: 'display'
     }),
     get active () {
-      if (hub.activeView) return {
-        name: hub.activeSection,
-        view: hub.activeView
+      if (hub.activeView) {
+        return {name: hub.activeSection, view: hub.activeView}
       }
     },
     set active ({name: activeSection, view: activeView}) {
@@ -59,9 +59,50 @@
     }
   }
 
-  display.view('docs', section({
-    class: 'docs-view'
+  const docView = section({class: 'doc-view'})
+  display.view('docs', docView)
+
+  const doc = (name, {short, intake, demo}) => {
+    const demoCode = demo.toString().trim().slice(7).trim().slice(0, -1).trim()
+    article({
+      render: docView,
+      class: 'doc'
+    },
+      header(
+        div(name),
+        pre(code(intake))
+      ),
+      section(
+        p(short),
+        pre({
+          class: 'language-javascript'
+        },
+          code(html(Prism.highlight(demoCode, Prism.languages.javascript)))
+        ),
+        demo()
+      )
+    )
+  }
+
+  doc('component', {
+    intake: '(tagName String, conf Object) -> dom[tagName] func',
+    short: 'define behaviours and characteristics of custom elements',
+    demo: el => {
+const todoItem = component('todo-item', {
+  props: {
+    set done (state) {
+      if (state === this.done) return
+      this.setAttribute('done', state)
+    },
+    get done () { return this.getAttribute('done') === 'true' }
   },
-    `docs view`
-  ))
+  mount (el) {
+    on.click(el, e => { el.done = !el.done })
+    el.prepend(span())
+  }
+})
+
+return todoItem('Write more docs')
+    }
+  })
 }

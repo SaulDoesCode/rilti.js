@@ -480,10 +480,11 @@
   const isComponent = el => components.has(getTag(el))
 
   const components = $map()
-  const component = (tag, config) => {
-    if (!tag.includes('-')) return err(tag + ' is un-hyphenated')
-    components.set(tag, config)
-    run(() => queryEach(tag, updateComponent))
+  const component = (tagName, config) => {
+    if (!tagName.includes('-')) return err(tagName + ' is un-hyphenated')
+    components.set(tagName, config)
+    run(() => queryEach(tagName, updateComponent))
+    return dom[tagName]
   }
 
   const componentConf = tag => components.get(tag && tag.tagName ? getTag(tag) : tag)
@@ -519,7 +520,7 @@
       attr && each(attr, (cfg, name) => handleAttribute(name, element, cfg))
       Mounted(element, true)
       emit(element, stage)
-      if (mount) mount(element)
+      mount && mount(element)
     } else if (stage === 'destroy') {
       Mounted(element, false)
       emit(element, stage)
@@ -572,9 +573,13 @@
   const CR = n => !(Created(n) && isComponent(n)) && emit(n, 'create')
 
   const MNT = n => {
-    if (!Mounted(n) && !isComponent(n)) {
-      Mounted(n, true)
-      emit(n, 'mount')
+    if (!Mounted(n)) {
+      if (isComponent(n)) {
+        updateComponent(n, 'mount')
+      } else {
+        Mounted(n, true)
+        emit(n, 'mount')
+      }
     }
   }
 

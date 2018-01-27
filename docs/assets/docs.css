@@ -15,3 +15,46 @@ body {
   color: hsl(0,0%,34%);
   background: hsl(0,0%,99.5%);
 }
+
+.doc-view {
+  display: block;
+  width: 85vw;
+  margin: 10px auto;
+  border-radius: 4px;
+  padding: 0 6px 6px 6px;
+  background: hsl(0,0%,97%);
+}
+
+todo-item {
+  display: inline-block;
+  padding: 5px 8px 5px 6px;
+  margin: 14px;
+  cursor: default;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  user-select: none;
+  font-size: 1.1em;
+  text-align: center;
+  max-width: 320px;
+  border-radius: 16px;
+  box-shadow: 0 1px 4px hsla(0,0%,0%,.2);
+  text-decoration: line-through;
+  color: hsl(0,0%,35%);
+}
+todo-item[done="true"] {
+  text-decoration: none;
+  color: hsl(0,0%,32%);
+}
+todo-item > span {
+  display: inline-block;
+  vertical-align: bottom;
+  width: 22px;
+  height: 22px;
+  margin: 0 5px 0 0;
+  border-radius: 100%;
+  background: hsl(111,70%,62%);
+  cursor: pointer;
+}
+todo-item[done="true"] > span {
+  background: hsl(1,70%,62%);
+}
