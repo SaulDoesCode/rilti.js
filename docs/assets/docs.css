@@ -11,43 +11,160 @@ html, body {
 }
 
 body {
-  font-family: Roboto, Nunito, Helvetica, sans-serif;
-  color: hsl(0,0%,34%);
-  background: hsl(0,0%,99.5%);
+  font-family: Nunito, Verdunda, Roboto, Helvetica, sans-serif;
+  color: hsl(0,0%,35%);
+  background: hsl(0,0%,99%);
 }
 
-.doc-view {
+#site-header {
+  display: flex;
+  justify-content: space-between;
+  align-content: center;
+  align-items: center;
+  flex-flow: row wrap;
+  padding: 0 10px;
+}
+
+#site-header > nav {
   display: block;
-  width: 85vw;
+  padding: 5px 0;
+  margin: 5px 0;
+}
+
+#site-header > nav > .nav-btn {
+  padding: 6px 8px;
+  margin: 4px;
+  border-radius: 2px;
+  font-weight: 600;
+  color: hsl(0,0%,56%);
+  background: #fff;
+  box-sizing: content-box;
+  cursor: pointer;
+  font-size: 1.2em;
+  transition: all 142ms ease;
+  filter: drop-shadow(0 1px 12px hsla(0,0%,0%,.1));
+}
+
+#site-header > nav > .nav-btn:hover {
+  filter: drop-shadow(0 1px 4px hsla(0,0%,0%,.15));
+}
+
+main.display {
+  display: flex;
+  justify-content: center;
+  align-content: center;
+  align-items: center;
+  flex-flow: column wrap;
+  width: 100%;
   margin: 10px auto;
+}
+
+doc-views {
+  display: flex;
+  justify-content: center;
+  align-content: center;
+  align-items: center;
+  flex-flow: column wrap;
+  width: 100%;
+  margin: 10px 0;
+  padding: 5px;
+  filter: drop-shadow(0 1px 12px hsla(0,0%,0%,.08));
+}
+
+doc-view {
+  display: inline-flex;
+  justify-content: space-around;
+  align-content: center;
+  align-items: flex-start;
+  flex-flow: row wrap;
+  width: auto;
+  margin: 8px auto;
   border-radius: 4px;
-  padding: 0 6px 6px 6px;
-  background: hsl(0,0%,97%);
+  padding: 5px;
+  background: hsl(0,0%,100%);
+}
+
+doc-view > header {
+  display: flex;
+  justify-content: center;
+  align-content: flex-end;
+  align-items: center;
+  flex-flow: column wrap;
+  text-align: left;
+  margin: 5px;
+}
+
+doc-view > header > div > span {
+  font-size: 1.1em;
+  font-weight: 600;
+}
+
+doc-view > header > p {
+  display: block;
+  width: 90%;
+  margin: 25px auto 25px auto;
+  padding: 5px 0;
+  border-top: 1px solid hsla(0,0%,0%,.25);
+  border-bottom: 1px solid hsla(0,0%,0%,.25);
+}
+
+doc-view .demo {
+  display: flex;
+  width: 100%;
+  justify-content: space-around;
+  align-content: center;
+  align-items: center;
+  flex-flow: row wrap;
+  padding: 5px;
+}
+
+doc-view > header > h4 {
+  display: block;
+  width: 90%;
+  margin: 10% auto 0 auto;
+  border-bottom: 1px solid hsl(0,0%,70%);
+  box-shadow: 0 3px 2px -2px hsla(0,0%,0%,.11);
+  text-align: left;
+}
+
+doc-view > section {
+  margin: 5px;
+  max-width: 380px;
+}
+doc-view pre.language-javascript {
+  margin: 0;
+  width: 100%;
 }
 
 todo-item {
-  display: inline-block;
+  display: block;
   padding: 5px 8px 5px 6px;
-  margin: 14px;
-  cursor: default;
+  margin: 10px;
   -webkit-user-select: none;
   -moz-user-select: none;
   user-select: none;
   font-size: 1.1em;
   text-align: center;
   max-width: 320px;
+  color: hsl(0,0%,35%);
+  background: #fff;
   border-radius: 16px;
   box-shadow: 0 1px 4px hsla(0,0%,0%,.2);
-  text-decoration: line-through;
-  color: hsl(0,0%,35%);
 }
-todo-item[done="true"] {
+todo-item > span:not(.toggle) {
+  text-decoration: line-through;
+}
+todo-item[done="true"] > span:not(.toggle) {
   text-decoration: none;
   color: hsl(0,0%,32%);
 }
+
 todo-item > span {
+  vertical-align: middle;
+}
+
+todo-item > .toggle {
   display: inline-block;
-  vertical-align: bottom;
   width: 22px;
   height: 22px;
   margin: 0 5px 0 0;
@@ -55,6 +172,12 @@ todo-item > span {
   background: hsl(111,70%,62%);
   cursor: pointer;
 }
-todo-item[done="true"] > span {
+
+todo-item[done="true"] > .toggle {
   background: hsl(1,70%,62%);
+}
+
+todo-item [contenteditable] {
+  text-decoration: none !important;
+  cursor: inherit;
 }

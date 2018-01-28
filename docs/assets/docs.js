@@ -1,7 +1,7 @@
 {
   /* global rilti Prism */
-  const {dom, domfn: {Class}, component, on, model} = rilti
-  const {h2, header, nav, article, section, main, div, span, p, pre, code, html} = dom
+  const {dom, domfn: {attr, Class}, component, on, once, model} = rilti
+  const {h2, h4, header, nav, article, section, main, div, span, p, pre, code, html} = dom
 
   var hub = model()
 
@@ -13,9 +13,10 @@
   })
 
   header({
-    render: 'body'
+    render: 'body',
+    id: 'site-header'
   },
-    h2('rilti: ', activeSectionTxt),
+    h2('rilti.js - ', activeSectionTxt),
     menu
   )
 
@@ -35,7 +36,7 @@
     views: new Map(),
     view (name, view, activate = true) {
       if (view) {
-        view.btn = div({
+        view.btn = span({
           render: menu,
           class: 'nav-btn',
           on: { click: e => display.view(name) }
@@ -59,50 +60,66 @@
     }
   }
 
-  const docView = section({class: 'doc-view'})
-  display.view('docs', docView)
+  const overview = article(`a future forward front-end framework with elm-like ideas about architecture`)
+  display.view('overview', overview)
+
+  const docViews = dom['doc-views']()
+  display.view('docs', docViews)
 
   const doc = (name, {short, intake, demo}) => {
-    const demoCode = demo.toString().trim().slice(7).trim().slice(0, -1).trim()
-    article({
-      render: docView,
-      class: 'doc'
+    const demoCode = demo.toString().trim().slice(9).trim().slice(0, -1).trim()
+    const demoSection = div({class: 'demo'})
+    demo(demoSection)
+    dom['doc-view']({
+      render: docViews,
+      id: name
     },
       header(
-        div(name),
-        pre(code(intake))
+        div(span(name), pre(code(intake))),
+        p(short),
+        demoSection
       ),
       section(
-        p(short),
         pre({
           class: 'language-javascript'
         },
           code(html(Prism.highlight(demoCode, Prism.languages.javascript)))
-        ),
-        demo()
+        )
       )
     )
   }
 
-  doc('component', {
+  doc('.component', {
     intake: '(tagName String, conf Object) -> dom[tagName] func',
     short: 'define behaviours and characteristics of custom elements',
-    demo: el => {
+    demo: demo => {
 const todoItem = component('todo-item', {
   props: {
     set done (state) {
-      if (state === this.done) return
-      this.setAttribute('done', state)
+      attr(this, 'done', state)
     },
-    get done () { return this.getAttribute('done') === 'true' }
+    get done () {
+      return attr(this, 'done') === 'true'
+    }
   },
   mount (el) {
-    on.click(el, e => { el.done = !el.done })
-    el.prepend(span())
+    const content = span(el.textContent)
+    const toggleEdit = contenteditable => {
+      attr(content, {contenteditable})
+    }
+
+    on.dblclick(content, e => toggleEdit(true))
+    on.blur(content, e => toggleEdit())
+
+    const toggle = span({class: 'toggle'})
+    on.click(toggle, e => el.done = !el.done)
+
+    el.innerHTML = ''
+    el.append(toggle, content)
   }
 })
 
-return todoItem('Write more docs')
+todoItem({render: demo}, 'Write more docs')
     }
   })
 }
