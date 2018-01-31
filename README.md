@@ -13,14 +13,14 @@ Feel free to fork or raise issues. Constructive criticism is welcome
 * dom event management
 * models, sync/async accessors, observe props
 * create elements in javascript don't write clunky html
-* components aka custom-elements, no polyfill needed!
+* components aka. custom-elements. No polyfill needed!
 * vue-like directives aka custom attributes
 * great dom manipulation functions
 * functional composition
 * powerful yet petite notifier system (pub/sub)
 * no classes, no this, no extra fuzz, functional positive
 * no old javascript, we use modern features like Proxy
-* A Gziped rilti.min.js weighs less than 4.4kb
+* A Gziped rilti.min.js weighs less than 4.6kb
 
 
 To use Rilti just download **/dist/rilti.min.js** and pop it in a script tag. **If you have any issues just tell me, I'm on it.**
@@ -164,7 +164,8 @@ const {
   attrToggle, // (node, attrName, state = !hasAttr, =val = getAttr(name) || '')
   emit, // (node, {type string/Event/CustomEvent}) dispatchEvents on node
   append, prepend, appendTo, prependTo, // (node, selectorOrNode)
-  remove // (node, =afterMS) // remove node or remove after timeout
+  remove, // (node, =afterMS) // remove node or remove after timeout
+  mutate // multitool i.e. (node, {class: 'card', css: {'--higlight-color': 'crimson'}}) -> options obj
 } = rilti.domfn
 ```
 
@@ -190,8 +191,10 @@ const {
 A MASA example is ``rilti.listMap`` where the get/set methods are one function that is both the object and its interface.      
 ``listMap() -> {each, has, del, map} = fn(key, val)``    
 
+Different strokes for different folks:
 Also look at ``rilti.on`` which can be used like this ``on['any-event'](node, func, =options)``,
-as well as like this ``on('any-event', node)(func, =options)``, different strokes for different folks.
+as well as like this ``on('any-event', node)(func, =options)``    
+and also ``on(node, { click: e => {} }, =options)``.
 
 #### examples of rilti used to build things in the wild
 * [Rilti News - Progressive Web App](https://grimstack.io/news/)
@@ -254,28 +257,28 @@ dom['random-tag']({
   props: {
     oldtxt: '',
     // getter/setters work too
-    get txt() { return this.innerText },
-    set txt(val) { this.innerText = val.trim() }
+    get txt () { return this.innerText },
+    set txt (val) { this.innerText = val.trim() }
   },
   // listen for events
   on: {
-    click(evt, el) {
+    click (evt, el) {
       el.oldtxt = el.txt
       el.txt = 'Sure you want to remove random-tag?'
     },
-    mouseout(evt, el) {
+    mouseout (evt, el) {
       el.txt = el.oldtxt
     }
   },
-  // listen for events just once
-  once: {
-    dblclick : (evt, el) => el.remove()
+  // if there's just one listener then use:
+  // once_evt: fn instead of once: { evt: fn }
+  once_dblclick (evt, el) { el.remove() }
   },
   // manage the element's lifecycle
   cycle: {
-    create () { /*...*/ },
-    mount () { /*...*/ },
-    destroy () { /*...*/ }
+    create (el) { /*...*/ },
+    mount (el) { /*...*/ },
+    destroy (el) { /*...*/ }
   }
 })
 ```
@@ -295,24 +298,25 @@ rilti.directives.delete('custom-attr')
 
 #### Web Components / Custom Elements, no polyfills needed
 ```js
-const {domfn: {css, attr}, on, component} = rilti
+const {domfn: {css, attr, mutate}, on, component} = rilti
 
 component('tick-box', {
   props: {
     get ticked () {
-      return attr(this, 'data-ticked') === 'true'
+      return attr(this, 'ticked') === 'true'
     },
-    set ticked (val) {
-      if(!this.disabled) {
-        attr(this, 'data-ticked', val)
-        css(this, {
-          backgroundColor: val ? 'dimgrey' : 'white',
-          border: `1px solid ${val ? 'white' : 'dimgrey'}`
-        })
-      }
+    set ticked (ticked) {
+      !this.disabled && mutate(this, {
+        attr: {ticked},
+        css: {
+          backgroundColor: ticked ? 'dimgrey' : 'white',
+          border: `1px solid ${ticked ? 'white' : 'dimgrey'}`
+        }
+      })
     }
   },
   create (el) {
+    on.click(el, e => el.ticked = !el.ticked)
     css(el, {
       display: 'block',
       width: '20px',
@@ -322,7 +326,6 @@ component('tick-box', {
       backgroundColor: el.ticked ? 'dimgrey' : 'white',
       border: `1px solid ${el.ticked ? 'white' : 'dimgrey'}`
     })
-    on.click(el, e => el.ticked = !el.ticked)
   },
   mount (el) {
     console.log('tick-box mounted to document')
@@ -346,7 +349,7 @@ component('tick-box', {
 <script src="/rilti/dist/rilti.min.js"></script>
 <script>
   const testRiltiBlocking = (count = 10000) => {
-    const span = rilti.dom.span
+    const {span} = rilti.dom
     const start = performance.now()
     while(count != 0) span({
       render: document.body,
@@ -393,7 +396,7 @@ component('tick-box', {
         count--
       )
     )
-    console.log(`That took ${performance.now() - start}ms`);
+    console.log(`The first chunk took ${performance.now() - start}ms`);
   }
   testRiltiChunked();
   // -> site useable even while rendering thousands of nodes
@@ -431,6 +434,6 @@ component('tick-box', {
 #### weight
 * unminified:  > 24kb
 * minified: > 10kb
-* minified && compressed: > 4.4kb
+* minified && compressed: > 4.6kb
 
 #### licence = MIT

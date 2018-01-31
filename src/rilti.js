@@ -412,8 +412,14 @@
       return newnode
     },
     css: curry((node, styles, prop) => {
-      if (isObj(styles)) each(styles, (p, key) => { node.style[key] = p })
-      else if (isStr(styles)) node.style[styles] = prop
+      if (isObj(styles)) each(styles, (p, key) => domfn.css(node, key, p))
+      else if (isStr(styles)) {
+        if (styles.slice(0, 2) === '--') {
+          node.style.setProperty(styles, prop)
+        } else {
+          node.style[styles] = prop
+        }
+      }
       return node
     }, 2),
     Class: curry((node, c, state = !node.classList.contains(c)) => {

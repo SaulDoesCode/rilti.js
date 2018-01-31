@@ -148,11 +148,19 @@ todoItem({render: demo}, 'Write more docs')
   })
 
 
-  console.log(mutate(div({render: 'body'}), {
+  dom.style({render: 'head'}, `
+      #nom {
+        --highlight-color: crimson;
+        color: var(--highlight-color);
+      }
+  `)
+
+  console.log(mutate(div({render: 'body', id: 'nom'}), {
     text: 'Gaze upon me!',
     class: 'fok tog',
     css: {
-      fontSize: '1.5em'
+      fontSize: '1.5em',
+      '--highlight-color': 'limegreen'
     },
     attr: {
       'see-diz': 'fok'

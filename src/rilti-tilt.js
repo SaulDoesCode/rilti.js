@@ -156,12 +156,10 @@
           element.style.transform = `perspective(${settings.perspective}px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)`
         })
 
-        if (glare) {
-          css(glareElement, {
-            transform: 'rotate(180deg) translate(-50%, -50%)',
-            opacity: '0'
-          })
-        }
+        glare && css(glareElement, {
+          transform: 'rotate(180deg) translate(-50%, -50%)',
+          opacity: '0'
+        })
       }
     })
 
