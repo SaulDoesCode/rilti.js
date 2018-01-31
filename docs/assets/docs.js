@@ -146,28 +146,4 @@ const todoItem = component('todo-item', {
 todoItem({render: demo}, 'Write more docs')
     }
   })
-
-
-  dom.style({render: 'head'}, `
-      #nom {
-        --highlight-color: crimson;
-        color: var(--highlight-color);
-      }
-  `)
-
-  console.log(mutate(div({render: 'body', id: 'nom'}), {
-    text: 'Gaze upon me!',
-    class: 'fok tog',
-    css: {
-      fontSize: '1.5em',
-      '--highlight-color': 'limegreen'
-    },
-    attr: {
-      'see-diz': 'fok'
-    },
-    on_click (e, el) {
-      if (!el.count) el.count = 0
-      el.textContent = (el.count++) + ' clicks'
-    }
-  }))
 }
