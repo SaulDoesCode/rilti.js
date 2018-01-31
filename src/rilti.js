@@ -423,12 +423,11 @@
       return node
     }, 2),
     Class: curry((node, c, state = !node.classList.contains(c)) => {
-      if (!isObj(c)) {
-        const mode = state ? 'add' : 'remove'
-        c.includes(' ') ? each(c.split(' '), cls => node.classList[mode](cls)) : node.classList[mode](c)
+      if (isObj(c)) {
+        each(c, (state, className) => domfn.Class(node, className, state))
       }
-      if (isStr(c)) c.includes(' ') ? c = c.split(' ') : c.className += c
-      if (isArr(c)) each(c, cls => node.classList.add(cls))
+      if (isStr(c)) c = c.split(' ')
+      if (isArr(c)) each(c, cls => node.classList[state ? 'add' : 'remove'](cls))
       return node
     }, 2),
     hasClass: curry((node, name) => node.classList.contains(name)),

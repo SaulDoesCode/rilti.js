@@ -8,9 +8,7 @@
   const activeSectionTxt = span('domfn')
   hub.sync(activeSectionTxt, 'textContent', 'activeSection')
 
-  const menu = nav({
-    class: 'nav-bar'
-  })
+  const menu = nav({class: 'nav-bar'})
 
   header({
     render: 'body',
@@ -114,9 +112,7 @@ dom('.missing-element').then(makeMagic)
     demo: demo => {
 const todoItem = component('todo-item', {
   props: {
-    set done (state) {
-      attr(this, 'done', state)
-    },
+    set done (done) { attr(this, {done}) },
     get done () {
       return attr(this, 'done') === 'true'
     }
@@ -139,7 +135,7 @@ const todoItem = component('todo-item', {
       on_click () { el.done = !el.done }
     })
 
-    mutate(el, { children: [toggle, content] })
+    mutate(el, {children: [toggle, content]})
   }
 })
 
