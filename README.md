@@ -201,7 +201,7 @@ and also ``on(node, { click: e => {} }, =options)``.
 * [clone and open ./examples/todo.html](https://github.com/SaulDoesCode/rilti.js/archive/master.zip)      
 * [grimstack.io blog site](https://grimstack.io)     
 * [grimstack.io/portfolio WIP Portfolio](https://grimstack.io/portfolio)     
-* [rilti.js todomvc {slightly outdated}](https://github.com/SaulDoesCode/rilti.js-todomvc)      
+* [rilti-todomvc](https://github.com/SaulDoesCode/rilti-todomvc)      
 
 
 #### Async Property accessors with ``.model().async`` and Async/Await
