@@ -1,5 +1,5 @@
 { /* global localStorage rilti */
-  const {dom, domfn: {attr, emit}, on, model, component} = rilti
+  const {dom, domfn: {attr, emit, mutate}, on, model, component} = rilti
   const {span, aside, button, header, input} = dom
   const tickBox = dom['tick-box']
 
@@ -60,39 +60,33 @@
       const tdInput = input({
         render: tdMaker,
         attr: { type: 'text' },
-        on: {
-          keydown ({keyCode}) {
-            if (keyCode === 13) todoSubmit()
-          }
+        on_keydown ({keyCode}) {
+          if (keyCode === 13) todoSubmit()
         }
       })
 
-      todos.on.newTodo(() => {
-        tdInput.value = ''
-      })
+      todos.on.newTodo(() => { tdInput.value = '' })
 
       button({
         render: tdMaker,
         class: 'green-btn',
-        on: {
-          click () { todoSubmit() }
-        }
-      }, 'add todo')
+        on_click: () => todoSubmit()
+      },
+        'add todo'
+      )
 
       const setMode = mode => () => {
-        attr(el, 'mode', mode)
+        attr(el, {mode})
         localStorage.setItem('todo-mode', mode)
       }
 
-      const setModeOnClick = mode => ({ on: { click: setMode(mode) } })
-      const allCount = span(setModeOnClick('all'))
-      const doneCount = span(setModeOnClick('done'))
-      const undoneCount = span(setModeOnClick('undone'))
+      const [allCount, doneCount, undoneCount] = ['all', 'done', 'undone']
+      .map(mode => span({ on_click: setMode(mode) }))
 
       const populateCounts = ({all, done, undone} = todoCount()) => {
-        allCount.textContent = `all: ${all}`
-        doneCount.textContent = `done: ${done}`
-        undoneCount.textContent = `undone: ${undone}`
+        allCount.textContent = 'all: ' + all
+        doneCount.textContent = 'done: ' + done
+        undoneCount.textContent = 'undone: ' + undone
       }
 
       setMode(localStorage.getItem('todo-mode') || 'all')()
@@ -143,23 +137,18 @@
         el.tick_el.ticked = state
       }
 
-      el.del_el = span({
-        class: 'delete-todo',
-        on: { click: el.del }
-      }, '✕')
+      el.del_el = span({class: 'delete-todo', on_click: el.del}, '✕')
 
       el.txt_el = span({
         class: 'txt',
         attr: { contenteditable: true },
-        on: { input: el.update }
+        on_input: el.update
       })
 
       el.tick_el = tickBox({
         attr: { ticked: el.state },
-        on: {
-          ticked () {
-            el.state = el.tick_el.ticked
-          }
+        on_ticked () {
+          el.state = el.tick_el.ticked
         }
       })
     },

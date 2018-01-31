@@ -48,9 +48,7 @@ const dbFunc = container => {
       type: 'text',
       value: M.txt
     },
-    on: {
-      input (e, element) { M.txt = element.value.trim() }
-    }
+    on_input (e, element) { M.txt = element.value.trim() }
   })
 }
 
@@ -89,10 +87,8 @@ const modelEventsFunc = container => {
   button({
     render: container,
     props: { clicks: 0 },
-    on: {
-      click () {
-        M.emit.countUpdate(++this.clicks)
-      }
+    on_click () {
+      M.emit.countUpdate(++this.clicks)
     }
   },
     `emit countUpdate`

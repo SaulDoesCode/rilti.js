@@ -1,6 +1,6 @@
 {
   /* global rilti Prism */
-  const {dom, domfn: {attr, Class}, component, on, once, model} = rilti
+  const {dom, domfn: {attr, Class, mutate}, component, on, model, isFunc} = rilti
   const {h2, h4, header, nav, article, section, main, div, span, p, pre, code, html} = dom
 
   var hub = model()
@@ -67,9 +67,13 @@
   display.view('docs', docViews)
 
   const doc = (name, {short, intake, demo}) => {
-    const demoCode = demo.toString().trim().slice(9).trim().slice(0, -1).trim()
-    const demoSection = div({class: 'demo'})
-    demo(demoSection)
+    let demoSection = ''
+    let demoCode = demo
+    if (isFunc(demo)) {
+      demoSection = div({class: 'demo'})
+      demoCode = demo.toString().trim().slice(9).trim().slice(0, -1)
+      demo(demoSection)
+    }
     dom['doc-view']({
       render: docViews,
       id: name
@@ -80,14 +84,29 @@
         demoSection
       ),
       section(
-        pre({
-          class: 'language-javascript'
-        },
-          code(html(Prism.highlight(demoCode, Prism.languages.javascript)))
+        pre(
+          {class: 'language-javascript'},
+          code(html(Prism.highlight(demoCode.trim(), Prism.languages.javascript)))
         )
       )
     )
   }
+
+  doc('.dom', {
+    intake: '(selector String, =parent Node) -> Promise<Node>',
+    short: 'a promise based querySelector function that works independently of whether it is called before or after the page has fully loaded',
+    demo: `
+const styleMenu = async styles => {
+  css(await dom('nav.menu'), styles)
+}
+
+dom('.missing-element').then(makeMagic)
+.catch(([code, selector]) => {
+  code === 404 && console.log(\`
+    unable to retrieve \${selector}
+  \`)
+})`
+})
 
   doc('.component', {
     intake: '(tagName String, conf Object) -> dom[tagName] func',
@@ -108,18 +127,39 @@ const todoItem = component('todo-item', {
       attr(content, {contenteditable})
     }
 
-    on.dblclick(content, e => toggleEdit(true))
-    on.blur(content, e => toggleEdit())
+    mutate(content, {
+      on: {
+        dblclick () { toggleEdit(true) },
+        blur () { toggleEdit() }
+      }
+    })
 
-    const toggle = span({class: 'toggle'})
-    on.click(toggle, e => el.done = !el.done)
+    const toggle = span({
+      class: 'toggle',
+      on_click () { el.done = !el.done }
+    })
 
-    el.innerHTML = ''
-    el.append(toggle, content)
+    mutate(el, { children: [toggle, content] })
   }
 })
 
 todoItem({render: demo}, 'Write more docs')
     }
   })
+
+
+  console.log(mutate(div({render: 'body'}), {
+    text: 'Gaze upon me!',
+    class: 'fok tog',
+    css: {
+      fontSize: '1.5em'
+    },
+    attr: {
+      'see-diz': 'fok'
+    },
+    on_click (e, el) {
+      if (!el.count) el.count = 0
+      el.textContent = (el.count++) + ' clicks'
+    }
+  }))
 }

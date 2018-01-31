@@ -9,14 +9,21 @@
   const {assign, keys: Keys, defineProperty: Def, getOwnPropertyDescriptor: OwnDesc} = Object
   const root = window
   const doc = document
-  const undef = void 0
+  const undef = undefined
   const NULL = null
-  const funcConstruct = Obj => (...args) => new Obj(...args)
-  const $map = funcConstruct(Map)
-  const $set = funcConstruct(Set)
-  const $weakset = funcConstruct(WeakSet)
-  const $proxy = funcConstruct(Proxy)
-  const $promise = funcConstruct(Promise)
+  const [
+    $map,
+    $set,
+    $weakset,
+    $proxy,
+    $promise
+  ] = [
+    Map,
+    Set,
+    WeakSet,
+    Proxy,
+    Promise
+  ].map(Obj => (...args) => new Obj(...args))
 
   const curry = (fn, arity = fn.length, ...args) => (
     arity <= args.length ? fn(...args) : curry.bind(undef, fn, arity, ...args)
@@ -413,7 +420,9 @@
       if (!isObj(c)) {
         const mode = state ? 'add' : 'remove'
         c.includes(' ') ? each(c.split(' '), cls => node.classList[mode](cls)) : node.classList[mode](c)
-      } else each(c, (mode, cls) => node.classList[mode ? 'add' : 'remove'](cls))
+      }
+      if (isStr(c)) c.includes(' ') ? c = c.split(' ') : c.className += c
+      if (isArr(c)) each(c, cls => node.classList.add(cls))
       return node
     }, 2),
     hasClass: curry((node, name) => node.classList.contains(name)),
@@ -463,7 +472,37 @@
       else if (isMounted(node)) node.remove()
       return node
     },
-    removeNodes: (...nodes) => each(nodes, n => isMounted(n) && n.remove())
+    removeNodes: (...nodes) => each(nodes, n => isMounted(n) && n.remove()),
+    mutate (node, options, assignArbitrary = true) {
+      if (!options) return
+      if (isArr(node)) return node.map(n => domfn.mutate(n, options, assignArbitrary))
+      each(options, (args, name) => {
+        const argsIsArr = isArr(args)
+        const classRelated = name === 'class' || name === 'className'
+        if (name in domfn || classRelated) {
+          if (classRelated) name = 'Class'
+          argsIsArr ? domfn[name](node, ...args) : domfn[name](node, args)
+        } else if (name.includes('once') || name.includes('on')) {
+          const evtfn = EventManager(name.includes('once'))
+          if (name.includes('_')) {
+            const [evtfnName, type] = name.split('_')
+            if (!options[evtfnName]) options[evtfnName] = {}
+            options[evtfnName][type] = argsIsArr ? evtfn(node, type, ...args) : evtfn(node, type, args)
+          }
+          options[name] = argsIsArr ? evtfn(node, ...args) : evtfn(node, args)
+        } else if (name === 'content' || name === 'children' || name === 'inner') {
+          node.innerHTML = ''
+          if (isRenderable(args = flatten(args))) domfn.append(node, args)
+        } else if (name === 'text') {
+          node.textContent = args
+        } else if (name === 'html') {
+          node.innerHTML = args
+        } else if (assignArbitrary || name in node || name === 'src' || name === 'href') {
+          node[name] = args
+        }
+      })
+      return options
+    }
   }
 
   const mutateSet = set => (n, state) => (
@@ -620,18 +659,9 @@
     if (children.length && el.nodeName !== '#text') domfn.append(el, children)
 
     if (isObj(options)) {
-      if (options.attr) domfn.attr(el, options.attr)
-      if (options.css) domfn.css(el, options.css)
-      if (options.class || options.className) {
-        el.className += options.class || options.className
-      }
-      if (options.id) el.id = options.id
-      if (options.src) el.src = options.src
-      if (options.href) el.href = options.href
+      domfn.mutate(el, options, false)
       if (options.props) asimilateProps(el, options.props)
       if (options.methods) extend(el, options.methods)
-      if (options.once) once(el, options.once)
-      if (options.on) on(el, options.on)
       if (options.lifecycle || options.cycle) {
         const {mount, destroy, create} = options.lifecycle || options.cycle
         once(el, 'create', e => {
@@ -643,12 +673,10 @@
           var mountListener = once(el, 'mount', mount.bind(el, el))
         }
 
-        if (mountListener || destroy) {
-          on(el, 'destroy', e => {
-            destroy && destroy.call(el, el)
-            mountListener && mountListener.on()
-          })
-        }
+        (mount || destroy) && on(el, 'destroy', e => {
+          destroy && destroy.call(el, el)
+          mountListener && mountListener.on()
+        })
       }
       const {renderBefore, renderAfter, render: rendr} = options
       if (renderBefore) render(el, renderBefore, 'before')

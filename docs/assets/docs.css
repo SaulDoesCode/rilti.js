@@ -12,8 +12,8 @@ html, body {
 
 body {
   font-family: Nunito, Verdunda, Roboto, Helvetica, sans-serif;
-  color: hsl(0,0%,35%);
-  background: hsl(0,0%,99%);
+  color: hsl(0,0%,40%);
+  background: hsl(0,0%,98.5%);
 }
 
 #site-header {
@@ -22,7 +22,12 @@ body {
   align-content: center;
   align-items: center;
   flex-flow: row wrap;
-  padding: 0 10px;
+  padding: 5px 10px;
+  color: hsl(0,0%,54%);
+}
+
+#site-header > h2 {
+  text-shadow: 0 1px 3px hsla(0,0%,0%,.11);
 }
 
 #site-header > nav {
@@ -36,7 +41,6 @@ body {
   margin: 4px;
   border-radius: 2px;
   font-weight: 600;
-  color: hsl(0,0%,56%);
   background: #fff;
   box-sizing: content-box;
   cursor: pointer;
@@ -77,8 +81,8 @@ doc-view {
   align-content: center;
   align-items: flex-start;
   flex-flow: row wrap;
-  width: auto;
-  margin: 8px auto;
+  max-width: 796px;
+  margin: 12px auto;
   border-radius: 4px;
   padding: 5px;
   background: hsl(0,0%,100%);
@@ -101,8 +105,8 @@ doc-view > header > div > span {
 
 doc-view > header > p {
   display: block;
-  width: 90%;
-  margin: 25px auto 25px auto;
+  width: 350px;
+  margin: 25px 0 25px 0;
   padding: 5px 0;
   border-top: 1px solid hsla(0,0%,0%,.25);
   border-bottom: 1px solid hsla(0,0%,0%,.25);
@@ -133,7 +137,7 @@ doc-view > section {
 }
 doc-view pre.language-javascript {
   margin: 0;
-  width: 100%;
+  width: 355px;
 }
 
 todo-item {
