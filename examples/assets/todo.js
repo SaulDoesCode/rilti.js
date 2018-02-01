@@ -1,24 +1,18 @@
 { /* global localStorage rilti */
   const {dom, domfn: {attr, emit, mutate}, on, model, component} = rilti
   const {span, aside, button, header, input} = dom
-  const tickBox = dom['tick-box']
 
   const strBool = str => (
     str === true || str === false ? str : str !== 'false'
   )
 
-  component('tick-box', {
+  const tickBox = component('tick-box', {
     props: {
       get ticked () { return strBool(attr(this, 'ticked')) },
-      set ticked (val) {
-        if ((val = strBool(val)) !== this.ticked) {
-          attr(this, 'ticked', val)
-        }
-      }
+      set ticked (ticked) { attr(this, {ticked}) }
     },
     create (el) {
-      el.ticked = true
-      on.click(el, () => { el.ticked = !el.ticked })
+      on.click(el, e => { el.ticked = !el.ticked })
     },
     attr: {
       ticked: {
@@ -27,16 +21,20 @@
     }
   })
 
-  var todos = model(JSON.parse(localStorage.getItem('todos') || '{}'))
+  const todos = model()
+
+  JSON.parse(localStorage.getItem('todos') || '[]').sort()
+  .forEach(([name, state]) => todos.store.set(name, state))
+
   const todoCount = () => {
     const all = todos.store.size
     let done = 0
-    todos.each(val => val && (done++))
+    todos.each(val => val && done++)
     return {all, done, undone: all - done}
   }
 
   const updateStorage = () => {
-    localStorage.setItem('todos', todos.toJSON())
+    localStorage.setItem('todos', JSON.stringify([...todos.store.entries()]))
     todos.emit.update(todoCount())
   }
   todos.on.set(updateStorage)
@@ -47,31 +45,25 @@
       const tdMaker = header({render: el})
 
       const todoSubmit = (txt = tdInput.value.trim(), state = false) => {
-        if (txt && txt.length) {
-          dom['todo-item']({
-            render: el,
-            attr: {state}
-          }, txt)
-          todos.emit.newTodo()
-        }
+        if (!(txt && txt.length)) return
+        dom['todo-item']({render: el, attr: {state}}, txt)
+        todos.emit.newTodo()
       }
 
       todos.each((val, key) => todoSubmit(key, val))
 
       const tdInput = input({
         render: tdMaker,
-        attr: { type: 'text' },
-        on_keydown ({keyCode}) {
-          if (keyCode === 13) todoSubmit()
-        }
+        attr: {type: 'text'},
+        on_keydown: ({keyCode}) => keyCode === 13 && todoSubmit()
       })
 
-      todos.on.newTodo(() => { tdInput.value = '' })
+      todos.on.newTodo(() => (tdInput.value = ''))
 
       button({
         render: tdMaker,
         class: 'green-btn',
-        on_click: () => todoSubmit()
+        on_click: e => todoSubmit()
       },
         'add todo'
       )
@@ -101,18 +93,14 @@
   component('todo-item', {
     props: {
       get state () { return strBool(attr(this, 'state')) },
-      set state (val) {
-        if ((val = strBool(val)) !== this.state) {
-          attr(this, 'state', val)
-        }
-      },
+      set state (state) { attr(this, {state}) },
       set txt (val) {
         if (val !== this.txt) {
           if (this.txt_el) {
             this.txt_el.textContent = val = ('' + val).trim()
             this.update()
           } else {
-            on.mount(this, () => { this.txt = val })
+            on.mount(this, e => (this.txt = val))
           }
         }
       },
@@ -142,12 +130,12 @@
 
       el.txt_el = span({
         class: 'txt',
-        attr: { contenteditable: true },
+        attr: {contenteditable: true},
         on_input: el.update
       })
 
       el.tick_el = tickBox({
-        attr: { ticked: el.state },
+        attr: {ticked: el.state},
         on_ticked () {
           el.state = el.tick_el.ticked
         }
@@ -158,13 +146,10 @@
       if (!el.txt) {
         el.txt_el.textContent = el.oldtxt
       }
-      el.innerHTML = ''
-      el.append(el.del_el, el.txt_el, el.tick_el)
+      mutate(el, {children: [el.del_el, el.txt_el, el.tick_el]})
       el.update()
     },
-    destroy (el) {
-      el.del()
-    },
+    destroy (el) { el.del() },
     attr: {
       state: {
         update (el) { el.update() }

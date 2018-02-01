@@ -142,46 +142,62 @@ doc-view pre.language-javascript {
 
 todo-item {
   display: block;
-  padding: 5px 8px 5px 6px;
   margin: 10px;
   -webkit-user-select: none;
   -moz-user-select: none;
   user-select: none;
-  font-size: 1.1em;
+  font-size: 1.25em;
   text-align: center;
   max-width: 320px;
   color: hsl(0,0%,35%);
   background: #fff;
-  border-radius: 16px;
+  border-radius: 18px;
   box-shadow: 0 1px 4px hsla(0,0%,0%,.2);
 }
 todo-item > span:not(.toggle) {
-  text-decoration: line-through;
+  text-decoration: none;
+  padding: 3.5px 6.5px 3.5px 6.5px;
 }
 todo-item[done="true"] > span:not(.toggle) {
-  text-decoration: none;
+  text-decoration: line-through;
+  box-sizing: content-box;
+  height: 100%;
   color: hsl(0,0%,32%);
 }
 
 todo-item > span {
   vertical-align: middle;
+  outline: none;
+  overflow: hidden;
+  white-space: nowrap;
 }
 
 todo-item > .toggle {
   display: inline-block;
-  width: 22px;
-  height: 22px;
-  margin: 0 5px 0 0;
+  width: 30px;
+  height: 30px;
+  margin: 3px 5px 3px 3px;
   border-radius: 100%;
-  background: hsl(111,70%,62%);
   cursor: pointer;
+  border: 1px solid hsl(0,0%,80%);
+  background: #fff;
+  transition: all 120ms ease;
+}
+
+todo-item > .toggle:hover {
+  -webkit-filter: brightness(105%);
+  -moz-filter: brightness(105%);
+  filter: brightness(105%);
 }
 
 todo-item[done="true"] > .toggle {
-  background: hsl(1,70%,62%);
+  background: hsl(111,70%,62%);
+  border: 1px solid hsl(111,70%,62%);
 }
 
 todo-item [contenteditable] {
   text-decoration: none !important;
   cursor: inherit;
+  border: 1px dotted grey;
+  border-radius: 16px;
 }

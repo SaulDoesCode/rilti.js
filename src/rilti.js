@@ -503,7 +503,11 @@
         } else if (name === 'html') {
           node.innerHTML = args
         } else if (assignArbitrary || name in node || name === 'src' || name === 'href') {
-          node[name] = args
+          if (isFunc(node[name])) {
+            argsIsArr ? node[name](...args) : node[name](args)
+          } else {
+            node[name] = args
+          }
         }
       })
       return options
