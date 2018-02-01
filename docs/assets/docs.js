@@ -37,7 +37,7 @@
         view.btn = span({
           render: menu,
           class: 'nav-btn',
-          on: { click: e => display.view(name) }
+          on_click: e => display.view(name)
         },
           name
         )

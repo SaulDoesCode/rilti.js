@@ -137,7 +137,7 @@
     parent === descendant || Boolean(parent.compareDocumentPosition(descendant) & 16)
   )
 
-  const listMap = (map = $map()) => Object.assign(
+  const listMap = (map = $map()) => assign(
     (key, val) => (
       isDef(val) ? (map.has(key) ? map : map.set(key, $set())).get(key).add(val) : map.get(key)
     ),
@@ -154,7 +154,7 @@
   const infinifyFN = (fn, reflect = true) => $proxy(fn, {
     get (_, key) {
       if (reflect && Reflect.has(fn, key)) return Reflect.get(fn, key)
-      return fn.bind(undef, key)
+      return fn.bind(fn, key)
     }
   })
 
@@ -348,8 +348,8 @@
         return EventManager(once, newTarget, type, handle, options)
       },
       on: add,
-      once: () => add(true),
-      off: () => remove()
+      off: remove,
+      once: () => add(true)
     }
 
     return add(once)
@@ -510,6 +510,10 @@
     }
   }
 
+  const asimilateProps = (el, props) => Keys(props).forEach(prop => {
+    prop in el ? el[prop] = props[prop] : Def(el, prop, OwnDesc(props, prop))
+  })
+
   const mutateSet = set => (n, state) => (
     set[isBool(state) ? state ? 'add' : 'delete' : 'has'](n)
   )
@@ -533,7 +537,7 @@
 
   const componentConf = tag => components.get(tag && tag.tagName ? getTag(tag) : tag)
 
-  const updateComponent = (element, config, stage) => {
+  const updateComponent = (element, config, stage, afterProps = isObj(stage) && stage) => {
     const name = getTag(element)
     if (!components.has(name)) return
     else if (isStr(config)) [stage, config] = [config, components.get(name)]
@@ -542,19 +546,8 @@
     const {create, mount, destroy, props, methods, attr} = config
 
     if (!Created(element)) {
-      if (props) {
-        const oldProps = {}
-        Keys(props).forEach(prop => {
-          const elValue = element[prop]
-          if (!isNil(elValue)) oldProps[prop] = elValue
-        })
-        extend(element, props)
-        !isEmpty(oldProps) && once(
-          'create',
-          element,
-          () => each(oldProps, (val, prop) => { element[prop] = val })
-        )
-      }
+      if (props) asimilateProps(element, props)
+      if (afterProps) asimilateProps(element, afterProps)
       methods && extend(element, methods)
       Created(element, true)
       create && create(element)
@@ -648,37 +641,36 @@
           MNT(node)
         }
       },
-      errs => err('render fault:', errs)
+      errs => err('render fault: ', errs)
     )
     return node
   }
 
-  const asimilateProps = (el, props) => Keys(props).forEach(prop => {
-    prop in el ? el[prop] = props[prop] : Def(el, prop, OwnDesc(props, prop))
-  })
-
   const create = (tag, options, ...children) => {
     const el = isNode(tag) ? tag : doc.createElement(tag)
+    const iscomponent = isComponent(tag)
 
     if (isRenderable(options)) children.unshift(options)
-    if (children.length && el.nodeName !== '#text') domfn.append(el, children)
+    if (children.length && el.nodeName !== '#text') {
+      domfn.append(el, children)
+    }
 
     if (isObj(options)) {
       domfn.mutate(el, options, false)
-      if (options.props) asimilateProps(el, options.props)
+      if (options.props && !iscomponent) asimilateProps(el, options.props)
       if (options.methods) extend(el, options.methods)
       if (options.lifecycle || options.cycle) {
         const {mount, destroy, create} = options.lifecycle || options.cycle
-        once(el, 'create', e => {
+        once.create(el, e => {
           Created(el, true)
           create && create.call(el, el)
         })
 
         if (mount) {
-          var mountListener = once(el, 'mount', mount.bind(el, el))
+          var mountListener = once.mount(el, mount.bind(el, el))
         }
 
-        (mount || destroy) && on(el, 'destroy', e => {
+        (mount || destroy) && on.destroy(el, e => {
           destroy && destroy.call(el, el)
           mountListener && mountListener.on()
         })
@@ -689,7 +681,7 @@
       else if (rendr) render(el, rendr)
     }
 
-    (isComponent(tag) ? updateComponent : CR)(el)
+    iscomponent ? updateComponent(el, undef, options.props) : CR(el)
     return el
   }
 

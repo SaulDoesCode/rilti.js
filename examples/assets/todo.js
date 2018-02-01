@@ -17,6 +17,7 @@
       }
     },
     create (el) {
+      el.ticked = true
       on.click(el, () => { el.ticked = !el.ticked })
     },
     attr: {
