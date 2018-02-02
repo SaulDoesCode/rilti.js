@@ -21,10 +21,7 @@
     }
   })
 
-  const todos = model()
-
-  JSON.parse(localStorage.getItem('todos') || '[]').sort()
-  .forEach(([name, state]) => todos.store.set(name, state))
+  const todos = model(localStorage.getItem('todos'))
 
   const todoCount = () => {
     const all = todos.store.size
@@ -34,7 +31,7 @@
   }
 
   const updateStorage = () => {
-    localStorage.setItem('todos', JSON.stringify([...todos.store.entries()]))
+    localStorage.setItem('todos', todos.toJSONArray())
     todos.emit.update(todoCount())
   }
   todos.on.set(updateStorage)

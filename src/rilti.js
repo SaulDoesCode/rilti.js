@@ -203,7 +203,7 @@
     return JSON.stringify(obj)
   }
 
-  const model = (data = {}, mitter = notifier(), store = $map()) => {
+  const model = (data, mitter = notifier(), store = $map()) => {
     const {emit, on, once} = mitter
 
     const del = key => {
@@ -235,7 +235,17 @@
       return oldval
     }
     // merge data into the store Map (or Map-like) object
-    mut(data)
+    if (isStr(data)) {
+      try {
+        const raw = JSON.parse(data)
+        if (isObj(raw)) mut(raw)
+        else if (isArr(raw)) {
+          each(raw, ([key, val]) => store.set(key, val))
+        }
+      } catch (e) {}
+    } else if (isObj(data)) {
+      mut(data)
+    }
 
     const syncs = $map()
     const sync = (obj, key, prop = key) => {
@@ -247,8 +257,9 @@
     sync.stop = (obj, prop) => {
       if (has(obj)) {
         const syncedProps = syncs.get(obj)
-        if (!prop) syncedProps.forEach(ln => ln.off()).clear()
-        else if (syncedProps.has(prop)) {
+        if (!prop) {
+          syncedProps.forEach(ln => ln.off()).clear()
+        } else if (syncedProps.has(prop)) {
           syncedProps.get(prop).off()
           syncedProps.delete(prop)
         }
@@ -287,21 +298,22 @@
     })
 
     const toJSON = () => map2json(store)
+    const toArray = () => [...store.entries()]
+    const toJSONArray = () => JSON.stringify(toArray())
 
     return $proxy(
       extend(mut,
-        extend(
-          mitter,
-          {
-            each: store.forEach.bind(store),
-            has,
-            store,
-            sync,
-            syncs,
-            del,
-            toJSON
-          }
-        )
+        extend(mitter, {
+          each: store.forEach.bind(store),
+          has,
+          store,
+          sync,
+          syncs,
+          del,
+          toJSON,
+          toArray,
+          toJSONArray
+        })
       ),
       {
         get (o, key) {
@@ -381,7 +393,7 @@
     if (doc.readyState === 'complete' || !!doc.body) {
       runAsync(fn)
     } else {
-      once.DOMContentLoaded(root, fn)
+      root.addEventListener('DOMContentLoaded', fn, {once: true})
     }
   }
 
