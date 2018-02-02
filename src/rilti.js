@@ -23,7 +23,7 @@
     WeakSet,
     Proxy,
     Promise
-  ].map(Obj => (...args) => new Obj(...args))
+  ].map(Obj => (...args) => Reflect.construct(Obj, args))
 
   const curry = (fn, arity = fn.length, ...args) => (
     arity <= args.length ? fn(...args) : curry.bind(undef, fn, arity, ...args)
@@ -47,9 +47,9 @@
   const isNil = o => o === undef || o === NULL
   const isNull = o => o === NULL
   const isPrimitive = some(isStr, isBool, isNum)
-  const isIterator = o => o && o.toString().includes('Iterator')
+  const isIterable = o => !isNil(o) && typeof o[Symbol.iterator] === 'funtion'
   const isInt = o => isNum(o) && o % 1 === 0
-  const isArrlike = o => o && !isFunc(o) && o.length % 1 === 0
+  const isArrlike = o => o && (isArr(o) || (!isFunc(o) && o.length % 1 === 0))
   const isEmpty = o => !o || !((isObj(o) ? Keys(o) : isNum(o.length) && o).length || o.size)
   const isEl = o => o && o instanceof Element
   const isNode = o => o && o instanceof Node
@@ -63,9 +63,9 @@
   const err = console.error.bind(console)
 
   const extend = (host = {}, obj, safe = false, keys = Keys(obj)) => {
-    keys.length && keys.forEach(key => {
+    for (const key of keys) {
       if (!safe || (safe && !(key in host))) Def(host, key, OwnDesc(obj, key))
-    })
+    }
     return host
   }
 
@@ -97,18 +97,20 @@
     }
   ) => chunk()
 
-  const each = (iterable, func) => {
+  const each = (iterable, fn) => {
     if (isNil(iterable)) return
-    else if ('forEach' in iterable) {
-      iterable.forEach(func)
-    } else if (isArrlike(iterable)) {
-      ArrProto.forEach.call(iterable, func)
-    } else if (isObj(iterable)) {
-      for (const key in iterable) func(iterable[key], key, iterable)
+
+    if (isObj(iterable)) {
+      for (const key in iterable) fn(iterable[key], key, iterable)
+    } else if (iterable.length) {
+      let i = 0
+      while (i !== iterable.length) fn(iterable[i], i++, iterable)
+    } else if (iterable.forEach) {
+      iterable.forEach(fn)
     } else if (isInt(iterable)) {
-      yieldloop(iterable, func)
-    } else if (iterable.entries || isIterator(iterable)) {
-      for (const [key, value] of iterable) func(key, value, iterable)
+      yieldloop(iterable, fn)
+    } else if (isIterable(iterable)) {
+      for (const [key, value] of iterable) fn(value, key, iterable)
     }
     return iterable
   }
@@ -128,9 +130,9 @@
   const queryAll = (selector, element = doc) => (
     Array.from(query(element).querySelectorAll(selector))
   )
-  const queryEach = (selector, func, element = doc) => {
-    if (!isFunc(func)) [func, element] = [element, doc]
-    return each(queryAll(selector, element), func)
+  const queryEach = (selector, fn, element = doc) => {
+    if (!isFunc(fn)) [fn, element] = [element, doc]
+    return each(queryAll(selector, element), fn)
   }
 
   const isMounted = (descendant, parent = doc) => (
@@ -160,7 +162,7 @@
 
   const notifier = (host = {}) => {
     const listeners = listMap()
-    // extract listener functions from object and arm them
+    // extract listener fntions from object and arm them
     const listenMulti = (obj, justonce) => each(obj, (fn, name) => {
       obj[name] = listen(justonce, name, fn)
     })
@@ -375,12 +377,13 @@
     return route.on(hash, fn)
   })
 
-  const isReady = () => doc.readyState === 'complete' || !!doc.body
-
-  const loadStack = $set()
-  once.DOMContentLoaded(root, e => each(loadStack, runAsync).clear())
-
-  const run = fn => isReady() ? runAsync(fn) : loadStack.add(fn)
+  const run = fn => {
+    if (doc.readyState === 'complete' || !!doc.body) {
+      runAsync(fn)
+    } else {
+      once.DOMContentLoaded(root, fn)
+    }
+  }
 
   const html = input => {
     if (isFunc(input)) input = input()
@@ -399,10 +402,10 @@
 
   // vpend - virtual append, add nodes and get them as a document fragment
   const vpend = (children, dfrag = frag()) => {
-    flatten(children).forEach(child => {
+    for (let child of flatten(children)) {
       dfrag.appendChild(child = html(child))
       MNT(child)
-    })
+    }
     return dfrag
   }
 
@@ -481,7 +484,8 @@
     mutate (node, options, assignArbitrary = true) {
       if (!options) return
       if (isArr(node)) return node.map(n => domfn.mutate(n, options, assignArbitrary))
-      each(options, (args, name) => {
+      for (let name in options) {
+        let args = options[name]
         const argsIsArr = isArr(args)
         const classRelated = name === 'class' || name === 'className'
         if (name in domfn || classRelated) {
@@ -509,14 +513,16 @@
             node[name] = args
           }
         }
-      })
+      }
       return options
     }
   }
 
-  const asimilateProps = (el, props) => Keys(props).forEach(prop => {
-    prop in el ? el[prop] = props[prop] : Def(el, prop, OwnDesc(props, prop))
-  })
+  const asimilateProps = (el, props) => {
+    for (const prop in props) {
+      prop in el ? el[prop] = props[prop] : Def(el, prop, OwnDesc(props, prop))
+    }
+  }
 
   const mutateSet = set => (n, state) => (
     set[isBool(state) ? state ? 'add' : 'delete' : 'has'](n)
@@ -762,7 +768,7 @@
     isBool,
     isNum,
     isInt,
-    isIterator,
+    isIterable,
     isRenderable,
     isRegExp,
     isObj,

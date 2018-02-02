@@ -1,6 +1,6 @@
 {
   /* global rilti Prism */
-  const {dom, domfn: {attr, Class, mutate}, component, on, model, isFunc} = rilti
+  const {dom, domfn: {attr, Class, mutate}, each, component, on, model, isFunc} = rilti
   const {h2, h4, header, nav, article, section, main, div, span, p, pre, code, html} = dom
 
   var hub = model()
@@ -142,4 +142,5 @@ const todoItem = component('todo-item', {
 todoItem({render: demo}, 'Write more docs')
     }
   })
+
 }
