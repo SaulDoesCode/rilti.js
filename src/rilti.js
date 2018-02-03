@@ -116,6 +116,7 @@
   }
 
   const flatten = (arr, result = []) => {
+    if (!isArr(arr)) return [arr]
     for (const value of arr) {
       isArr(value) ? flatten(value, result) : result.push(value)
     }
@@ -220,7 +221,8 @@
         each(key, (v, k) => {
           isNil(v) ? del(k) : mut(k, v, val)
         })
-        return mut
+      } else if (isArr(key)) {
+        each(key, ([k, v]) => mut(k, v, val))
       }
       const oldval = store.get(key)
       if (isDef(val) && val !== oldval) {
@@ -240,13 +242,9 @@
     // merge data into the store Map (or Map-like) object
     if (isStr(data)) {
       try {
-        const raw = JSON.parse(data)
-        if (isObj(raw)) mut(raw)
-        else if (isArr(raw)) {
-          each(raw, ([key, val]) => store.set(key, val))
-        }
+        mut(JSON.parse(data), true)
       } catch (e) {}
-    } else if (isObj(data)) {
+    } else if (!isNil(data)) {
       mut(data)
     }
 
@@ -530,7 +528,7 @@
             options[evtfnName][type] = argsIsArr ? evtfn(node, type, ...args) : evtfn(node, type, args)
           }
           options[name] = argsIsArr ? evtfn(node, ...args) : evtfn(node, args)
-        } else if (name === 'content' || name === 'children' || name === 'inner') {
+        } else if (name === 'children' || name === 'inner') {
           node.innerHTML = ''
           if (isRenderable(args = flatten(args))) domfn.append(node, args)
         } else if (name === 'text') {
@@ -595,10 +593,10 @@
       emit(element, 'create')
     }
     if (!Mounted(element) && stage === 'mount') {
-      attr && each(attr, (cfg, name) => handleAttribute(name, element, cfg))
       Mounted(element, true)
       emit(element, stage)
       mount && mount(element)
+      attr && each(attr, (cfg, name) => handleAttribute(name, element, cfg))
     } else if (stage === 'destroy') {
       Mounted(element, false)
       emit(element, stage)
@@ -608,7 +606,12 @@
     return element
   }
 
-  const handleAttribute = (name, el, {init, update, destroy}, oldValue, val = el.getAttribute(name)) => {
+  const handleAttribute = (name, el, cfg, oldValue, val = el.getAttribute(name)) => {
+    var {init, update, destroy} = cfg
+    if (isFunc(cfg)) {
+      init = cfg
+      update = cfg
+    }
     const nameInit = name + '_init'
     const hasAttr = el.hasAttribute(name)
     if (isPrimitive(val)) {

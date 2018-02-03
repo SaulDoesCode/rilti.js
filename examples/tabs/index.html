@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <title>rilt-components: tabs</title>
+  <link rel="stylesheet" href="../assets/defaults.css">
+  <link rel="stylesheet" href="./rilti-tabs.css">
+  <script src="../../src/rilti.js"></script>
+  <script src="./rilti-tabs.js"></script>
+  <script>
+    var tabs = rilti.dom['rilti-tabs']({
+      render: 'body',
+      css: {
+        '--tab-highlight-active': "rgb(230, 30, 70)",
+        '--tab-highlight': "rgb(235, 35, 75)"
+      },
+      props: {
+        tabs: [
+          ['tab 1', `this is tab number one`],
+          ['tab 2', `this is tab number two`],
+          ['tab 3', `this is tab number three`],
+          ['element tab', rilti.dom.h1('I am not the same as the others.')],
+          ['disabled tab', 'you should not be seeing this', true]
+        ]
+      }
+    })
+  </script>
+</head>
+<!-- This Also works -->
+<!--body>
+  <rilti-tabs active="element tab">
+    <template name="tab 1">this is tab number one</template>
+    <template name="tab 2">this is tab number two</template>
+    <template name="tab 3">this is tab number three</template>
+    <template name="element tab">
+      <h1>I am not the same as the others.</h1>
+    </template>
+    <template name="disabled tab" disabled>
+      you should not be seeing this
+    </template>
+  </rilti-tabs>
+</body-->
+</html>
