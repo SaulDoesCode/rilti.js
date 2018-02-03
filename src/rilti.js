@@ -210,13 +210,16 @@
       store.delete(key)
       emit('delete', key)
       emit('delete:' + key)
+      return mut
     }
 
     const has = key => store.has(key)
 
     const mut = (key, val, silent) => {
       if (isObj(key)) {
-        each(key, (v, k) => mut(k, v, val))
+        each(key, (v, k) => {
+          isNil(v) ? del(k) : mut(k, v, val)
+        })
         return mut
       }
       const oldval = store.get(key)
@@ -226,7 +229,7 @@
           emit('set', key, val)
           emit('set:' + key, val)
         }
-        return mut
+        return val
       }
       if (!silent) {
         emit('get', key)
@@ -301,15 +304,33 @@
     const toArray = () => [...store.entries()]
     const toJSONArray = () => JSON.stringify(toArray())
 
+    const map = fn => {
+      for (const [key, val] of store) {
+        const newVal = fn(val, key)
+        if (!isNil(newVal) && newVal !== val) {
+          store.set(key, val)
+        }
+      }
+    }
+
+    const filter = fn => {
+      for (const [key, val] of store) !fn(val, key) && store.delete(key)
+    }
+
     return $proxy(
       extend(mut,
         extend(mitter, {
+          async: Async,
+          valid: Validation,
           each: store.forEach.bind(store),
+          get size () { return store.size },
           has,
+          del,
+          map,
+          filter,
           store,
           sync,
           syncs,
-          del,
           toJSON,
           toArray,
           toJSONArray
@@ -318,8 +339,6 @@
       {
         get (o, key) {
           if (Reflect.has(o, key)) return Reflect.get(o, key)
-          if (key === 'async') return Async
-          else if (key === 'valid') return Validation
           return mut(key)
         },
         set (_, key, val) {
