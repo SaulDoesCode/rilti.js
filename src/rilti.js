@@ -200,17 +200,25 @@
   }
 
   const map2json = (map, obj = {}) => {
-    each(map, (val, key) => { obj[key] = val })
+    map.forEach((val, key) => {
+      obj[key] = val
+    })
     return JSON.stringify(obj)
   }
 
   const model = (data, mitter = notifier(), store = $map()) => {
     const {emit, on, once} = mitter
 
-    const del = key => {
-      store.delete(key)
-      emit('delete', key)
-      emit('delete:' + key)
+    const del = (key, silent) => {
+      if (isArr(key)) {
+        key.forEach(k => del(k, silent))
+      } else {
+        store.delete(key)
+        if (!silent) {
+          emit('delete', key)
+          emit('delete:' + key)
+        }
+      }
       return mut
     }
 
@@ -223,21 +231,22 @@
         })
       } else if (isArr(key)) {
         each(key, ([k, v]) => mut(k, v, val))
-      }
-      const oldval = store.get(key)
-      if (isDef(val) && val !== oldval) {
-        store.set(key, val)
-        if (!silent) {
-          emit('set', key, val)
-          emit('set:' + key, val)
+      } else {
+        const oldval = store.get(key)
+        if (isDef(val) && val !== oldval) {
+          store.set(key, val)
+          if (!silent) {
+            emit('set', key, val)
+            emit('set:' + key, val)
+          }
+          return val
         }
-        return val
+        if (!silent) {
+          emit('get', key)
+          emit('get:' + key)
+        }
+        return oldval
       }
-      if (!silent) {
-        emit('get', key)
-        emit('get:' + key)
-      }
-      return oldval
     }
     // merge data into the store Map (or Map-like) object
     if (isStr(data)) {
@@ -245,7 +254,7 @@
         mut(JSON.parse(data), true)
       } catch (e) {}
     } else if (!isNil(data)) {
-      mut(data)
+      mut(data, false)
     }
 
     const syncs = $map()
@@ -299,7 +308,7 @@
     })
 
     const toJSON = () => map2json(store)
-    const toArray = () => [...store.entries()]
+    const toArray = () => Array.from(store.entries())
     const toJSONArray = () => JSON.stringify(toArray())
 
     const map = fn => {
@@ -519,7 +528,8 @@
         const classRelated = name === 'class' || name === 'className'
         if (name in domfn || classRelated) {
           if (classRelated) name = 'Class'
-          argsIsArr ? domfn[name](node, ...args) : domfn[name](node, args)
+          const result = argsIsArr ? domfn[name](node, ...args) : domfn[name](node, args)
+          if (result !== node) options[name] = result
         } else if (name.includes('once') || name.includes('on')) {
           const evtfn = EventManager(name.includes('once'))
           if (name.includes('_')) {

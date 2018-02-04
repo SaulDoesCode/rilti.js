@@ -1,6 +1,8 @@
 { /* global localStorage rilti */
-  const {dom, domfn: {attr, emit, mutate}, on, model, component} = rilti
+  const {dom, domfn: {attr, emit, mutate}, on, notifier, component} = rilti
   const {span, aside, button, header, input} = dom
+
+  const todos = notifier(new Map(JSON.parse(localStorage.getItem('todos') || '[]')))
 
   const strBool = str => (
     str === true || str === false ? str : str !== 'false'
@@ -21,17 +23,15 @@
     }
   })
 
-  const todos = model(localStorage.getItem('todos'))
-
   const todoCount = () => {
-    const all = todos.store.size
+    const all = todos.size
     let done = 0
-    todos.each(val => val && done++)
+    todos.forEach(val => val && done++)
     return {all, done, undone: all - done}
   }
 
   const updateStorage = () => {
-    localStorage.setItem('todos', todos.toJSONArray())
+    localStorage.setItem('todos', JSON.stringify(Array.from(todos.entries())))
     todos.emit.update(todoCount())
   }
   todos.on.set(updateStorage)
@@ -47,7 +47,7 @@
         todos.emit.newTodo()
       }
 
-      todos.each((val, key) => todoSubmit(key, val))
+      todos.forEach((val, key) => todoSubmit(key, val))
 
       const tdInput = input({
         render: tdMaker,
@@ -55,7 +55,9 @@
         on_keydown: ({keyCode}) => keyCode === 13 && todoSubmit()
       })
 
-      todos.on.newTodo(() => (tdInput.value = ''))
+      todos.on.newTodo(() => {
+        tdInput.value = ''
+      })
 
       button({
         render: tdMaker,
@@ -108,17 +110,19 @@
     create (el) {
       el.del = () => {
         el.remove()
-        todos.del(el.txt)
-        todos.del(el.oldtxt)
+        todos.delete(el.txt)
+        todos.delete(el.oldtxt)
+        updateStorage()
       }
       el.update = () => {
         const {txt, state, oldtxt} = el
         if (txt && txt !== 'add todo text') {
           if (txt !== oldtxt) {
-            todos.del(oldtxt)
+            todos.delete(oldtxt)
             el.oldtxt = txt
           }
-          todos[txt] = state
+          todos.set(txt, state)
+          updateStorage()
         }
         el.tick_el.ticked = state
       }
