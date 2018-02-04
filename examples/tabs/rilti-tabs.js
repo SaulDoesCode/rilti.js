@@ -6,33 +6,32 @@
     extract,
     isNil,
     dom: {header, article, span, html},
-    domfn: {mutate, attr, Class, hasClass}
+    domfn: {mutate, Class, hasClass}
   } = rilti
 
   component('rilti-tabs', {
-    props: {
-      get active () { return attr(this, 'active') },
-      set active (active) { attr(this, {active}) }
-    },
     methods: {
-      disable (name, disabled) {
-        const tab = extract(this, `tabs.${name}.title`)
+      disable (el, name, disabled) {
+        const tab = extract(el, `tabs.${name}.title`)
         if (tab) {
           tab.disabled = isNil(disabled) ? !tab.disabled : disabled
         }
       }
     },
     attr: {
-      active (el, val, oldVal) {
-        const tab = el.tabs(val)
-        const oldtab = el.tabs(oldVal)
-        if (oldtab) {
-          Class(oldtab.title, 'active', false)
-          oldtab.view.remove()
-        }
-        if (tab) {
-          Class(tab.title, 'active', true)
-          el.head.after(tab.view)
+      active: {
+        prop: true,
+        update (el, val, oldVal) {
+          const tab = el.tabs(val)
+          const oldtab = el.tabs(oldVal)
+          if (oldtab) {
+            Class(oldtab.title, 'active', false)
+            oldtab.view.remove()
+          }
+          if (tab) {
+            Class(tab.title, 'active', true)
+            el.head.after(tab.view)
+          }
         }
       }
     },

@@ -125,15 +125,15 @@
 
   const compose = (...fns) => fns.reduce((f, g) => (...args) => f(g(...args)))
 
-  const query = (selector, element = doc) => ( // return if node else query dom
-    isNode(selector) ? selector : query(element).querySelector(selector)
+  const query = (selector, host = doc) => ( // return if node else query dom
+    isNode(selector) ? selector : query(host).querySelector(selector)
   )
-  const queryAll = (selector, element = doc) => (
-    Array.from(query(element).querySelectorAll(selector))
+  const queryAll = (selector, host = doc) => (
+    Array.from(query(host).querySelectorAll(selector))
   )
-  const queryEach = (selector, fn, element = doc) => {
-    if (!isFunc(fn)) [fn, element] = [element, doc]
-    return each(queryAll(selector, element), fn)
+  const queryEach = (selector, fn, host = doc) => {
+    if (!isFunc(fn)) [fn, host] = [host, doc]
+    return each(queryAll(selector, host), fn)
   }
 
   const isMounted = (descendant, parent = doc) => (
@@ -435,7 +435,7 @@
   )
 
   const emit = (node, type, detail) => {
-    node.dispatchEvent(new CustomEvent(type, detail ? {detail} : undef))
+    node.dispatchEvent(new CustomEvent(type, {detail}))
   }
 
   // vpend - virtual append, add nodes and get them as a document fragment
@@ -490,7 +490,7 @@
     hasAttr: (node, attr) => node.hasAttribute(attr),
     getAttr: (node, attr) => node.getAttribute(attr),
     setAttr: (node, attr, val = '') => node.setAttribute(attr, val),
-    attrToggle: curry((node, name, state = !node.hasAttribute(name), val = node.getAttribute(name) || state) => {
+    attrToggle: curry((node, name, state = !node.hasAttribute(name), val = node.getAttribute(name) || '') => {
       node[state ? 'setAttribute' : 'removeAttribute'](name, val)
       return node
     }, 2),
@@ -559,7 +559,27 @@
 
   const asimilateProps = (el, props) => {
     for (const prop in props) {
-      prop in el ? el[prop] = props[prop] : Def(el, prop, OwnDesc(props, prop))
+      if (prop in el) {
+        el[prop] = props[prop]
+      } else if (prop === 'accessors') {
+        each(props[prop], (etters, key) => {
+          const {set = etters, get = etters} = etters
+          Def(el, key, {
+            set: set.bind(el, el),
+            get: get.bind(el, el)
+          })
+        })
+      } else {
+        Def(el, prop, OwnDesc(props, prop))
+      }
+    }
+  }
+
+  const asimilateMethods = (el, methods) => {
+    for (const name in methods) {
+      Def(el, name, {
+        value: methods[name].bind(el, el)
+      })
     }
   }
 
@@ -586,48 +606,65 @@
 
   const componentConf = tag => components.get(tag && tag.tagName ? getTag(tag) : tag)
 
-  const updateComponent = (element, config, stage, afterProps = isObj(stage) && stage) => {
-    const name = getTag(element)
+  const updateComponent = (el, config, stage, afterProps = isObj(stage) && stage) => {
+    const name = getTag(el)
     if (!components.has(name)) return
     else if (isStr(config)) [stage, config] = [config, components.get(name)]
     else if (!isObj(config)) config = components.get(name)
 
     const {create, mount, destroy, props, methods, attr} = config
 
-    if (!Created(element)) {
-      if (props) asimilateProps(element, props)
-      if (afterProps) asimilateProps(element, afterProps)
-      methods && extend(element, methods)
-      Created(element, true)
-      create && create(element)
-      emit(element, 'create')
+    if (!Created(el)) {
+      methods && asimilateMethods(el, methods)
+      props && asimilateProps(el, props)
+      afterProps && asimilateProps(el, afterProps)
+      attr && each(attr, (cfg, name) => handleAttribute(name, el, cfg))
+      Created(el, true)
+      create && create(el)
+      emit(el, 'create')
     }
-    if (!Mounted(element) && stage === 'mount') {
-      Mounted(element, true)
-      emit(element, stage)
-      mount && mount(element)
-      attr && each(attr, (cfg, name) => handleAttribute(name, element, cfg))
+    if (!Mounted(el) && stage === 'mount') {
+      Mounted(el, true)
+      mount && mount(el)
+      emit(el, stage)
     } else if (stage === 'destroy') {
-      Mounted(element, false)
-      emit(element, stage)
-      destroy && destroy(element)
+      Mounted(el, false)
+      destroy && destroy(el)
+      emit(el, stage)
     }
 
-    return element
+    return el
   }
 
   const handleAttribute = (name, el, cfg, oldValue, val = el.getAttribute(name)) => {
-    var {init, update, destroy} = cfg
+    let {update, init = update, destroy} = cfg
     if (isFunc(cfg)) {
       init = cfg
       update = cfg
     }
     const nameInit = name + '_init'
     const hasAttr = el.hasAttribute(name)
+    const initiated = el[nameInit]
+
+    if (!(name in el) && cfg.prop) {
+      let {set, get, bool, toggle} = cfg.prop
+      if (toggle) {
+        set = state => domfn.attrToggle(el, name, state)
+        get = () => el.hasAttribute(name)
+      } else {
+        set = set ? set.bind(el, el) : v => el.setAttribute(name, v)
+        get = get ? get.bind(el, el) : () => el.getAttribute(name)
+      }
+      if (bool) get = () => el.getAttribute(name) === 'true'
+      Def(el, name, {set, get})
+    }
+
     if (isPrimitive(val)) {
-      if (hasAttr && !el[nameInit]) {
+      if (!initiated && hasAttr) {
         el[nameInit] = true
-        init && init(el, val)
+        if (init) {
+          Mounted(el) ? init(el, val) : once.mount(el, () => update(el, val))
+        }
       } else if (update && val !== oldValue) {
         update(el, val, oldValue)
       }
@@ -712,7 +749,7 @@
     if (isObj(options)) {
       domfn.mutate(el, options, false)
       if (options.props && !iscomponent) asimilateProps(el, options.props)
-      if (options.methods) extend(el, options.methods)
+      options.methods && asimilateMethods(el, options.methods)
       if (options.lifecycle || options.cycle) {
         const {mount, destroy, create} = options.lifecycle || options.cycle
         once.create(el, e => {
@@ -747,12 +784,12 @@
   // find a node independent of DOMContentLoaded state using a promise
   const dom = $proxy( // ah Proxy, the audacious old browser breaker :P
   extend(
-    (selector, element = doc) => $promise((resolve, reject) => {
+    (selector, host = doc) => $promise((resolve, reject) => {
       if (isNode(selector)) resolve(selector)
       else if (selector === 'head') resolve(doc.head)
       else if (isStr(selector)) {
         run(() => {
-          const temp = selector === 'body' ? doc.body : query(selector, element)
+          const temp = selector === 'body' ? doc.body : query(selector, host)
           isNode(temp) ? resolve(temp) : reject([404, selector])
         })
       } else {

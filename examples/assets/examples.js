@@ -67,11 +67,15 @@ const modelEventsFunc = container => {
     class: 'counter',
     props: {
       countType,
-      set count (val) {
-        this.textContent = `
-          ${this.countType} count: ${count = val}`
-      },
-      get count () { return count }
+      accessors: {
+        count: {
+          get: () => count,
+          set (el, val) {
+            el.textContent = `
+            ${el.countType} count: ${count = val}`
+          }
+        }
+      }
     },
     cycle: {
       create (counter) { counter.count = count }
@@ -87,8 +91,8 @@ const modelEventsFunc = container => {
   button({
     render: container,
     props: { clicks: 0 },
-    on_click () {
-      M.emit.countUpdate(++this.clicks)
+    on_click (e, el) {
+      M.emit.countUpdate(++el.clicks)
     }
   },
     `emit countUpdate`

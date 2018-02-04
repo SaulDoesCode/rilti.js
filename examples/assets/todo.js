@@ -1,41 +1,36 @@
 { /* global localStorage rilti */
-  const {dom, domfn: {attr, emit, mutate}, on, notifier, component} = rilti
+  const {dom, domfn: {attr, emit, mutate}, on, model, component} = rilti
   const {span, aside, button, header, input} = dom
 
-  const todos = notifier(new Map(JSON.parse(localStorage.getItem('todos') || '[]')))
-
-  const strBool = str => (
-    str === true || str === false ? str : str !== 'false'
-  )
-
-  const tickBox = component('tick-box', {
-    props: {
-      get ticked () { return strBool(attr(this, 'ticked')) },
-      set ticked (ticked) { attr(this, {ticked}) }
-    },
-    create (el) {
-      on.click(el, e => { el.ticked = !el.ticked })
-    },
-    attr: {
-      ticked: {
-        update (el) { emit(el, 'ticked', el.ticked) }
-      }
-    }
-  })
+  const todos = model(localStorage.getItem('todos'))
 
   const todoCount = () => {
     const all = todos.size
     let done = 0
-    todos.forEach(val => val && done++)
+    todos.each(val => val && done++)
     return {all, done, undone: all - done}
   }
 
   const updateStorage = () => {
-    localStorage.setItem('todos', JSON.stringify(Array.from(todos.entries())))
+    localStorage.setItem('todos', todos.toJSONArray())
     todos.emit.update(todoCount())
   }
   todos.on.set(updateStorage)
   todos.on.delete(updateStorage)
+
+  const tickBox = component('tick-box', {
+    create (el) {
+      on.click(el, e => {
+        el.ticked = !el.ticked
+      })
+    },
+    attr: {
+      ticked: {
+        prop: { bool: true },
+        update (el) { emit(el, 'ticked', el.ticked) }
+      }
+    }
+  })
 
   component('todo-list', {
     create (el) {
@@ -47,7 +42,7 @@
         todos.emit.newTodo()
       }
 
-      todos.forEach((val, key) => todoSubmit(key, val))
+      todos.each((val, key) => todoSubmit(key, val))
 
       const tdInput = input({
         render: tdMaker,
@@ -91,42 +86,39 @@
 
   component('todo-item', {
     props: {
-      get state () { return strBool(attr(this, 'state')) },
-      set state (state) { attr(this, {state}) },
-      set txt (val) {
-        if (val !== this.txt) {
-          if (this.txt_el) {
-            this.txt_el.textContent = val = ('' + val).trim()
-            this.update()
-          } else {
-            on.mount(this, e => (this.txt = val))
+      accessors: {
+        txt (el, val) {
+          if (val === undefined) return el.txt_el ? el.txt_el.textContent.trim() : ''
+          if (val !== el.txt) {
+            if (el.txt_el) {
+              el.txt_el.textContent = val = ('' + val).trim()
+              el.update()
+            } else {
+              on.mount(el, e => { el.txt = val })
+            }
           }
         }
-      },
-      get txt () {
-        return this.txt_el ? this.txt_el.textContent.trim() : ''
       }
     },
-    create (el) {
-      el.del = () => {
+    methods: {
+      del (el) {
         el.remove()
-        todos.delete(el.txt)
-        todos.delete(el.oldtxt)
+        todos.del([el.txt, el.oldtxt], true)
         updateStorage()
-      }
-      el.update = () => {
+      },
+      update (el) {
         const {txt, state, oldtxt} = el
         if (txt && txt !== 'add todo text') {
           if (txt !== oldtxt) {
-            todos.delete(oldtxt)
+            todos.del(oldtxt)
             el.oldtxt = txt
           }
-          todos.set(txt, state)
-          updateStorage()
+          todos(txt, state)
         }
         el.tick_el.ticked = state
       }
-
+    },
+    create (el) {
       el.del_el = span({class: 'delete-todo', on_click: el.del}, '✕')
 
       el.txt_el = span({
@@ -136,10 +128,7 @@
       })
 
       el.tick_el = tickBox({
-        attr: {ticked: el.state},
-        on_ticked () {
-          el.state = el.tick_el.ticked
-        }
+        on_ticked (e, {ticked}) { el.state = ticked }
       })
     },
     mount (el) {
@@ -148,12 +137,12 @@
         el.txt_el.textContent = el.oldtxt
       }
       mutate(el, {children: [el.del_el, el.txt_el, el.tick_el]})
-      el.update()
     },
     destroy (el) { el.del() },
     attr: {
       state: {
-        update (el) { el.update() }
+        prop: { bool: true },
+        update: el => el.update()
       }
     }
   })

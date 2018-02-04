@@ -111,16 +111,16 @@ dom('.missing-element').then(makeMagic)
     short: 'define behaviours and characteristics of custom elements',
     demo: demo => {
 const todoItem = component('todo-item', {
-  props: {
-    set done (done) { attr(this, {done}) },
-    get done () {
-      return attr(this, 'done') === 'true'
-    }
+  attr: {
+    done: { prop: { toggle: true } }
   },
   mount (el) {
     const content = span(el.textContent)
     const toggleEdit = contenteditable => {
       attr(content, {contenteditable})
+      if (contenteditable) {
+        content.focus()
+      }
     }
 
     mutate(content, {
@@ -134,7 +134,6 @@ const todoItem = component('todo-item', {
       class: 'toggle',
       on_click () { el.done = !el.done }
     })
-
     mutate(el, {children: [toggle, content]})
   }
 })

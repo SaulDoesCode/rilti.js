@@ -158,7 +158,7 @@ todo-item > span:not(.toggle) {
   text-decoration: none;
   padding: 3.5px 6.5px 3.5px 6.5px;
 }
-todo-item[done="true"] > span:not(.toggle) {
+todo-item[done] > span:not(.toggle) {
   text-decoration: line-through;
   box-sizing: content-box;
   height: 100%;
@@ -190,7 +190,7 @@ todo-item > .toggle:hover {
   filter: brightness(105%);
 }
 
-todo-item[done="true"] > .toggle {
+todo-item[done] > .toggle {
   background: hsl(111,70%,62%);
   border: 1px solid hsl(111,70%,62%);
 }
