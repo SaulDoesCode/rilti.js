@@ -86,6 +86,39 @@
     }
   })
 
+  const debounce = (fn, wait = 0) => {
+    let inDebounce
+    return function () {
+      const context = this
+      const args = arguments
+      clearTimeout(inDebounce)
+      inDebounce = setTimeout(() => fn.apply(context, args), wait)
+    }
+  }
+
+  const throttle = (fn, wait) => {
+    let inThrottle
+    let lastFn
+    let lastTime
+    return function () {
+      const context = this
+      const args = arguments
+      if (!inThrottle) {
+        fn.apply(context, args)
+        lastTime = Date.now()
+        inThrottle = true
+      } else {
+        clearTimeout(lastFn)
+        lastFn = setTimeout(() => {
+          if (Date.now() - lastTime >= wait) {
+            fn.apply(context, args)
+            lastTime = Date.now()
+          }
+        }, wait - (Date.now() - lastTime))
+      }
+    }
+  }
+
   const yieldloop = (
     count,
     fn,
@@ -843,22 +876,24 @@
     domfn,
     directive,
     directives,
+    debounce,
     each,
     extend,
     extract,
     flatten,
-    not,
-    notifier,
+    listMap,
     model,
+    notifier,
+    not,
     on,
     once,
-    timeout,
     yieldloop,
     render,
     route,
     run,
     runAsync,
-    listMap,
+    throttle,
+    timeout,
     isMounted,
     isDef,
     isNil,
