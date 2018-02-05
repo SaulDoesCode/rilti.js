@@ -60,11 +60,11 @@
             view: article(html(view)),
             title: span({
               props: {
-                get disabled () {
-                  return hasClass(this, 'disabled')
-                },
-                set disabled (disabled) {
-                  Class(this, {disabled})
+                accessors: {
+                  disabled: {
+                    set: (el, disabled) => Class(el, {disabled}),
+                    get: el => hasClass(el, 'disabled')
+                  }
                 }
               },
               render: el.head,
@@ -77,9 +77,7 @@
         )
       )
 
-      if (!el.active) {
-        el.active = el.tabs.toArray()[0][0]
-      }
+      if (!el.active) el.active = el.tabs.toArray()[0][0]
     }
   })
 }

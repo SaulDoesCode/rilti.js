@@ -158,4 +158,22 @@ todoItem({render: demo}, 'Write more docs')
     }
   })
 
+  var testEmiting = (sync, iterations = 50000) => {
+    console.time('emiting')
+    const n = rilti.notifier({
+      count: 0,
+      strangeNum: 0
+    })
+    n.on.arbitraryEvent(val => {
+      n.count++
+      n.strangeNum = val * 30 + n.count
+      if (val === iterations) {
+        console.log('haha!', n)
+        console.timeEnd('emiting')
+      }
+    })
+    let i = 0
+    while (i !== iterations) n[sync ? 'emitSync' : 'emit'].arbitraryEvent(++i)
+  }
+
 }

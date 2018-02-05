@@ -4,13 +4,15 @@
 * @author Saul van der Walt
 * @licence MIT
 **/
-{
-  /* global Node NodeList Element CustomEvent location MutationObserver Text */
+{ /* global Node NodeList Element CustomEvent location MutationObserver Text */
   const {assign, keys: Keys, defineProperty: Def, getOwnPropertyDescriptor: OwnDesc} = Object
   const root = window
   const doc = document
-  const undef = undefined
+  const UNDEF = undefined
   const NULL = null
+  const CREATE = 'create'
+  const MOUNT = 'mount'
+  const DESTROY = 'destroy'
   const [
     $map,
     $set,
@@ -26,7 +28,7 @@
   ].map(Obj => (...args) => Reflect.construct(Obj, args))
 
   const curry = (fn, arity = fn.length, ...args) => (
-    arity <= args.length ? fn(...args) : curry.bind(undef, fn, arity, ...args)
+    arity <= args.length ? fn(...args) : curry.bind(UNDEF, fn, arity, ...args)
   )
 
   const not = fn => (...args) => !fn(...args)
@@ -37,17 +39,17 @@
   const matchCases = method => (...cases) => match => cases[method](isEqual(match))
   const some = matchCases('some')
   const all = matchCases('every')
-  const isDef = o => o !== undef && o !== NULL
+  const isDef = o => o !== UNDEF && o !== NULL
   const isPromise = o => typeof o === 'object' && 'then' in o
   const isFunc = o => o instanceof Function
   const isObj = o => o && o.constructor === Object
   const isStr = o => o && o.constructor === String
   const isBool = o => o === true || o === false
   const isNum = o => typeof o === 'number'
-  const isNil = o => o === undef || o === NULL
+  const isNil = o => o === UNDEF || o === NULL
   const isNull = o => o === NULL
   const isPrimitive = some(isStr, isBool, isNum)
-  const isIterable = o => !isNil(o) && typeof o[Symbol.iterator] === 'funtion'
+  const isIterable = o => !isNil(o) && typeof o[Symbol.iterator] === 'function'
   const isInt = o => isNum(o) && o % 1 === 0
   const isArrlike = o => o && (isArr(o) || (!isFunc(o) && o.length % 1 === 0))
   const isEmpty = o => !o || !((isObj(o) ? Keys(o) : isNum(o.length) && o).length || o.size)
@@ -69,7 +71,7 @@
     return host
   }
 
-  const runAsync = (fn, ...args) => Promise.resolve(fn).then(f => f(...args))
+  const runAsync = (fn, ...args) => setTimeout(fn, 0, ...args)
 
   const timeout = (fn, ms = 1000, current) => assign(fn, {
     ms,
@@ -170,7 +172,7 @@
     // arm listener
     const listen = (name, fn, justonce = false) => {
       if (isObj(name)) return listenMulti(name, justonce)
-      const ln = (...data) => fn(...data)
+      const ln = args => fn.apply(UNDEF, args)
       const setln = state => {
         listeners.del(name, ln)
         ln.once = state
@@ -189,14 +191,17 @@
     const on = infinifyFN((name, fn) => listen(name, fn))
     const once = infinifyFN((name, fn) => listen(name, fn, true))
 
-    const emit = infinifyFN((name, ...data) => {
+    const emitSynchronously = synchronously => infinifyFN((name, ...data) => {
       listeners.each(name, ln => {
-        runAsync(ln, ...data)
         ln.once && ln.off()
+        synchronously ? ln(data) : setTimeout(ln, 0, data)
       })
     }, false)
 
-    return extend(host, {emit, on, once, listen, listeners})
+    const emit = emitSynchronously()
+    const emitSync = emitSynchronously(true)
+
+    return extend(host, {emit, emitSync, on, once, listen, listeners})
   }
 
   const map2json = (map, obj = {}) => {
@@ -207,11 +212,13 @@
   }
 
   const model = (data, mitter = notifier(), store = $map()) => {
-    const {emit, on, once} = mitter
+    const {emitSync, emit, on, once} = mitter
 
     const del = (key, silent) => {
       if (isArr(key)) {
-        key.forEach(k => del(k, silent))
+        key.forEach(k => {
+          del(k, silent)
+        })
       } else {
         store.delete(key)
         if (!silent) {
@@ -227,17 +234,17 @@
     const mut = (key, val, silent) => {
       if (isObj(key)) {
         each(key, (v, k) => {
-          isNil(v) ? del(k) : mut(k, v, val)
+          isNil(v) ? del(k, val) : mut(k, v, val)
         })
       } else if (isArr(key)) {
-        each(key, ([k, v]) => mut(k, v, val))
+        key.forEach(([k, v]) => mut(k, v, val))
       } else {
         const oldval = store.get(key)
         if (isDef(val) && val !== oldval) {
           store.set(key, val)
           if (!silent) {
-            emit('set', key, val)
-            emit('set:' + key, val)
+            emitSync('set', key, val)
+            emitSync('set:' + key, val)
           }
           return val
         }
@@ -254,7 +261,7 @@
         mut(JSON.parse(data), true)
       } catch (e) {}
     } else if (!isNil(data)) {
-      mut(data, false)
+      mut(data, true)
     }
 
     const syncs = $map()
@@ -268,7 +275,9 @@
       if (has(obj)) {
         const syncedProps = syncs.get(obj)
         if (!prop) {
-          syncedProps.forEach(ln => ln.off()).clear()
+          each(syncedProps, ln => {
+            ln.off()
+          }).clear()
         } else if (syncedProps.has(prop)) {
           syncedProps.get(prop).off()
           syncedProps.delete(prop)
@@ -289,7 +298,7 @@
         has(key) ? resolve(store.get(key)) : once('set:' + key, resolve)
       }),
       set (_, key, val) {
-        val.then(mut.bind(undef, key))
+        val.then(mut.bind(UNDEF, key))
       }
     })
 
@@ -366,7 +375,7 @@
     if (isStr(target)) target = query(target)
     if (!target.addEventListener) return err('EventManager: target invalid')
     if (isObj(type)) return each(type, (fn, name) => EventManager(once, target, name, fn, options))
-    if (!isFunc(handle)) return EventManager.bind(undef, once, target, type)
+    if (!isFunc(handle)) return EventManager.bind(UNDEF, once, target, type)
 
     handle = handle.bind(target)
 
@@ -446,10 +455,10 @@
 
   // vpend - virtual append, add nodes and get them as a document fragment
   const vpend = (children, dfrag = frag()) => {
-    for (let child of flatten(children)) {
+    flatten(children).forEach(child => {
       dfrag.appendChild(child = html(child))
       MNT(child)
-    }
+    })
     return dfrag
   }
 
@@ -627,13 +636,13 @@
       attr && each(attr, (cfg, name) => handleAttribute(name, el, cfg))
       Created(el, true)
       create && create(el)
-      emit(el, 'create')
+      emit(el, CREATE)
     }
-    if (!Mounted(el) && stage === 'mount') {
+    if (!Mounted(el) && stage === MOUNT) {
       Mounted(el, true)
       mount && mount(el)
       emit(el, stage)
-    } else if (stage === 'destroy') {
+    } else if (stage === DESTROY) {
       Mounted(el, false)
       destroy && destroy(el)
       emit(el, stage)
@@ -701,7 +710,7 @@
   .replace(/\[(\w+)\]/g, '.$1')
   .replace(/^\./, '')
   .split('.')
-  .reduce((xs, x) => xs && xs[x] ? xs[x] : undef, obj)
+  .reduce((xs, x) => xs && xs[x] ? xs[x] : UNDEF, obj)
 
   const checkAttr = (
     name,
@@ -711,28 +720,27 @@
   ) => attr && handleAttribute(name, el, attr, oldValue)
 
   // node lifecycle event dispatchers
-  const CR = n => !(Created(n) && isComponent(n)) && emit(n, 'create')
+  const CR = n => {
+    if (!Created(n)) emit(n, CREATE)
+  }
 
   const MNT = n => {
-    if (!Mounted(n)) {
-      if (isComponent(n)) {
-        updateComponent(n, 'mount')
-      } else {
-        Mounted(n, true)
-        emit(n, 'mount')
-      }
+    if (Mounted(n)) return
+    if (isComponent(n)) {
+      updateComponent(n, MOUNT)
+    } else {
+      Mounted(n, true)
+      emit(n, MOUNT)
     }
   }
 
   const DST = n => {
-    if (!isComponent(n)) {
-      Mounted(n, false)
-      emit(n, 'destroy')
-    }
+    Mounted(n, false)
+    emit(n, DESTROY)
   }
 
   const render = (node, host = 'body', connector = 'appendChild') => {
-    CR(node)
+    if (!isComponent(node)) CR(node)
     dom(host).then(
       h => {
         if (!isMounted(h) && (connector === 'after' || connector === 'before')) {
@@ -779,13 +787,13 @@
           mountListener && mountListener.on()
         })
       }
-      const {renderBefore, renderAfter, render: rendr} = options
-      if (renderBefore) render(el, renderBefore, 'before')
+      const {renderBefore, renderAfter, render: rndr} = options
+      if (rndr) render(el, rndr)
+      else if (renderBefore) render(el, renderBefore, 'before')
       else if (renderAfter) render(el, renderAfter, 'after')
-      else if (rendr) render(el, rendr)
     }
 
-    iscomponent ? updateComponent(el, undef, options.props) : CR(el)
+    iscomponent ? updateComponent(el, UNDEF, options.props) : CR(el)
     return el
   }
 
@@ -811,15 +819,15 @@
     }),
     {create, query, queryAll, queryEach, html, text, frag}
   ), {
-    get: (d, key) => key in d ? d[key] : create.bind(undef, key), // get the d
+    get: (d, key) => key in d ? d[key] : create.bind(UNDEF, key), // get the d
     set: (d, key, val) => (d[key] = val)
   })
 
   new MutationObserver(muts => {
     for (const {addedNodes, removedNodes, target, attributeName, oldValue} of muts) {
       if (attributeName) checkAttr(attributeName, target, oldValue)
-      if (addedNodes.length) for (const n of addedNodes) updateComponent(n, 'mount') || MNT(n)
-      if (removedNodes.length) for (const n of removedNodes) updateComponent(n, 'destroy') || DST(n)
+      if (addedNodes.length) for (const n of addedNodes) updateComponent(n, MOUNT) || MNT(n)
+      if (removedNodes.length) for (const n of removedNodes) updateComponent(n, DESTROY) || DST(n)
     }
   }).observe(doc, {attributes: true, attributeOldValue: true, childList: true, subtree: true})
 
