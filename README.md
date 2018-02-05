@@ -20,7 +20,7 @@ Feel free to fork or raise issues. Constructive criticism is welcome
 * powerful yet petite notifier system (pub/sub)
 * no classes, no this, no extra fuzz, functional positive
 * no old javascript, we use modern features like Proxy
-* A Gziped rilti.min.js weighs less than 4.6kb
+* A Gziped rilti.min.js weighs less than 4.95kb
 
 
 To use Rilti just download **/dist/rilti.min.js** and pop it in a script tag. **If you have any issues just tell me, I'm on it.**
@@ -465,8 +465,8 @@ component('tick-box', {
 ```
 
 #### weight
-* unminified:  > 24kb
-* minified: > 10kb
-* minified && compressed: > 4.6kb
+* unminified:  > 28kb
+* minified: > 11kb
+* minified && compressed: > 6kb
 
-#### licence = MIT
+#### license = MIT
