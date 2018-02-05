@@ -34,6 +34,22 @@ To use Rilti just download **/dist/rilti.min.js** and pop it in a script tag. **
 
 ## Example time!
 
+### Two Button Counter
+
+```js
+const {dom: {div, h1, button}, model} = rilti
+const state = model({count: 0})
+
+div(
+  {render: 'body'},
+  h1(state.sync.text.count),
+  button({on_click: e => state.count++}, '+'),
+  button({on_click: e => state.count--}, '-')
+)
+```
+``state.sync.text.count`` <- Creates a Text node,     
+with a value bound to the model's property ``count``.
+
 ### Simple Site Navbar
 Stop writing html (yes JSX too)!
 Just generate everything, it's so simple.
@@ -224,20 +240,25 @@ and also ``on(node, { click: e => {} }, =options)``.
   })
 ```
 
-#### Simple Databinding with ``.model``, see [SuperModel.js](https://github.com/SaulDoesCode/SuperModel.js) for more
-SuperModel.js is the same as rilti.model, I'll write docs eventually but you can see how to use ``rilti.model({...data})`` there.
+#### Simple Persistent Markdown Scratch-Pad with ``.model``
 
 ```javascript
-  const {dom, on, model} = rilti
+  const {dom: {article, textarea}, model} = rilti
+  const M = model()
 
-  const textarea = dom.textarea({render: 'body'})
-  const article = dom.article({render: 'body'})
+  const display = article({render: 'body'})
 
-  const M = model({txt: textarea.value.trim()})
-  M.sync(article, 'textContent', 'txt')
+  M.on['set:content'](txt => {
+    localStorage.setItem('content', txt)
+    display.innerHTML = yourMDparser.render(txt)
+  })
 
-  on.input(textarea, e => {
-    model.txt = textarea.value.trim()
+  M.content = localStorage.getItem('content') || 'Write something...'
+
+  textarea({
+    render: 'body',
+    props: {value: M.content},
+    on_input (e, {value}) { M.content = value.trim() }
   })
 ```
 
@@ -256,19 +277,36 @@ dom['random-tag']({
   // attach properties to the element
   props: {
     oldtxt: '',
-    // getter/setters work too
+    // create property get/set traps
+    accesors: {
+      txt: {
+        get: el => el.innerText,
+        set (el, val) { el.innerText = val.trim() }
+      },
+      // or as one function
+      txt (el, val) {
+        if (val === undefined) {
+          return el.innerText
+        }
+        el.innerText = val.trim()
+      }
+    },
+    // plain getter/setters work too
     get txt () { return this.innerText },
     set txt (val) { this.innerText = val.trim() }
   },
-  // listen for events
-  on: {
-    click (evt, el) {
+  methods: {
+    // el will be pre-bound upon execution
+    warn (el, ...args) {
       el.oldtxt = el.txt
       el.txt = 'Sure you want to remove random-tag?'
     },
-    mouseout (evt, el) {
-      el.txt = el.oldtxt
-    }
+    reset (el) { el.txt = el.oldtxt }
+  },
+  // listen for events
+  on: {
+    click (evt, {warn}) { warn() },
+    mouseout (evt, {reset}) { reset() }
   },
   // if there's just one listener then use:
   // once_evt: fn instead of once: { evt: fn }
@@ -300,20 +338,6 @@ rilti.directives.delete('custom-attr')
 const {domfn: {css, attr, mutate}, on, component} = rilti
 
 component('tick-box', {
-  props: {
-    get ticked () {
-      return attr(this, 'ticked') === 'true'
-    },
-    set ticked (ticked) {
-      !this.disabled && mutate(this, {
-        attr: {ticked},
-        css: {
-          backgroundColor: ticked ? 'dimgrey' : 'white',
-          border: `1px solid ${ticked ? 'white' : 'dimgrey'}`
-        }
-      })
-    }
-  },
   create (el) {
     on.click(el, e => el.ticked = !el.ticked)
     css(el, {
@@ -322,8 +346,8 @@ component('tick-box', {
       height: '20px',
       margin: '5px auto',
       cursor: 'pointer',
-      backgroundColor: el.ticked ? 'dimgrey' : 'white',
-      border: `1px solid ${el.ticked ? 'white' : 'dimgrey'}`
+      border: `1px solid ${el.ticked ? 'white' : 'dimgrey'}`,
+      backgroundColor: el.ticked ? 'dimgrey' : 'white'
     })
   },
   mount (el) {
@@ -333,9 +357,19 @@ component('tick-box', {
    console.log('tick-box is no more :(')
   },
   attr: {
+    ticked: {
+      toggle (el, state) {
+        !el.disabled && css(el, {
+          backgroundColor: state ? 'dimgrey' : 'white',
+          border: `1px solid ${state ? 'white' : 'dimgrey'}`
+        })
+      }
+    },
     disabled: {
-      init (el, val) {
-        css(el, {cursor: val === 'true' ? 'not-allowed' : 'pointer'})
+      toggle (el, state) {
+        css(el, {
+          cursor: state === 'true' ? 'not-allowed' : 'pointer'
+        })
       }
     }
   }

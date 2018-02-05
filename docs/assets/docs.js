@@ -106,6 +106,22 @@ dom('.missing-element').then(makeMagic)
 })`
 })
 
+  doc('.dom[tagName]', {
+    intake: '(=options Object, ...children [String/Node]) -> dom[tagName] func',
+    short: 'generate and configure new nodes',
+    demo: demo => {
+const {dom: {div, h1, button}, model} = rilti
+const state = model({count: 0})
+
+div(
+  {render: demo},
+  h1(state.sync.text.count),
+  button({on_click: e => state.count++}, '+'),
+  button({on_click: e => state.count--}, '-')
+)
+}
+  })
+
   doc('.component', {
     intake: '(tagName String, conf Object) -> dom[tagName] func',
     short: 'define behaviours and characteristics of custom elements',

@@ -277,6 +277,12 @@
       }
       return obj
     }
+    sync.text = $proxy((options, prop) => {
+      if (isStr(options)) [prop, options] = [options, '']
+      return sync(text(), 'textContent', prop)
+    }, {
+      get: (fn, key) => fn(key)
+    })
 
     const Async = $proxy((key, fn) => has(key) ? fn(store.get(key)) : once('set:' + key, fn), {
       get: (_, key) => $promise(resolve => {
@@ -649,7 +655,14 @@
     if (!(name in el) && cfg.prop) {
       let {set, get, bool, toggle} = cfg.prop
       if (toggle) {
-        set = state => domfn.attrToggle(el, name, state)
+        const toggleIsFN = isFunc(toggle)
+        if (toggleIsFN) {
+          toggle = toggle.bind(el, el)
+        }
+        set = state => {
+          domfn.attrToggle(el, name, state)
+          toggleIsFN && toggle(state)
+        }
         get = () => el.hasAttribute(name)
       } else {
         set = set ? set.bind(el, el) : v => el.setAttribute(name, v)
