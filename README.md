@@ -8,16 +8,16 @@ a small flavorful and unapologetic library built for the modern web
 Feel free to fork or raise issues. Constructive criticism is welcome
 
 ## features
-* Elm-like ideas about architecture
+* elm-like ideas about architecture
 * lifecycle hooks
 * dom event management
-* models, sync/async accessors, observe props
-* create elements in javascript don't write clunky html
+* models for observing data with events & sync/async accessors
+* create all your elements in js don't write clunky html
 * components aka. custom-elements. No polyfill needed!
 * vue-like directives aka custom attributes
 * great dom manipulation functions
 * functional composition
-* powerful yet petite notifier system (pub/sub)
+* powerful notifier system (pub/sub with proxy magic)
 * no classes, no this, no extra fuzz, functional positive
 * no old javascript, we use modern features like Proxy
 * A Gziped rilti.min.js weighs less than 4.95kb
