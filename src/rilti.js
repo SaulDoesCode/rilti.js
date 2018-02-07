@@ -5,7 +5,7 @@
 * @licence MIT
 **/
 { /* global Node NodeList Element CustomEvent location MutationObserver Text */
-  const {assign, keys: Keys, defineProperty: Def, getOwnPropertyDescriptor: OwnDesc} = Object
+  const {assign, keys: $keys, defineProperty: $define, getOwnPropertyDescriptor: $getDescriptor} = Object
   const root = window
   const doc = document
   const UNDEF = undefined
@@ -28,10 +28,10 @@
   ].map(Obj => (...args) => Reflect.construct(Obj, args))
 
   const curry = (fn, arity = fn.length, ...args) => (
-    arity <= args.length ? fn(...args) : curry.bind(UNDEF, fn, arity, ...args)
+    arity <= args.length ? fn.apply(UNDEF, args) : curry.bind(UNDEF, fn, arity, ...args)
   )
 
-  const not = fn => (...args) => !fn(...args)
+  const not = fn => function () { return !fn.apply(UNDEF, arguments) }
 
   // all the is this that related stuff
   const {isArray: isArr, prototype: ArrProto} = Array
@@ -52,7 +52,7 @@
   const isIterable = o => !isNil(o) && typeof o[Symbol.iterator] === 'function'
   const isInt = o => isNum(o) && o % 1 === 0
   const isArrlike = o => o && (isArr(o) || (!isFunc(o) && o.length % 1 === 0))
-  const isEmpty = o => !o || !((isObj(o) ? Keys(o) : isNum(o.length) && o).length || o.size)
+  const isEmpty = o => !o || !((isObj(o) ? $keys(o) : isNum(o.length) && o).length || o.size)
   const isEl = o => o && o instanceof Element
   const isNode = o => o && o instanceof Node
   const isNodeList = o => o && (o instanceof NodeList || (isArrlike(o) && ArrProto.every.call(o, isNode)))
@@ -64,9 +64,9 @@
 
   const err = console.error.bind(console)
 
-  const extend = (host = {}, obj, safe = false, keys = Keys(obj)) => {
+  const extend = (host = {}, obj, safe = false, keys = $keys(obj)) => {
     for (const key of keys) {
-      if (!safe || (safe && !(key in host))) Def(host, key, OwnDesc(obj, key))
+      if (!safe || (safe && !(key in host))) $define(host, key, $getDescriptor(obj, key))
     }
     return host
   }
@@ -89,29 +89,29 @@
   const debounce = (fn, wait = 0) => {
     let inDebounce
     return function () {
-      const context = this
+      const ctx = this
       const args = arguments
       clearTimeout(inDebounce)
-      inDebounce = setTimeout(() => fn.apply(context, args), wait)
+      inDebounce = setTimeout(() => fn.apply(ctx, args), wait)
     }
   }
 
   const throttle = (fn, wait) => {
-    let inThrottle
+    let throttling
     let lastFn
     let lastTime
     return function () {
-      const context = this
+      const ctx = this
       const args = arguments
-      if (!inThrottle) {
-        fn.apply(context, args)
+      if (!throttling) {
+        fn.apply(ctx, args)
         lastTime = Date.now()
-        inThrottle = true
+        throttling = true
       } else {
         clearTimeout(lastFn)
         lastFn = setTimeout(() => {
           if (Date.now() - lastTime >= wait) {
-            fn.apply(context, args)
+            fn.apply(ctx, args)
             lastTime = Date.now()
           }
         }, wait - (Date.now() - lastTime))
@@ -249,9 +249,7 @@
 
     const del = (key, silent) => {
       if (isArr(key)) {
-        key.forEach(k => {
-          del(k, silent)
-        })
+        key.forEach(k => del(k, silent))
       } else {
         store.delete(key)
         if (!silent) {
@@ -443,11 +441,12 @@
     return add(once)
   }, 3)
 
-  const evtlnProxyConf = {
+  // Event Manager Proxy Configuration
+  const EMPC = {
     get: (fn, type) => (target, handle, options = false) => fn(target, type, handle, options)
   }
-  const once = $proxy(EventManager(true), evtlnProxyConf)
-  const on = $proxy(EventManager(false), evtlnProxyConf)
+  const once = $proxy(EventManager(true), EMPC)
+  const on = $proxy(EventManager(false), EMPC)
 
   const route = notifier((hash, fn) => {
     if (!route.active) {
@@ -464,7 +463,7 @@
   })
 
   const run = fn => {
-    if (doc.readyState === 'complete' || !!doc.body) {
+    if (doc.readyState === 'complete' || doc.body) {
       runAsync(fn)
     } else {
       root.addEventListener('DOMContentLoaded', fn, {once: true})
@@ -566,38 +565,41 @@
       else if (isMounted(node)) node.remove()
       return node
     },
-    removeNodes: (...nodes) => each(nodes, n => isMounted(n) && n.remove()),
+    removeNodes () {
+      return each(arguments, n => isMounted(n) && n.remove())
+    },
     mutate (node, options, assignArbitrary = true) {
-      if (!options) return
       if (isArr(node)) return node.map(n => domfn.mutate(n, options, assignArbitrary))
-      for (let name in options) {
-        let args = options[name]
-        const argsIsArr = isArr(args)
-        const classRelated = name === 'class' || name === 'className'
-        if (name in domfn || classRelated) {
-          if (classRelated) name = 'Class'
-          const result = argsIsArr ? domfn[name](node, ...args) : domfn[name](node, args)
-          if (result !== node) options[name] = result
-        } else if (name.includes('once') || name.includes('on')) {
-          const evtfn = EventManager(name.includes('once'))
-          if (name.includes('_')) {
-            const [evtfnName, type] = name.split('_')
-            if (!options[evtfnName]) options[evtfnName] = {}
-            options[evtfnName][type] = argsIsArr ? evtfn(node, type, ...args) : evtfn(node, type, args)
-          }
-          options[name] = argsIsArr ? evtfn(node, ...args) : evtfn(node, args)
-        } else if (name === 'children' || name === 'inner') {
-          node.innerHTML = ''
-          if (isRenderable(args = flatten(args))) domfn.append(node, args)
-        } else if (name === 'text') {
-          node.textContent = args
-        } else if (name === 'html') {
-          node.innerHTML = args
-        } else if (assignArbitrary || name in node || name === 'src' || name === 'href') {
-          if (isFunc(node[name])) {
-            argsIsArr ? node[name](...args) : node[name](args)
-          } else {
-            node[name] = args
+      if (options) {
+        for (let name in options) {
+          let args = options[name]
+          const argsIsArr = isArr(args)
+          const classRelated = name === 'class' || name === 'className'
+          if (name in domfn || classRelated) {
+            if (classRelated) name = 'Class'
+            const result = argsIsArr ? domfn[name](node, ...args) : domfn[name](node, args)
+            if (result !== node) options[name] = result
+          } else if (name.includes('once') || name.includes('on')) {
+            const evtfn = EventManager(name.includes('once'))
+            if (name.includes('_')) {
+              const [evtfnName, type] = name.split('_')
+              if (!options[evtfnName]) options[evtfnName] = {}
+              options[evtfnName][type] = argsIsArr ? evtfn(node, type, ...args) : evtfn(node, type, args)
+            }
+            options[name] = argsIsArr ? evtfn(node, ...args) : evtfn(node, args)
+          } else if (name === 'children' || name === 'inner') {
+            node.innerHTML = ''
+            if (isRenderable(args)) domfn.append(node, args)
+          } else if (name === 'text') {
+            node.textContent = args
+          } else if (name === 'html') {
+            node.innerHTML = args
+          } else if (assignArbitrary || name in node) {
+            if (isFunc(node[name])) {
+              argsIsArr ? node[name](...args) : node[name](args)
+            } else {
+              node[name] = args
+            }
           }
         }
       }
@@ -612,20 +614,20 @@
       } else if (prop === 'accessors') {
         each(props[prop], (etters, key) => {
           const {set = etters, get = etters} = etters
-          Def(el, key, {
+          $define(el, key, {
             set: set.bind(el, el),
             get: get.bind(el, el)
           })
         })
       } else {
-        Def(el, prop, OwnDesc(props, prop))
+        $define(el, prop, $getDescriptor(props, prop))
       }
     }
   }
 
   const asimilateMethods = (el, methods) => {
     for (const name in methods) {
-      Def(el, name, {
+      $define(el, name, {
         value: methods[name].bind(el, el)
       })
     }
@@ -711,7 +713,7 @@
         get = get ? get.bind(el, el) : () => el.getAttribute(name)
       }
       if (bool) get = () => el.getAttribute(name) === 'true'
-      Def(el, name, {set, get})
+      $define(el, name, {set, get})
     }
 
     if (isPrimitive(val)) {

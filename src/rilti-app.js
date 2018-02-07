@@ -1,7 +1,6 @@
-// Please note this rilti extention requires rilti-model.js and localForage.js to work
+// Please note this rilti extention requires localForage.js to work
 
-{
-  /* global rilti WebSocket btoa localStorage localforage fetch */
+{ /* global rilti WebSocket btoa localStorage localforage fetch */
   const {isObj, isArr, model, notifier, extend, each} = rilti
 
   rilti.ws = (loc, conf = {}) => {
