@@ -27,7 +27,6 @@ To use Rilti just download **/dist/rilti.min.js** and pop it in a script tag. **
 
 #### Plugins:
 * rilti-tilt.js - compact mouse motion based element tilting effect, based on vanilla-tilt.js
-* rilti-utils.js - set of useful features and things which could have been part of rilti.js but is doesn't need to be
 
 #### planned features
 * offer collection of useful optional plugins
