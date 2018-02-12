@@ -65,9 +65,9 @@
   const err = console.error.bind(console)
 
   const extend = (host = {}, obj, safe = false, keys = $keys(obj)) => {
-    for (const key of keys) {
+    keys.forEach(key => {
       if (!safe || (safe && !(key in host))) $define(host, key, $getDescriptor(obj, key))
-    }
+    })
     return host
   }
 
@@ -152,9 +152,9 @@
 
   const flatten = (arr, result = []) => {
     if (!isArr(arr)) return [arr]
-    for (const value of arr) {
-      isArr(value) ? flatten(value, result) : result.push(value)
-    }
+    each(arr, val => {
+      isArr(val) ? flatten(val, result) : result.push(val)
+    })
     return result
   }
 
@@ -172,7 +172,7 @@
   }
 
   const isMounted = (descendant, parent = doc) => (
-    parent === descendant || Boolean(parent.compareDocumentPosition(descendant) & 16)
+    parent === descendant || !!(parent.compareDocumentPosition(descendant) & 16)
   )
 
   const listMap = (map = $map()) => assign(
@@ -198,7 +198,7 @@
 
   const notifier = (host = {}) => {
     const listeners = listMap()
-    // extract listener fntions from object and arm them
+    // extract listener functions from object and arm them
     const listenMulti = (obj, justonce) => each(obj, (fn, name) => {
       obj[name] = listen(justonce, name, fn)
     })
@@ -224,10 +224,10 @@
     const on = infinifyFN((name, fn) => listen(name, fn))
     const once = infinifyFN((name, fn) => listen(name, fn, true))
 
-    const emitSynchronously = synchronously => infinifyFN((name, ...data) => {
+    const emitSynchronously = insync => infinifyFN((name, ...data) => {
       listeners.each(name, ln => {
         ln.once && ln.off()
-        synchronously ? ln(data) : setTimeout(ln, 0, data)
+        insync ? ln(data) : setTimeout(ln, 0, data)
       })
     }, false)
 
@@ -306,9 +306,7 @@
       if (has(obj)) {
         const syncedProps = syncs.get(obj)
         if (!prop) {
-          each(syncedProps, ln => {
-            ln.off()
-          }).clear()
+          each(syncedProps, ln => ln.off()).clear()
         } else if (syncedProps.has(prop)) {
           syncedProps.get(prop).off()
           syncedProps.delete(prop)
@@ -358,16 +356,18 @@
     const toJSONArray = () => JSON.stringify(toArray())
 
     const map = fn => {
-      for (const [key, val] of store) {
+      store.forEach((val, key) => {
         const newVal = fn(val, key)
         if (!isNil(newVal) && newVal !== val) {
           store.set(key, val)
         }
-      }
+      })
     }
 
     const filter = fn => {
-      for (const [key, val] of store) !fn(val, key) && store.delete(key)
+      store.forEach((val, key) => {
+        !fn(val, key) && store.delete(key)
+      })
     }
 
     return $proxy(
@@ -443,7 +443,7 @@
 
   // Event Manager Proxy Configuration
   const EMPC = {
-    get: (fn, type) => (target, handle, options = false) => fn(target, type, handle, options)
+    get: (fn, type) => (tgt, hndl, opts) => fn(tgt, type, hndl, opts)
   }
   const once = $proxy(EventManager(true), EMPC)
   const on = $proxy(EventManager(false), EMPC)
@@ -456,7 +456,8 @@
       })
       route.active = true
     }
-    if (isFunc(hash)) [fn, hash] = [hash, 'default'] // the ol' swopperoo ...and thank the javascript gods for destructuring
+    // the ol' swopperoo ...and thank the javascript gods for destructuring
+    if (isFunc(hash)) [fn, hash] = [hash, 'default']
     if (hash !== 'default' && !hash.includes('#/')) hash = '#/' + hash
     if (location.hash === hash || hash === 'default') fn(location.hash)
     return route.on(hash, fn)
@@ -513,9 +514,12 @@
     Class: curry((node, c, state = !node.classList.contains(c)) => {
       if (isObj(c)) {
         each(c, (state, className) => domfn.Class(node, className, state))
+      } else {
+        if (isStr(c)) c = c.split(' ')
+        if (isArr(c)) {
+          each(c, cl => node.classList[state ? 'add' : 'remove'](cl))
+        }
       }
-      if (isStr(c)) c = c.split(' ')
-      if (isArr(c)) each(c, cls => node.classList[state ? 'add' : 'remove'](cls))
       return node
     }, 2),
     hasClass: curry((node, name) => node.classList.contains(name)),
@@ -654,7 +658,9 @@
     return dom[tagName]
   }
 
-  const componentConf = tag => components.get(tag && tag.tagName ? getTag(tag) : tag)
+  const componentConf = tag => components.get(
+    tag && tag.tagName ? getTag(tag) : tag
+  )
 
   const updateComponent = (el, config, stage, afterProps = isObj(stage) && stage) => {
     const name = getTag(el)
@@ -858,12 +864,23 @@
     set: (d, key, val) => (d[key] = val)
   })
 
+  const MountNodes = n => updateComponent(n, MOUNT) || MNT(n)
+  const DestroyNodes = n => updateComponent(n, DESTROY) || DST(n)
+
   new MutationObserver(muts => {
-    for (const {addedNodes, removedNodes, target, attributeName, oldValue} of muts) {
-      if (attributeName) checkAttr(attributeName, target, oldValue)
-      if (addedNodes.length) for (const n of addedNodes) updateComponent(n, MOUNT) || MNT(n)
-      if (removedNodes.length) for (const n of removedNodes) updateComponent(n, DESTROY) || DST(n)
-    }
+    muts.forEach(
+      ({addedNodes, removedNodes, target, attributeName, oldValue}) => {
+        if (attributeName) {
+          checkAttr(attributeName, target, oldValue)
+        }
+        if (addedNodes.length) {
+          addedNodes.forEach(MountNodes)
+        }
+        if (removedNodes.length) {
+          removedNodes.forEach(DestroyNodes)
+        }
+      }
+    )
   }).observe(doc, {attributes: true, attributeOldValue: true, childList: true, subtree: true})
 
   // I'm really sorry but I don't believe in module loaders, besides who calls their library rilti?

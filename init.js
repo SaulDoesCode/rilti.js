@@ -18,8 +18,12 @@ const formatBytes = (bytes, decimals = 2) => {
   return (bytes / Math.pow(k, i)).toPrecision(decimals + 1) + ' ' + 'Bytes,KB,MB,GB,TB,PB,EB,ZB,YB'.split(',')[i]
 }
 
+let oldCode
 const minfiyScript = (filename, minfile) => {
   const rawCode = fs.readFileSync(filename, 'utf8')
+
+  if (rawCode === oldCode) return
+  oldCode = rawCode
 
   const {code} = babel.transform(rawCode, {
     sourceMaps: false,
@@ -60,7 +64,7 @@ fs.watch('./src/', onlyOncePerN((type, filename) => {
     const fileLoc = `./src/${filename}`
     console.log(fileLoc, ' changed');
     try {
-      minfiyScript(fileLoc, minfileLoc)
+      setTimeout(minfiyScript, 25, fileLoc, minfileLoc)
     } catch (err) {
       console.log(`something's fishy: `, err)
     }
