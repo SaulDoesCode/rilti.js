@@ -20,30 +20,25 @@ Feel free to fork or raise issues. Constructive criticism is welcome
 * powerful notifier system (pub/sub with proxy magic)
 * no classes, no this, no extra fuzz, functional positive
 * no old javascript, we use modern features like Proxy
-* A Gziped rilti.min.js weighs less than 4.95kb
+* a gziped rilti.min.js weighs > 6kb
 
 
 To use Rilti just download **/dist/rilti.min.js** and pop it in a script tag. **If you have any issues just tell me, I'm on it.**
-
-#### Plugins:
-* rilti-tilt.js - compact mouse motion based element tilting effect, based on vanilla-tilt.js
-
-#### planned features
-* offer collection of useful optional plugins
 
 ## Example time!
 
 ### Two Button Counter
 
 ```js
-const {dom: {div, h1, button}, model} = rilti
+const {dom: {body, button, div, h1}, model} = rilti
 const state = model({count: 0})
 
-div(
-  {render: 'body'},
-  h1(state.sync.text.count),
-  button({on_click: e => state.count++}, '+'),
-  button({on_click: e => state.count--}, '-')
+body(
+  div(
+    h1(state.sync.text.count),
+    button({on_click: e => state.count++}, '+'),
+    button({on_click: e => state.count--}, '-')
+  )
 )
 ```
 ``state.sync.text.count`` <- Creates a Text node,     
@@ -219,6 +214,14 @@ and also ``on(node, { click: e => {} }, =options)``.
 * [rilti-todomvc](https://github.com/SaulDoesCode/rilti-todomvc)      
 
 
+#### Plugins:
+* rilti-tilt.js - compact mouse motion based element tilting effect, based on vanilla-tilt.js
+
+#### future plans
+* offer collection of useful optional plugins
+* stabalize features and release
+* expand with a UI library
+
 #### Async Property accessors with ``.model().async`` and Async/Await
 
 ```js
@@ -242,30 +245,28 @@ and also ``on(node, { click: e => {} }, =options)``.
 #### Simple Persistent Markdown Scratch-Pad with ``.model``
 
 ```javascript
-  const {dom: {article, textarea}, model} = rilti
-  const M = model()
+  const {dom: {article, body, textarea}, model} = rilti
+  const m = model()
 
-  const display = article({render: 'body'})
+  const editor = m.sync.note(textarea())
+  const display = article()
 
-  M.on['set:content'](txt => {
-    localStorage.setItem('content', txt)
-    display.innerHTML = yourMDparser.render(txt)
+  body(editor, display)
+// ^- render to document.body on dom load
+
+  m.on('set:note', note => {
+    localStorage.setItem('note', note)
+    display.innerHTML = Markdown.parse(note)
+// plugin your favorite md lib -^
   })
 
-  M.content = localStorage.getItem('content') || 'Write something...'
-
-  textarea({
-    render: 'body',
-    props: {value: M.content},
-    on_input (e, {value}) { M.content = value.trim() }
-  })
+  m.note = localStorage.getItem('note') || 'Write something...'
 ```
 
 #### Create Elements with Any Tag
+``dom['any-arbitrary-tag'](=options, ...children) -> Node/Element``
+         
 ```javascript
-// create elements with any tag
-// dom['any-arbitrary-tag']( =options, ...children) -> Node/Element
-
 dom['random-tag']({
   // render to dom using selectors or nodes
   render: '.main > header',

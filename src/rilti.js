@@ -87,12 +87,10 @@
   })
 
   const debounce = (fn, wait = 0) => {
-    let inDebounce
+    let bounce
     return function () {
-      const ctx = this
-      const args = arguments
-      clearTimeout(inDebounce)
-      inDebounce = setTimeout(() => fn.apply(ctx, args), wait)
+      clearTimeout(bounce)
+      bounce = setTimeout(fn.bind(this), wait, ...arguments)
     }
   }
 
@@ -296,12 +294,18 @@
     }
 
     const syncs = $map()
-    const sync = (obj, key, prop = key) => {
+    const sync = $proxy((obj, key, prop = key) => {
+      if (isInput(obj)) return sync.input(obj, prop)
       if (!syncs.has(obj)) syncs.set(obj, $map())
       syncs.get(obj).set(prop, on('set:' + prop, val => { obj[key] = val }))
       if (has(prop)) obj[key] = mut(prop)
       return obj
-    }
+    }, {
+      get: (fn, prop) => Reflect.get(fn, prop) || (
+         (obj, key = prop) => fn(obj, key, prop)
+      )
+    })
+
     sync.stop = (obj, prop) => {
       if (has(obj)) {
         const syncedProps = syncs.get(obj)
@@ -321,6 +325,26 @@
     }, {
       get: (fn, key) => fn(key)
     })
+
+    sync.input = (input, prop) => {
+      if (!syncs.has(input)) syncs.set(input, $map())
+      syncs.get(input).set(prop, on('set:' + prop, val => {
+        if (input.value !== val) input.value = val
+      }))
+      if (has(prop)) input.value = mut(prop)
+
+      once(
+        'delete:' + prop,
+        EventManager(
+          false,
+          input,
+          'input',
+          e => mut(prop, input.value.trim())
+        ).off
+      )
+
+      return input
+    }
 
     const Async = $proxy((key, fn) => has(key) ? fn(store.get(key)) : once('set:' + key, fn), {
       get: (_, key) => $promise(resolve => {
@@ -780,11 +804,13 @@
     emit(n, DESTROY)
   }
 
-  const render = (node, host = 'body', connector = 'appendChild') => {
+  const defaultConnector = 'appendChild'
+
+  const render = (node, host = 'body', connector = defaultConnector) => {
     if (!isComponent(node)) CR(node)
     dom(host).then(
       h => {
-        if (!isMounted(h) && (connector === 'after' || connector === 'before')) {
+        if (!isMounted(h) && connector !== defaultConnector) {
           once.mount(h, () => {
             h[connector](node)
             MNT(node)
@@ -828,10 +854,10 @@
           mountListener && mountListener.on()
         })
       }
-      const {renderBefore, renderAfter, render: rndr} = options
-      if (rndr) render(el, rndr)
-      else if (renderBefore) render(el, renderBefore, 'before')
-      else if (renderAfter) render(el, renderAfter, 'after')
+      const {renderBefore: rbefore, renderAfter: rafter, render: r} = options
+      if (r) render(el, r)
+      else if (rbefore) render(el, rbefore, 'before')
+      else if (rafter) render(el, rafter, 'after')
     }
 
     iscomponent ? updateComponent(el, UNDEF, options.props) : CR(el)
@@ -841,6 +867,11 @@
   const text = (options, txt) => {
     if (isStr(options)) [txt, options] = [options, {}]
     return create(new Text(txt), options)
+  }
+
+  const body = (...args) => {
+    args.length && run(() => domfn.append(doc.body, args))
+    return args.length > 1 ? args : args[0]
   }
 
   // find a node independent of DOMContentLoaded state using a promise
@@ -858,9 +889,10 @@
         reject([400, selector])
       }
     }),
-    {create, query, queryAll, queryEach, html, text, frag}
+    {create, query, queryAll, queryEach, html, text, frag, body}
   ), {
-    get: (d, key) => key in d ? d[key] : create.bind(UNDEF, key), // get the d
+    // gotta get the d
+    get: (d, key) => Reflect.get(d, key) || create.bind(UNDEF, key),
     set: (d, key, val) => (d[key] = val)
   })
 
@@ -868,20 +900,17 @@
   const DestroyNodes = n => updateComponent(n, DESTROY) || DST(n)
 
   new MutationObserver(muts => {
-    muts.forEach(
-      ({addedNodes, removedNodes, target, attributeName, oldValue}) => {
-        if (attributeName) {
-          checkAttr(attributeName, target, oldValue)
-        }
-        if (addedNodes.length) {
-          addedNodes.forEach(MountNodes)
-        }
-        if (removedNodes.length) {
-          removedNodes.forEach(DestroyNodes)
-        }
-      }
-    )
-  }).observe(doc, {attributes: true, attributeOldValue: true, childList: true, subtree: true})
+    muts
+    .forEach(({addedNodes, removedNodes, target, attributeName, oldValue}) => {
+      addedNodes.length && addedNodes.forEach(MountNodes)
+      removedNodes.length && removedNodes.forEach(DestroyNodes)
+      attributeName && checkAttr(attributeName, target, oldValue)
+    })
+  })
+  .observe(
+    doc,
+    {attributes: true, attributeOldValue: true, childList: true, subtree: true}
+  )
 
   // I'm really sorry but I don't believe in module loaders, besides who calls their library rilti?
   root.rilti = {

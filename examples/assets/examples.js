@@ -35,21 +35,17 @@
     )
   }
 
-const dbFunc = container => {
+const dbFunc = demo => {
   const {dom: {label, input}, model} = rilti
-  const M = model({txt: 'type something...'})
+  const m = model({msg: 'type something...'})
 
-  const display = label({render: container})
-  M.sync(display, 'innerText', 'txt')
-
-  input({
-    render: container,
-    attr: {
-      type: 'text',
-      value: M.txt
-    },
-    on_input (e, element) { M.txt = element.value.trim() }
-  })
+  demo.append(
+    m.sync.msg(
+      input({attr: {type: 'text'}})
+    ),
+    label(m.sync.text.msg)
+    // ^- text-node child synced to M.txt
+  )
 }
 
   makeExample({
@@ -58,44 +54,16 @@ const dbFunc = container => {
     func: dbFunc
   })
 
-const modelEventsFunc = container => {
-  const {dom: {span, button}, model} = rilti
-  const M = model()
-
-  const counter = (countType, count, render) => span({
-    render,
-    class: 'counter',
-    props: {
-      countType,
-      accessors: {
-        count: {
-          get: () => count,
-          set (el, val) {
-            el.textContent = `
-            ${el.countType} count: ${count = val}`
-          }
-        }
-      }
-    },
-    cycle: {
-      create (counter) { counter.count = count }
-    }
-  })
-
-  const clickCounter = counter('click', 0, container)
-
-  M.on.countUpdate(count => {
-    clickCounter.count = count
-  })
+const modelEventsFunc = demo => {
+  const {dom: {button}, model} = rilti
+  const m = model({clicks: 0})
 
   button({
-    render: container,
-    props: { clicks: 0 },
-    on_click (e, el) {
-      M.emit.countUpdate(++el.clicks)
-    }
+    render: demo,
+    on_click: e => ++m.clicks
   },
-    `emit countUpdate`
+    'clicks: ',
+    m.sync.text.clicks
   )
 }
 
