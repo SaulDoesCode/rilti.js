@@ -213,7 +213,6 @@ and also ``on(node, { click: e => {} }, =options)``.
 * [grimstack.io/portfolio WIP Portfolio](https://grimstack.io/portfolio)     
 * [rilti-todomvc](https://github.com/SaulDoesCode/rilti-todomvc)      
 
-
 #### Plugins:
 * rilti-tilt.js - compact mouse motion based element tilting effect, based on vanilla-tilt.js
 
@@ -265,7 +264,7 @@ and also ``on(node, { click: e => {} }, =options)``.
 
 #### Create Elements with Any Tag
 ``dom['any-arbitrary-tag'](=options, ...children) -> Node/Element``
-         
+
 ```javascript
 dom['random-tag']({
   // render to dom using selectors or nodes
