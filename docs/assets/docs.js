@@ -110,8 +110,8 @@ dom('.missing-element').then(makeMagic)
     intake: '(=options Object, ...children [String/Node]) -> dom[tagName] func',
     short: 'generate and configure new nodes',
     demo: demo => {
-const {dom: {div, h1, button}, model} = rilti
-const state = model({count: 0})
+const {button, div, h1} = rilti.dom
+const state = rilti.model({count: 0})
 
 div(
   {render: demo},
@@ -126,23 +126,21 @@ div(
     intake: '(tagName String, conf Object) -> dom[tagName] func',
     short: 'define behaviours and characteristics of custom elements',
     demo: demo => {
-const todoItem = component('todo-item', {
+const todo = component('todo-item', {
   attr: {
     done: { prop: { toggle: true } }
   },
   mount (el) {
     const content = span(el.textContent)
-    const toggleEdit = contenteditable => {
+    const editmode = contenteditable => {
       attr(content, {contenteditable})
-      if (contenteditable) {
-        content.focus()
-      }
+      contenteditable && content.focus()
     }
 
     mutate(content, {
       on: {
-        dblclick () { toggleEdit(true) },
-        blur () { toggleEdit() }
+        dblclick: e => editmode(true),
+        blur: e => editmode()
       }
     })
 
@@ -150,30 +148,14 @@ const todoItem = component('todo-item', {
       class: 'toggle',
       on_click () { el.done = !el.done }
     })
-    mutate(el, {children: [toggle, content]})
+    mutate(el, {
+      children: [toggle, content]
+    })
   }
 })
 
-todoItem({render: demo}, 'Write more docs')
+todo({render: demo}, 'Write more docs')
     }
   })
-
-  var testEmiting = (sync, iterations = 50000) => {
-    console.time('emiting')
-    const n = rilti.notifier({
-      count: 0,
-      strangeNum: 0
-    })
-    n.on.arbitraryEvent(val => {
-      n.count++
-      n.strangeNum = val * 30 + n.count
-      if (val === iterations) {
-        console.log('haha!', n)
-        console.timeEnd('emiting')
-      }
-    })
-    let i = 0
-    while (i !== iterations) n[sync ? 'emitSync' : 'emit'].arbitraryEvent(++i)
-  }
 
 }

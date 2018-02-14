@@ -9,14 +9,15 @@ Feel free to fork or raise issues. Constructive criticism is welcome
 
 ## features
 * elm-like ideas about architecture
-* lifecycle hooks
-* dom event management
-* models for observing data with events & sync/async accessors
-* create all your elements in js don't write clunky html
+* mostly declarative programming style
+* node lifecycle hooks
+* models with data binding, validation, events & sync/async accessors
+* generate all your elements in js don't write clunky html
+* program without concern for page load state
 * components aka. custom-elements. No polyfill needed!
 * vue-like directives aka custom attributes
 * great dom manipulation functions
-* functional composition
+* functional composition & currying
 * powerful notifier system (pub/sub with proxy magic)
 * no classes, no this, no extra fuzz, functional positive
 * no old javascript, we use modern features like Proxy
@@ -54,7 +55,7 @@ with a value bound to the model's property ``clicks``.
   const display = article()
 
   body(editor, display)
-// ^- render to document.body on dom load
+// ^- render to document.body
 
   m.on('set:note', note => {
     localStorage.setItem('note', note)

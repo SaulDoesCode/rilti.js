@@ -4,7 +4,7 @@
 * @author Saul van der Walt
 * @licence MIT
 **/
-{ /* global Node NodeList Element CustomEvent location MutationObserver Text */
+{ /* global Node NodeList Element CustomEvent location MutationObserver Text HTMLInputElement HTMLTextAreaElement */
   const {assign, keys: $keys, defineProperty: $define, getOwnPropertyDescriptor: $getDescriptor} = Object
   const root = window
   const doc = document
@@ -25,13 +25,21 @@
     WeakSet,
     Proxy,
     Promise
-  ].map(Obj => (...args) => Reflect.construct(Obj, args))
+  ].map(Obj => (...args) => new Obj(...args))
 
   const curry = (fn, arity = fn.length, ...args) => (
-    arity <= args.length ? fn.apply(UNDEF, args) : curry.bind(UNDEF, fn, arity, ...args)
+    arity <= args.length ? fn(...args) : curry.bind(UNDEF, fn, arity, ...args)
   )
 
-  const not = fn => function () { return !fn.apply(UNDEF, arguments) }
+  /*
+    Don't know what to do with this yet
+    const intervener = curry((intermediate, fn, ctx) => {
+      const IisFN = isFunc(intermediate)
+      return (...args) => IisFN ? intermediate(fn.apply(ctx, args)) : fn.apply(ctx, args)
+    }, 2)
+  */
+
+  const not = fn => (...args) => !fn(...args)
 
   // all the is this that related stuff
   const {isArray: isArr, prototype: ArrProto} = Array
@@ -52,14 +60,14 @@
   const isIterable = o => !isNil(o) && typeof o[Symbol.iterator] === 'function'
   const isInt = o => isNum(o) && o % 1 === 0
   const isArrlike = o => o && (isArr(o) || (!isFunc(o) && o.length % 1 === 0))
-  const isEmpty = o => !o || !((isObj(o) ? $keys(o) : isNum(o.length) && o).length || o.size)
+  const isEmpty = o => !o || !((isObj(o) ? $keys(o) : o).length || o.size)
   const isEl = o => o && o instanceof Element
   const isNode = o => o && o instanceof Node
   const isNodeList = o => o && (o instanceof NodeList || (isArrlike(o) && ArrProto.every.call(o, isNode)))
   const isMap = o => o && o instanceof Map
   const isSet = o => o && o instanceof Set
   const isRegExp = o => o && o instanceof RegExp
-  const isInput = o => isEl(o) && 'INPUT TEXTAREA'.includes(o.tagName)
+  const isInput = o => o && (o instanceof HTMLInputElement || o instanceof HTMLTextAreaElement)
   const isRenderable = some(isNode, isArrlike, isPrimitive)
 
   const err = console.error.bind(console)
@@ -76,7 +84,7 @@
   const timeout = (fn, ms = 1000, current) => assign(fn, {
     ms,
     start () {
-      current = setTimeout(() => fn(), fn.ms)
+      current = setTimeout(fn, fn.ms, UNDEF)
       return fn
     },
     stop (run = false) {
@@ -122,10 +130,10 @@
     fn,
     done,
     chunksize = ~~(count / 10) || 1,
-    i = -1, // this is awkward, but hey it works right, right?!?!? meh...
+    i = 0,
     chunk = () => {
       const end = Math.min(i + chunksize, count)
-      while (i < end) fn(++i)
+      while (i < end) fn(i++)
       i < count ? runAsync(chunk) : isFunc(done) && done()
     }
   ) => chunk()
@@ -183,62 +191,62 @@
         map.has(key) && map.get(key).delete(val).size < 1 && map.delete(key)
       },
       has: (key, val, list = map.get(key)) => isDef(val) ? list && list.has(val) : !!list,
-      each (key, fn) { map.has(key) && map.get(key).forEach(fn) }
+      each (key, fn) {
+        map.has(key) && map.get(key).forEach(fn)
+      }
     }
   )
 
   const infinifyFN = (fn, reflect = true) => $proxy(fn, {
-    get (_, key) {
-      if (reflect && Reflect.has(fn, key)) return Reflect.get(fn, key)
-      return fn.bind(fn, key)
-    }
+    get: (_, key) => (reflect && Reflect.get(fn, key)) || fn.bind(fn, key)
   })
 
   const notifier = (host = {}) => {
     const listeners = listMap()
     // extract listener functions from object and arm them
-    const listenMulti = (obj, justonce) => each(obj, (fn, name) => {
-      obj[name] = listen(justonce, name, fn)
-    })
+    const listenMulti = (obj, one) => each(
+      obj,
+      (fn, name) => (obj[name] = listen(name, fn, one))
+    )
     // arm listener
-    const listen = (name, fn, justonce = false) => {
-      if (isObj(name)) return listenMulti(name, justonce)
-      const ln = args => fn.apply(UNDEF, args)
-      const setln = state => {
-        listeners.del(name, ln)
-        ln.once = state
-        listeners(name, ln)
-        return ln
-      }
-      ln.off = () => {
-        listeners.del(name, ln)
-        return ln
-      }
-      ln.on = () => setln(false)
-      ln.once = () => setln(true)
-      return setln(justonce)
+    const listen = (name, fn, one = false) => {
+      if (isObj(name)) return listenMulti(name, one)
+
+      const ln = extend(args => {
+        fn.apply(ln, args)
+        ln.one && ln.off()
+      }, {
+        get armed () { return listeners.has(name, ln) },
+        set armed (state) {
+          state ? !ln.armed && listeners(name, ln) : listeners.del(name, ln)
+        },
+        mode: (one = false, armed = true) => assign(ln, {one, armed}),
+        off: () => assign(ln, {armed: false}),
+        on: () => ln.mode(),
+        once: () => ln.mode(true)
+      })
+
+      return ln.mode(one)
     }
 
     const on = infinifyFN((name, fn) => listen(name, fn))
     const once = infinifyFN((name, fn) => listen(name, fn, true))
 
-    const emitSynchronously = insync => infinifyFN((name, ...data) => {
-      listeners.each(name, ln => {
-        ln.once && ln.off()
-        insync ? ln(data) : setTimeout(ln, 0, data)
-      })
-    }, false)
+    const emitSync = infinifyFN(
+      (name, ...data) => listeners.each(name, ln => ln(data)),
+      false
+    )
 
-    const emit = emitSynchronously()
-    const emitSync = emitSynchronously(true)
+    const emit = infinifyFN(
+      (name, ...data) => listeners.each(name, ln => setTimeout(ln, 0, data)),
+      false
+    )
 
     return extend(host, {emit, emitSync, on, once, listen, listeners})
   }
 
   const map2json = (map, obj = {}) => {
-    map.forEach((val, key) => {
-      obj[key] = val
-    })
+    map.forEach((val, key) => Reflect.set(obj, key, val))
     return JSON.stringify(obj)
   }
 
@@ -297,7 +305,14 @@
     const sync = $proxy((obj, key, prop = key) => {
       if (isInput(obj)) return sync.input(obj, prop)
       if (!syncs.has(obj)) syncs.set(obj, $map())
-      syncs.get(obj).set(prop, on('set:' + prop, val => { obj[key] = val }))
+
+      syncs
+      .get(obj)
+      .set(
+        prop,
+        on('set:' + prop, val => { obj[key] = val })
+      )
+
       if (has(prop)) obj[key] = mut(prop)
       once('delete:' + prop, () => sync.stop(obj, prop))
       return obj
@@ -329,9 +344,15 @@
 
     sync.input = (input, prop) => {
       if (!syncs.has(input)) syncs.set(input, $map())
-      syncs.get(input).set(prop, on('set:' + prop, val => {
-        if (input.value !== val) input.value = val
-      }))
+      syncs
+      .get(input)
+      .set(
+        prop,
+        on('set:' + prop, val => {
+          if (input.value !== val) input.value = val
+        })
+      )
+
       if (has(prop)) input.value = mut(prop)
 
       const stop = EventManager(
@@ -417,13 +438,9 @@
         })
       ),
       {
-        get (o, key) {
-          if (Reflect.has(o, key)) return Reflect.get(o, key)
-          return mut(key)
-        },
-        set (_, key, val) {
-          return isPromise(val) ? (Async[key] = val) : mut(key, val)
-        },
+        get: (o, key) => Reflect.get(o, key) || mut(key),
+        set: (_, key, val) =>
+          isPromise(val) ? (Async[key] = val) : mut(key, val),
         delete: (_, key) => del(key)
       }
     )
@@ -431,8 +448,11 @@
 
   const EventManager = curry((once, target, type, handle, options = false) => {
     if (isStr(target)) target = query(target)
-    if (!target.addEventListener) return err('EventManager: target invalid')
-    if (isObj(type)) return each(type, (fn, name) => EventManager(once, target, name, fn, options))
+    if (isObj(type)) {
+      return each(type, (fn, name) => {
+        type[name] = EventManager(once, target, name, fn, options)
+      })
+    }
     if (!isFunc(handle)) return EventManager.bind(UNDEF, once, target, type)
 
     handle = handle.bind(target)
@@ -456,13 +476,13 @@
     const manager = {
       handler,
       type,
-      reseat (newTarget, shouldRemoveOriginal) {
-        if (shouldRemoveOriginal) remove()
+      reseat (newTarget, removeOriginal) {
+        if (removeOriginal) remove()
         return EventManager(once, newTarget, type, handle, options)
       },
       on: add,
       off: remove,
-      once: () => add(true)
+      once: add.bind(UNDEF, true)
     }
 
     return add(once)
@@ -896,21 +916,19 @@
   ), {
     // gotta get the d
     get: (d, key) => Reflect.get(d, key) || create.bind(UNDEF, key),
-    set: (d, key, val) => (d[key] = val)
+    set: (d, key, val) => Reflect.set(d, key, val)
   })
 
   const MountNodes = n => updateComponent(n, MOUNT) || MNT(n)
   const DestroyNodes = n => updateComponent(n, DESTROY) || DST(n)
 
-  new MutationObserver(muts => {
-    muts
-    .forEach(({addedNodes, removedNodes, target, attributeName, oldValue}) => {
+  new MutationObserver(muts => muts.forEach(
+    ({addedNodes, removedNodes, target, attributeName, oldValue}) => {
       addedNodes.length && addedNodes.forEach(MountNodes)
       removedNodes.length && removedNodes.forEach(DestroyNodes)
       attributeName && checkAttr(attributeName, target, oldValue)
     })
-  })
-  .observe(
+  ).observe(
     doc,
     {attributes: true, attributeOldValue: true, childList: true, subtree: true}
   )

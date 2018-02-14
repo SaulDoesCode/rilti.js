@@ -81,7 +81,7 @@ doc-view {
   align-content: center;
   align-items: flex-start;
   flex-flow: row wrap;
-  max-width: 796px;
+  max-width: 800px;
   margin: 12px auto;
   border-radius: 4px;
   padding: 5px;
@@ -133,11 +133,11 @@ doc-view > header > h4 {
 
 doc-view > section {
   margin: 5px;
-  max-width: 380px;
+  max-width: 370px;
 }
 doc-view pre.language-javascript {
   margin: 0;
-  width: 355px;
+  width: 380px;
 }
 
 todo-item {
