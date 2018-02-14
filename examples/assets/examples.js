@@ -41,7 +41,7 @@ const dbFunc = demo => {
 
   demo.append(
     m.sync.msg(
-      input({attr: {type: 'text'}})
+      input({type: 'text'})
     ),
     label(m.sync.text.msg)
     // ^- text-node child synced to M.txt

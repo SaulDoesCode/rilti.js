@@ -1,4 +1,4 @@
-# :dizzy: rilti.js :dizzy:
+# 💫 rilti.js 💫
 
 a small flavorful and unapologetic library built for the modern web
 
@@ -23,9 +23,47 @@ Feel free to fork or raise issues. Constructive criticism is welcome
 * a gziped rilti.min.js weighs > 6kb
 
 
-To use Rilti just download **/dist/rilti.min.js** and pop it in a script tag. **If you have any issues just tell me, I'm on it.**
+To use rilti just download **/dist/rilti.min.js** and pop it in a script tag. **If you have any issues just tell me, I'm on it.**
 
 ## Example time!
+
+### Click Counting Button
+
+```js
+const {dom: {button}, model} = rilti
+const state = model({clicks: 0})
+
+button({
+  render: 'body',
+  on_click: e => ++state.clicks
+},
+  'clicks: ', state.sync.text.clicks
+)
+```
+``state.sync.text.clicks`` <- Creates a Text node,     
+with a value bound to the model's property ``clicks``.
+
+#### Simple Persistent Markdown Scratch-Pad with ``.model``
+
+```javascript
+  const {dom: {article, body, textarea}, model} = rilti
+  const m = model()
+
+  const editor = m.sync.note(textarea())
+// automagic data binding -^
+  const display = article()
+
+  body(editor, display)
+// ^- render to document.body on dom load
+
+  m.on('set:note', note => {
+    localStorage.setItem('note', note)
+    display.innerHTML = Markdown.parse(note)
+// plugin your favorite md lib -^
+  })
+
+  m.note = localStorage.getItem('note') || 'Write something...'
+```
 
 ### Two Button Counter
 
@@ -41,41 +79,33 @@ body(
   )
 )
 ```
-``state.sync.text.count`` <- Creates a Text node,     
-with a value bound to the model's property ``count``.
 
-### Simple Site Navbar
+### Declaratively Generate a Site Navbar
 Stop writing html (yes JSX too)!
 Just generate everything, it's so simple.
 
 ```js
-  const {compose, dom: {a, button, h1, header, nav, section}} = rilti
+const {compose, dom: {a, button, h1, header, nav, section}} = rilti
 
-  const navbar = ({render = 'body', title, buttons}) => section({
-    id: 'navbar',
-    render // <- asynchronously insert into DOM
-  },
-    compose(header, h1)(title),
-    nav(
-      buttons.map(([name, href, css]) => (
-        a({href, css, class: 'navbar-btn'}, button(name))
-      ))
+section({
+  id: 'navbar',
+  render: 'body' // <- append to document.body on dom load
+},
+  compose(header, h1)('My Wicked Website'),
+  nav(
+    ['Home','Blog','About','Contact'].map(
+      name => a({class: 'nv-btn', href: '#/' + name.toLowerCase()}, name)
+    ),
+    a({
+      class: 'nv-btn',
+      css: {backgroundColor: 'white', color: 'dimgrey'},
+      href: 'https://github.com/SaulDoesCode',
+      target: '_blank'
+    },
+      'Github'
     )
   )
-
-  navbar({
-    title: 'My Wicked Website',
-    buttons: [
-      ['home', '#/'],
-      ['blog', '#/blog'],
-      ['about', '#/about'],
-      [
-        '🍴 fork me! 🔗',
-        'https://github.com/SaulDoesCode/rilti.js',
-        {backgroundColor: '#343434', color: '#fff'}
-      ]
-    ]
-  })
+)
 ```
 The above produces this html
 
@@ -85,17 +115,20 @@ The above produces this html
     <h1>My Wicked Website</h1>
   </header>
   <nav>
-    <a href="#/" class="navbar-btn">
-      <button>home</button>
+    <a class="nv-btn" href="#/home">
+      <button>Home</button>
     </a>
-    <a href="#/blog" class="navbar-btn">
-      <button>blog</button>
+    <a class="nv-btn" href="#/blog">
+      <button>Blog</button>
     </a>
-    <a href="#/about" class="navbar-btn">
-      <button>about</button>
+    <a class="nv-btn" href="#/about">
+      <button>About</button>
     </a>
-    <a href="https://github.com/SaulDoesCode/rilti.js" class="navbar-btn" style="background-color: rgb(52, 52, 52); color: rgb(255, 255, 255);">
-      <button>🍴 fork me! 🔗</button>
+    <a class="nv-btn" href="#/contact">
+      <button>Contact</button>
+    </a>
+    <a class="nv-btn" href="https://github.com/SaulDoesCode/rilti.js" target="_blank" style="background-color: dimgrey; color: white;">
+      <button>Github</button>
     </a>
   </nav>
 </section>
@@ -241,27 +274,6 @@ and also ``on(node, { click: e => {} }, =options)``.
   })
 ```
 
-#### Simple Persistent Markdown Scratch-Pad with ``.model``
-
-```javascript
-  const {dom: {article, body, textarea}, model} = rilti
-  const m = model()
-
-  const editor = m.sync.note(textarea())
-  const display = article()
-
-  body(editor, display)
-// ^- render to document.body on dom load
-
-  m.on('set:note', note => {
-    localStorage.setItem('note', note)
-    display.innerHTML = Markdown.parse(note)
-// plugin your favorite md lib -^
-  })
-
-  m.note = localStorage.getItem('note') || 'Write something...'
-```
-
 #### Create Elements with Any Tag
 ``dom['any-arbitrary-tag'](=options, ...children) -> Node/Element``
 
@@ -296,6 +308,8 @@ dom['random-tag']({
   },
   methods: {
     // el will be pre-bound upon execution
+    // think of it like self in python classes
+    // or rust struct methods
     warn (el, ...args) {
       el.oldtxt = el.txt
       el.txt = 'Sure you want to remove random-tag?'

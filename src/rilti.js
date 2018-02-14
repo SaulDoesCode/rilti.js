@@ -299,6 +299,7 @@
       if (!syncs.has(obj)) syncs.set(obj, $map())
       syncs.get(obj).set(prop, on('set:' + prop, val => { obj[key] = val }))
       if (has(prop)) obj[key] = mut(prop)
+      once('delete:' + prop, () => sync.stop(obj, prop))
       return obj
     }, {
       get: (fn, prop) => Reflect.get(fn, prop) || (
@@ -333,15 +334,17 @@
       }))
       if (has(prop)) input.value = mut(prop)
 
-      once(
-        'delete:' + prop,
-        EventManager(
-          false,
-          input,
-          'input',
-          e => mut(prop, input.value.trim())
-        ).off
-      )
+      const stop = EventManager(
+        false,
+        input,
+        'input',
+        () => mut(prop, input.value.trim())
+      ).off
+
+      once('delete:' + prop, () => {
+        stop()
+        sync.stop(input, prop)
+      })
 
       return input
     }
