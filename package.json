@@ -1,6 +1,6 @@
 {
   "name": "rilti.js",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "small opinionated furture forward frontend framework",
   "main": "init.js",
   "repository": {
@@ -26,6 +26,7 @@
   "standard": {
     "ignore": [
       "./dist/",
+      "./docs/",
       "./examples/",
       "./examples/assets/",
       "*.min.js",
@@ -40,6 +41,7 @@
     "babel-eslint": "^8.0.3",
     "babel-minify": "^0.2.0",
     "babel-preset-minify": "^0.2.0",
+    "chokidar": "^2.0.2",
     "standard": "^10.0.3"
   }
 }
