@@ -749,6 +749,24 @@
     const hasAttr = el.hasAttribute(name)
     const initiated = el[nameInit]
 
+    if (isPrimitive(val)) {
+      if (!initiated && hasAttr) {
+        el[nameInit] = true
+        if (init) {
+          if (Mounted(el)) {
+            init(el, val)
+          } else {
+            once.mount(el, () => init(el, el.getAttribute(name)))
+          }
+        }
+      } else if (update && val !== oldValue) {
+        update(el, val, oldValue)
+      }
+    } else if (!hasAttr) {
+      el[nameInit] = false
+      destroy && destroy(el, val, oldValue)
+    }
+
     if (!(name in el) && cfg.prop) {
       let {set, get, bool, toggle} = cfg.prop
       if (toggle) {
@@ -767,20 +785,7 @@
       }
       if (bool) get = () => el.getAttribute(name) === 'true'
       $define(el, name, {set, get})
-    }
-
-    if (isPrimitive(val)) {
-      if (!initiated && hasAttr) {
-        el[nameInit] = true
-        if (init) {
-          Mounted(el) ? init(el, val) : once.mount(el, () => update(el, val))
-        }
-      } else if (update && val !== oldValue) {
-        update(el, val, oldValue)
-      }
-    } else if (!hasAttr) {
-      el[nameInit] = false
-      destroy && destroy(el, val, oldValue)
+      if (!Mounted(el)) once.mount(el, e => handleAttribute(name, el, cfg))
     }
   }
 
@@ -794,7 +799,7 @@
   }
 
   // Thanks A. Sharif, for medium.com/javascript-inside/safely-accessing-deeply-nested-values-in-javascript-99bf72a0855a
-  const extract = (obj, path) => path
+  const extract = (obj, path) => (!isNil(obj) || UNDEF) && path
   .replace(/\[(\w+)\]/g, '.$1')
   .replace(/^\./, '')
   .split('.')
@@ -883,7 +888,7 @@
       else if (rafter) render(el, rafter, 'after')
     }
 
-    iscomponent ? updateComponent(el, UNDEF, options.props) : CR(el)
+    iscomponent ? updateComponent(el, UNDEF, extract(options, 'props')) : CR(el)
     return el
   }
 

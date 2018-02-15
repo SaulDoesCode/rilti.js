@@ -1,161 +1,103 @@
-{
-  /* global rilti Prism */
+{ /* global rilti Prism */
   const {dom, domfn: {attr, Class, mutate}, each, component, on, model, isFunc} = rilti
-  const {h2, h4, header, nav, article, section, main, div, span, p, pre, code, html} = dom
+  const {body, h2, h4, header, nav, article, section, main, div, span, p, pre, html} = dom
+
+  const rtabs = dom['rilti-tabs']
 
   var hub = model()
 
-  const activeSectionTxt = span('domfn')
-  hub.sync(activeSectionTxt, 'textContent', 'activeSection')
+  const exampleSection = section({id: 'examples'})
 
-  const menu = nav({class: 'nav-bar'})
+  var example = (name, desc, code, style) => {
+    const exmpl = article(
+      {class: 'example'},
+      header(
+        div(name),
+        p(desc)
+      ),
+      rtabs({
+        class: 'example-tab',
+        props: {
+          tabs: [
+            ['demo', [dom['style'](style), code(rilti)]],
+            ['code', example.src({code})],
+            ['style', example.src({code: style, langauge: 'css'})]
+          ]
+        }
+      })
+    )
+    exampleSection.appendChild(exmpl)
+  }
 
-  header({
-    render: 'body',
-    id: 'site-header'
-  },
-    h2('rilti.js - ', activeSectionTxt),
-    menu
+  example.src = ({code, options = {}, language = 'javascript'}) => pre(
+    Object.assign({class: 'language-' + language}, options),
+    dom.code(
+      {class: 'language-' + language},
+      () => {
+        if (isFunc(code)) code = code.toString()
+        const markup = Prism.highlight(code.trim(), Prism.languages[language])
+        return html(markup)
+      }
+    )
   )
 
-  const display = {
-    host: main({
-      render: 'body',
-      class: 'display'
-    }),
-    get active () {
-      if (hub.activeView) {
-        return {name: hub.activeSection, view: hub.activeView}
-      }
-    },
-    set active ({name: activeSection, view: activeView}) {
-      hub({activeSection, activeView})
-    },
-    views: new Map(),
-    view (name, view, activate = true) {
-      if (view) {
-        view.btn = span({
-          render: menu,
-          class: 'nav-btn',
-          on_click: e => display.view(name)
-        },
-          name
-        )
-        display.views.set(name, view)
-      }
-      const lastActive = display.active
-      if (!activate || (lastActive && lastActive.name === name)) return
-      view = display.views.get(name)
-      display.host.innerHTML = ''
-      display.host.appendChild(view)
-      if (lastActive) {
-        display.lastActive = lastActive
-        Class(lastActive.view.btn, 'active', false)
-      }
-      Class(view.btn, 'active', true)
-      display.active = {name, view}
-      hub.emit['view:' + name]()
-    }
-  }
-
-  const overview = article(`a future forward front-end framework with elm-like ideas about architecture`)
-  display.view('overview', overview)
-
-  const docViews = dom['doc-views']()
-  display.view('docs', docViews)
-
-  const doc = (name, {short, intake, demo}) => {
-    let demoSection = ''
-    let demoCode = demo
-    if (isFunc(demo)) {
-      demoSection = div({class: 'demo'})
-      demoCode = demo.toString().trim().slice(9).trim().slice(0, -1)
-      demo(demoSection)
-    }
-    dom['doc-view']({
-      render: docViews,
-      id: name
-    },
-      header(
-        div(span(name), pre(code(intake))),
-        p(short),
-        demoSection
-      ),
-      section(
-        pre(
-          {class: 'language-javascript'},
-          code(html(Prism.highlight(demoCode.trim(), Prism.languages.javascript)))
-        )
-      )
-    )
-  }
-
-  doc('.dom', {
-    intake: '(selector String, =parent Node) -> Promise<Node>',
-    short: 'a promise based querySelector function that works independently of whether it is called before or after the page has fully loaded',
-    demo: `
-const styleMenu = async styles => {
-  css(await dom('nav.menu'), styles)
-}
-
-dom('.missing-element').then(makeMagic)
-.catch(([code, selector]) => {
-  code === 404 && console.log(\`
-    unable to retrieve \${selector}
-  \`)
-})`
-})
-
-  doc('.dom[tagName]', {
-    intake: '(=options Object, ...children [String/Node]) -> dom[tagName] func',
-    short: 'generate and configure new nodes',
-    demo: demo => {
-const {button, div, h1} = rilti.dom
-const state = rilti.model({count: 0})
-
-div(
-  {render: demo},
-  h1(state.sync.text.count),
-  button({on_click: e => state.count++}, '+'),
-  button({on_click: e => state.count--}, '-')
-)
-}
+  const tabs = rtabs({
+    id: 'page-nav',
+    render: 'body',
+    props: {header: h2('rilti.js')}
   })
 
-  doc('.component', {
-    intake: '(tagName String, conf Object) -> dom[tagName] func',
-    short: 'define behaviours and characteristics of custom elements',
-    demo: demo => {
-const todo = component('todo-item', {
-  attr: {
-    done: { prop: { toggle: true } }
+  tabs
+  .make({
+    name: 'examples',
+    view: [
+      h2('Live rilti examples'),
+      exampleSection
+    ],
+    active (tab) {
+      console.log(tab)
+    }
+  })
+  .make({
+    name: 'overview',
+    view: `rilti, the future forward frontend framework`
+  })
+  .make({
+    name: 'docs',
+    view: 'Where the documentation will eventually live.'
+  })
+}
+
+example(
+'Click Counting Button',
+'A simple button that counts up every time you click on it.',
+({dom: {button}, model} = rilti) => {
+  const m = model({clicks: 0})
+
+  return button({
+    class: 'counter',
+    on_click: e => ++m.clicks
   },
-  mount (el) {
-    const content = span(el.textContent)
-    const editmode = contenteditable => {
-      attr(content, {contenteditable})
-      contenteditable && content.focus()
-    }
-
-    mutate(content, {
-      on: {
-        dblclick: e => editmode(true),
-        blur: e => editmode()
-      }
-    })
-
-    const toggle = span({
-      class: 'toggle',
-      on_click () { el.done = !el.done }
-    })
-    mutate(el, {
-      children: [toggle, content]
-    })
-  }
-})
-
-todo({render: demo}, 'Write more docs')
-    }
-  })
-
+    'clicks: ', m.sync.text.clicks
+  )
+},
+`
+.counter {
+  outline: none;
+  margin: 10px;
+  padding: 6px;
+  border-radius: 2px;
+  border: 1px solid crimson;
+  background: #fff;
+  min-width: 100px;
+  font-size: 1.2em;
+  color: crimson;
+  cursor: pointer;
+  transition: all 120ms ease;
 }
+.counter:hover, .counter:active {
+  background: crimson;
+  text-shadow: 0 2px 3px rgba(0,0,0,.12);
+  color: #fff;
+}`
+)

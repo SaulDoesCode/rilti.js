@@ -47,7 +47,8 @@
         })
       }
 
-      mutate(el, {inner: el.head = header()})
+      el.innerHTML = ''
+      el.appendChild(el.head = header())
 
       el.tabs = model(
         el.tabs.map(
