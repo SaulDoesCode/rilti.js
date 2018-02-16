@@ -1,4 +1,4 @@
-:root, * {
+* {
   position: relative;
   box-sizing: border-box;
   margin: 0;
@@ -12,13 +12,13 @@ html, body {
 
 body {
   font-family: Nunito, Verdunda, Roboto, Helvetica, sans-serif;
-  color: hsl(0,0%,40%);
+  color: hsl(0,0%,33%);
   background: hsl(0,0%,98.5%);
   overflow: hidden;
 }
 
 :root {
-  --highlight-color: hsl(358, 60%, 76%);
+  --highlight-color: hsl(358, 60%, 74%);
 }
 
 @keyframes fade-in {
@@ -32,6 +32,18 @@ body {
 
 rilti-tabs > article {
   animation: fade-in 120ms ease-in;
+}
+
+pre {
+  display: block;
+  text-align: left;
+  white-space: pre-wrap;
+  padding: 5px;
+  margin: 0 auto;
+  border-radius: 2px;
+  box-shadow: inset 0 0 10px hsla(0,0%,0%,.13);
+  font-size: 16px;
+  background: hsl(0, 0%, 27%);
 }
 
 #page-nav > header {
@@ -83,6 +95,7 @@ rilti-tabs > article {
   flex-flow: column wrap;
   overflow: auto;
   width: 100%;
+  padding: 15px 0;
 }
 
 #page-nav[active="examples"] > article > h2 {
@@ -104,40 +117,91 @@ rilti-tabs > article {
 .example {
   display: block;
   width: 98%;
-  max-width: 760px;
+  max-width: 580px;
+  border-radius: 1px;
+  border: 1px solid var(--highlight-color);
+}
+
+.example > header {
+  padding: 2.5px 5px;
+  border-bottom: 0;
+}
+
+.example > header > div {
+  display: inline-block;
+  font-size: 1.25em;
+  margin: 5px 5px 5px 0;
+  padding-right: 5px;
+  color: var(--highlight-color);
+  border-right: 1px solid var(--highlight-color);
+}
+
+.example > header > span {
+  font-size: .92em;
+  color: hsl(0,0%,40%);
 }
 
 .example-tab {
   display: block;
   width: 100%;
-  margin: 10px auto;
+  margin: 0 auto;
+  border-radius: 1px;
+  border-radius: 1px 1px;
 }
 
 .example-tab > header {
   display: flex;
-  justify-content: flex-start;
+  justify-content: flex-end;
   align-content: center;
   align-items: center;
-  flex-flow: row wrap;
+  flex-flow: row nowrap;
+  -moz-user-select: none;
+  -webkit-user-select: none;
+  user-select: none;
   width: 100%;
   height: 10mm;
-  margin: 10px auto 0 auto;
-  box-sizing: border-box;
+  margin: 0 auto 0 auto;
+  overflow: hidden;
+  box-sizing: content-box;
+  color: var(--highlight-color);
   border-bottom: 1px solid var(--highlight-color);
+  border-top: 1px solid var(--highlight-color);
+  font-size: 1.06em;
+  transition: border-color 120ms ease;
 }
 
 .example-tab > header > span {
   display: block;
   padding: 10px;
   cursor: pointer;
-  border-bottom: 2px solid transparent;
+  min-width: 65px;
+  text-align: center;
+  box-sizing: content-box;
+  border-left: 1px solid var(--highlight-color);
+}
+
+.example-tab > header > span:hover {
+  text-decoration: underline;
+  text-decoration-color: var(--highlight-color);
 }
 
 .example-tab > header > span.active {
-  border-bottom: 2px solid var(--highlight-color);
+  text-shadow: 0 2px 3px hsla(0,0%,0%,.1);
+  background: var(--highlight-color);
+  color: #fff;
 }
 
 .example-tab > article {
   display: block;
   text-align: center;
+  padding: 5px;
+  background: var(--highlight-color);
+  color: #fff;
+}
+
+.demo-box {
+  margin: 0 auto;
+  border: 2px dotted var(--highlight-color);
+  background: hsl(0, 0%, 98%);
+  padding: 10px;
 }

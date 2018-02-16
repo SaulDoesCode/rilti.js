@@ -1,4 +1,4 @@
-{ /* global rilti Prism */
+{ /* global rilti hljs */
   const {dom, domfn: {attr, Class, mutate}, each, component, on, model, isFunc} = rilti
   const {body, h2, h4, header, nav, article, section, main, div, span, p, pre, html} = dom
 
@@ -13,16 +13,21 @@
       {class: 'example'},
       header(
         div(name),
-        p(desc)
+        span(desc)
       ),
       rtabs({
         class: 'example-tab',
         props: {
-          tabs: [
-            ['demo', [dom['style'](style), code(rilti)]],
-            ['code', example.src({code})],
-            ['style', example.src({code: style, langauge: 'css'})]
-          ]
+          tabs: {
+            demo: div({
+              class: 'demo-box',
+              cycle: {create: code}
+            },
+              dom['style'](style)
+            ),
+            code: example.src({code}),
+            style: example.src({code: style, language: 'css'})
+          }
         }
       })
     )
@@ -30,13 +35,15 @@
   }
 
   example.src = ({code, options = {}, language = 'javascript'}) => pre(
-    Object.assign({class: 'language-' + language}, options),
-    dom.code(
-      {class: 'language-' + language},
+    options,
+    dom.code({
+      class: `${language}`
+    },
       () => {
-        if (isFunc(code)) code = code.toString()
-        const markup = Prism.highlight(code.trim(), Prism.languages[language])
-        return html(markup)
+        if (isFunc(code)) {
+          code = code.toString().trim().replace('demo => {', '').slice(0, -1)
+        }
+        return html(hljs.highlight(language, code.trim()).value)
       }
     )
   )
@@ -50,10 +57,7 @@
   tabs
   .make({
     name: 'examples',
-    view: [
-      h2('Live rilti examples'),
-      exampleSection
-    ],
+    view: exampleSection,
     active (tab) {
       console.log(tab)
     }
@@ -66,38 +70,41 @@
     name: 'docs',
     view: 'Where the documentation will eventually live.'
   })
-}
+
 
 example(
 'Click Counting Button',
-'A simple button that counts up every time you click on it.',
-({dom: {button}, model} = rilti) => {
-  const m = model({clicks: 0})
+'A simple button that counts up on every click',
+demo => {
+const {dom: {button}, model} = rilti
+const m = model({clicks: 0})
 
-  return button({
-    class: 'counter',
-    on_click: e => ++m.clicks
-  },
-    'clicks: ', m.sync.text.clicks
-  )
+button({
+  render: demo,
+  class: 'counter',
+  on_click: e => ++m.clicks
 },
-`
-.counter {
+  'clicks: ', m.sync.text.clicks
+)
+},
+`.counter {
   outline: none;
   margin: 10px;
   padding: 6px;
   border-radius: 2px;
-  border: 1px solid crimson;
+  border: 1px solid hsl(39, 82%, 65%);
   background: #fff;
   min-width: 100px;
   font-size: 1.2em;
-  color: crimson;
+  color: hsl(39, 82%, 65%);
   cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0,0,0,.1);
   transition: all 120ms ease;
 }
 .counter:hover, .counter:active {
-  background: crimson;
-  text-shadow: 0 2px 3px rgba(0,0,0,.12);
+  background: hsl(39, 82%, 65%);
+  text-shadow: 0 2px 3px rgba(0,0,0,.1);
   color: #fff;
 }`
 )
+}

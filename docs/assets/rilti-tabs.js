@@ -4,11 +4,13 @@
     model,
     each,
     extract,
+    isArr,
+    isObj,
     isNil,
     isStr,
     isMounted,
     dom: {header, article, span, html},
-    domfn: {mutate, Class, hasClass}
+    domfn: {Class, hasClass}
   } = rilti
 
   component('rilti-tabs', {
@@ -101,7 +103,6 @@
     },
     mount (el) {
       if (!el.tabs) {
-        el.tabs = []
         el.children.length && each(el.children, template => {
           el.make({
             disabled: template.hasAttribute('disabled'),
@@ -120,16 +121,19 @@
       el.ready = true
       el.model.emit.ready(el.head)
 
-      el.tabs.map(
-        ([
-          name,
-          view = '',
-          disabled = false
-        ]) => el.model(
-          name,
-          el.build({name, view, disabled})
+      if (isObj(el.tabs)) el.tabs = Object.entries(el.tabs)
+      if (isArr(el.tabs)) {
+        el.tabs.map(
+          ([
+            name,
+            view = '',
+            disabled = false
+          ]) => el.model(
+            name,
+            el.build({name, view, disabled})
+          )
         )
-      )
+      }
       Reflect.deleteProperty(el, 'tabs')
     }
   })
