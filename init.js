@@ -15,6 +15,8 @@ const exec = cmd => {
   })
 }
 
+const UTF8 = 'utf8'
+
 const formatBytes = (bytes, decimals = 2) => {
   if (bytes === 0) return '0 Bytes'
   const k = 1000
@@ -25,11 +27,9 @@ const formatBytes = (bytes, decimals = 2) => {
 const fileCache = {}
 
 const minfiyScript = (filename, minfile, webloc) => {
-  const rawCode = fs.readFileSync(filename, 'utf8')
+  const rawCode = fs.readFileSync(filename, UTF8)
 
-  if (rawCode === fileCache[webloc]) {
-    return
-  }
+  if (rawCode === fileCache[webloc]) return
   fileCache[webloc] = rawCode
 
   const {code} = babel.transform(rawCode, {
@@ -79,7 +79,7 @@ const watcher = chokidar.watch('../rilti.js/', {
   ]
 })
 
-watcher.on('change', location => {
+const fileMutation = location => {
   const webloc = urlify(location)
   console.log(webloc, ' changed')
   if (location.includes('/src/') && location.includes('.js')) {
@@ -94,16 +94,26 @@ watcher.on('change', location => {
     }
   } else {
     try {
-      fileCache[webloc] = fs.readFileSync(location, 'utf8')
-    } catch (e) {}
+      fileCache[webloc] = fs.readFileSync(location, UTF8)
+    } catch (e) {
+      console.error('touble reading: ' + webloc)
+    }
   }
+}
+
+watcher
+.on('change', fileMutation)
+
+watcher.on('ready', () => {
+  watcher
+  .on('add', fileMutation)
+  .on('unlink', location => {
+    location = urlify(location)
+    delete fileCache[location]
+    console.log(`removed: ${location}`)
+  })
 })
 
-/*watcher.on('ready', () => {
-  console.log('watching: ', watcher.getWatched())
-})*/
-
-const UTF8 = 'utf8'
 const mime_types = {
   '.js': 'text/javascript',
   '.json': 'application/json',
@@ -137,17 +147,19 @@ http.createServer((req, res) => {
     const ext = path.extname(location)
     const type = mime_types[ext] || 'text/html'
 
-    if (location in fileCache) {
-      send(res, 200, fileCache[location], type)
+    const data = fileCache[location]
+    if (data !== undefined && data.length) {
+      send(res, 200, data, type)
       return
     }
 
     fs.exists(location, exists => {
       if (!exists) {
-        return send(res, 404, {
+        send(res, 404, {
           code: 404,
           msg: `Couldn't find: ${location}`
         })
+        return
       }
 
       if (fs.statSync(location).isDirectory()) {
@@ -155,7 +167,11 @@ http.createServer((req, res) => {
         location = urlify(location + '/index.html')
         if (location in fileCache && !(oldLoc in fileCache)) {
           Object.defineProperty(fileCache, oldLoc, {
-            get () { return this[location] }
+            get() {
+              try {
+                return fileCache[location] || (fileCache[location] = fs.readFileSync(location, UTF8))
+              } catch (e) {}
+            }
           })
         }
       }
