@@ -35,7 +35,7 @@
               }
             },
             class: {disabled},
-            on_click: e => Reflect.set(el, 'active', name),
+            onclick: e => Reflect.set(el, 'active', name),
             get active () { return el.active === name },
             set active (state) {
               if (state) {
@@ -126,9 +126,9 @@
         el.tabs.map(
           ([
             name,
-            view = '',
+            view,
             disabled = false
-          ]) => el.model(
+          ]) => !isNil(view) && el.model(
             name,
             el.build({name, view, disabled})
           )
