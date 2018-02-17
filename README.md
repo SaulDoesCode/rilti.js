@@ -36,7 +36,7 @@ const state = model({clicks: 0})
 
 button({
   render: 'body',
-  on_click: e => ++state.clicks
+  onclick: e => ++state.clicks
 },
   'clicks: ', state.sync.text.clicks
 )
@@ -75,8 +75,8 @@ const state = model({count: 0})
 body(
   div(
     h1(state.sync.text.count),
-    button({on_click: e => state.count++}, '+'),
-    button({on_click: e => state.count--}, '-')
+    button({onclick: e => state.count++}, '+'),
+    button({onclick: e => state.count--}, '-')
   )
 )
 ```
