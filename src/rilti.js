@@ -560,11 +560,19 @@
     }, 2),
     Class: curry((node, c, state = !node.classList.contains(c)) => {
       if (isObj(c)) {
-        each(c, (state, className) => domfn.Class(node, className, state))
+        each(c, (state, className) => {
+          domfn.Class(
+            node,
+            className,
+            isBool(state) ? state : !node.classList.contains(className)
+          )
+        })
       } else {
         if (isStr(c)) c = c.split(' ')
         if (isArr(c)) {
-          each(c, cl => node.classList[state ? 'add' : 'remove'](cl))
+          each(c, cl => {
+            node.classList[(isBool(state) ? state : !node.classList.contains(cl)) ? 'add' : 'remove'](cl)
+          })
         }
       }
       return node
@@ -624,20 +632,13 @@
       if (options) {
         for (let name in options) {
           let args = options[name]
-          const argsIsArr = isArr(args)
-          const classRelated = name === 'class' || name === 'className'
-          if (name in domfn || classRelated) {
-            if (classRelated) name = 'Class'
-            const result = argsIsArr ? domfn[name](node, ...args) : domfn[name](node, args)
+          if (!isArr(args)) args = [args]
+
+          if (name in domfn) {
+            const result = domfn[name](node, ...args)
             if (result !== node) options[name] = result
-          } else if (name.includes('once') || name.includes('on')) {
-            const evtfn = EventManager(name.includes('once'))
-            if (name.includes('_')) {
-              const [evtfnName, type] = name.split('_')
-              if (!options[evtfnName]) options[evtfnName] = {}
-              options[evtfnName][type] = argsIsArr ? evtfn(node, type, ...args) : evtfn(node, type, args)
-            }
-            options[name] = argsIsArr ? evtfn(node, ...args) : evtfn(node, args)
+          } else if (name === 'class' || name === 'className') {
+            domfn.Class(node, ...args)
           } else if (name === 'children' || name === 'inner') {
             node.innerHTML = ''
             if (isRenderable(args)) domfn.append(node, args)
@@ -645,11 +646,23 @@
             node.textContent = args
           } else if (name === 'html') {
             node.innerHTML = args
-          } else if (assignArbitrary || name in node) {
-            if (isFunc(node[name])) {
-              argsIsArr ? node[name](...args) : node[name](args)
-            } else {
-              node[name] = args
+          } else {
+            let mode = name.substr(0, 4)
+            const isOnce = mode === 'once'
+            if (!isOnce) mode = name.substr(0, 2)
+            const isOn = mode === 'on'
+            if (isOnce || isOn) {
+              let type = name.substr(isOnce ? 4 : 2)
+              const evtfn = EventManager(isOnce)
+              if (!options[mode]) options[mode] = {}
+              if (type.length) {
+                if (type[0] === '_') type = type.replace('_', '')
+                options[mode][type] = evtfn(node, type, ...args)
+              } else {
+                options[mode][type] = evtfn(node, ...args)
+              }
+            } else if (assignArbitrary || name in node) {
+              isFunc(node[name]) ? node[name](...args) : node[name] = args
             }
           }
         }
