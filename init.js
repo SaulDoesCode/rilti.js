@@ -142,10 +142,23 @@ const PORT = 2018
 
 console.log(`Server Started on at localhost:${PORT}/`)
 http.createServer((req, res) => {
-    let location = '.' + url.parse(req.url).pathname
+    const pathname = url.parse(req.url).pathname
+    if (pathname === '/') {
+      res.writeHead(302, {Location: '/docs/'})
+      res.end()
+      return
+    }
 
-    const ext = path.extname(location)
+    let location = '.' + pathname
+
+    let ext = path.extname(location)
     const type = mime_types[ext] || 'text/html'
+
+    if (!ext && location[location.length - 1] !== '/') {
+      res.writeHead(302, {Location: location + '/'})
+      res.end()
+      return
+    }
 
     const data = fileCache[location]
     if (data !== undefined && data.length) {
