@@ -39,22 +39,20 @@
     }, 2)
   */
 
-  const not = fn => (...args) => !fn(...args)
-
   // all the is this that related stuff
-  const {isArray: isArr, prototype: ArrProto} = Array
+  const isArr = Array.isArray
   const isEqual = curry((match, Case) => match === Case || (isFunc(Case) && Case(match)))
   const matchCases = method => (...cases) => match => cases[method](isEqual(match))
   const some = matchCases('some')
   const all = matchCases('every')
-  const isDef = o => o !== UNDEF && o !== NULL
+  const isNil = o => o === UNDEF || o === NULL
+  const isDef = o => !isNil(o)
   const isPromise = o => typeof o === 'object' && 'then' in o
   const isFunc = o => o instanceof Function
   const isObj = o => o && o.constructor === Object
-  const isStr = o => o && o.constructor === String
-  const isBool = o => o === true || o === false
+  const isBool = o => typeof o === 'boolean'
+  const isStr = o => typeof o === 'string'
   const isNum = o => typeof o === 'number'
-  const isNil = o => o === UNDEF || o === NULL
   const isNull = o => o === NULL
   const isPrimitive = some(isStr, isBool, isNum)
   const isIterable = o => !isNil(o) && typeof o[Symbol.iterator] === 'function'
@@ -63,12 +61,12 @@
   const isEmpty = o => !o || !((isObj(o) ? $keys(o) : o).length || o.size)
   const isEl = o => o && o instanceof Element
   const isNode = o => o && o instanceof Node
-  const isNodeList = o => o && (o instanceof NodeList || (isArrlike(o) && ArrProto.every.call(o, isNode)))
+  const isNodeList = o => o && (o instanceof NodeList || (isArrlike(o) && Array.from(o).every(isNode)))
   const isMap = o => o && o instanceof Map
   const isSet = o => o && o instanceof Set
   const isRegExp = o => o && o instanceof RegExp
   const isInput = o => o && (o instanceof HTMLInputElement || o instanceof HTMLTextAreaElement)
-  const isRenderable = some(isNode, isArrlike, isPrimitive)
+  const isRenderable = some(isStr, isBool, isNum, isNode, isNodeList, o => isArr(o) && o.every(n => isRenderable(n)))
 
   const err = console.error.bind(console)
 
@@ -156,8 +154,8 @@
     return iterable
   }
 
-  const flatten = (arr, result = []) => {
-    if (!isArr(arr)) return [arr]
+  const flatten = (arr, result = [], encaptulate = true) => {
+    if (encaptulate && !isArr(arr)) return [arr]
     each(arr, val => {
       isArr(val) ? flatten(val, result) : result.push(val)
     })
@@ -177,9 +175,10 @@
     return each(queryAll(selector, host), fn)
   }
 
-  const isMounted = (descendant, parent = doc) => (
-    parent === descendant || !!(parent.compareDocumentPosition(descendant) & 16)
-  )
+  const isMounted = (descendant, parent = doc) => {
+    if (isNodeList(descendant)) return Array.from(descendant).every(n => isMounted(n))
+    return parent === descendant || !!(parent.compareDocumentPosition(descendant) & 16)
+  }
 
   const listMap = (map = $map()) => assign(
     (key, val) => (
@@ -448,6 +447,7 @@
 
   const EventManager = curry((once, target, type, handle, options = false) => {
     if (isStr(target)) target = query(target)
+    // if (isStr(once)) once = once === 'once'
     if (isObj(type)) {
       return each(type, (fn, name) => {
         type[name] = EventManager(once, target, name, fn, options)
@@ -518,28 +518,46 @@
     }
   }
 
-  const html = input => {
-    if (isFunc(input)) input = input()
-    return (
-      isNode(input) ? input : doc.createRange().createContextualFragment(input)
-    )
+  const prime = (...nodes) => flatten(
+    nodes.map(n => {
+      if (isFunc(n)) n = n()
+      if (n instanceof NodeList) return Array.from(n)
+      if (isArr(n)) return prime(...n)
+      if (isStr(n)) {
+        let nl = Array.from(doc.createRange().createContextualFragment(n).childNodes)
+        if (nl.length === 1) nl = nl[0]
+        if (nl) return nl
+      } else if (isPrimitive(n)) return new Text(n)
+      if (isNode(n)) {
+        return n
+      } else if (isDef(n)) {
+        throw new Error(`illegal renderable: ${n}`)
+      }
+    })
+  )
+
+  const attatch = (host, connector, ...renderables) => {
+    (renderables = prime(renderables)).forEach(n => {
+      if (!isComponent(n)) CR(n)
+      if (isStr(host)) {
+        dom(host).then(h => {
+          host[connector](n)
+          MNT(n)
+        })
+      } else {
+        host[connector](n)
+        MNT(n)
+      }
+    })
+    return renderables
   }
 
   const frag = input => (
-    isNil(input) ? doc.createDocumentFragment() : html(input)
+    isStr(input) ? doc.createRange().createContextualFragment(input) : doc.createDocumentFragment()
   )
 
   const emit = (node, type, detail) => {
     node.dispatchEvent(new CustomEvent(type, {detail}))
-  }
-
-  // vpend - virtual append, add nodes and get them as a document fragment
-  const vpend = (children, dfrag = frag()) => {
-    flatten(children).forEach(child => {
-      dfrag.appendChild(child = html(child))
-      MNT(child)
-    })
-    return dfrag
   }
 
   const domfn = {
@@ -601,72 +619,69 @@
       return node
     }, 2),
     emit,
-    append: curry((node, ...children) => {
-      children = vpend(children)
-      dom(node).then(n => n.appendChild(children))
+    prime,
+    append: curry((node, ...children) => render(children, node), 2),
+    prepend: curry((node, ...children) => render(children, node, 'prepend'), 2),
+    appendTo: curry((node, host) => attatch(host, 'append', node)),
+    prependTo: curry((node, host) => attatch(host, 'prepend', node)),
+    remove (node, after, sequential) {
+      if (isNodeList(node)) {
+        if (isInt(after) && sequential) {
+          let i = 0
+          const next = () => {
+            if (i < node.length) {
+              domfn.remove(node[i++])
+              setTimeout(next, after)
+            }
+          }
+          setTimeout(next, after)
+        } else {
+          return each(node, n => domfn.remove(n, after))
+        }
+      } else if (isInt(after)) {
+        setTimeout(() => isMounted(node) && node.remove(), after)
+      } else if (isMounted(node)) {
+        node.remove()
+      }
       return node
-    }, 2),
-    prepend: curry((node, ...children) => {
-      children = vpend(children)
-      dom(node).then(n => n.prepend(children))
-      return node
-    }, 2),
-    appendTo: curry((node, host) => {
-      dom(host).then(v => v.appendChild(node))
-      return node
-    }),
-    prependTo: curry((node, host) => {
-      dom(host).then(v => v.prepend(node))
-      return node
-    }),
-    remove (node, after) {
-      if (isInt(after)) return timeout(() => isMounted(node) && node.remove(), after).start()
-      else if (isMounted(node)) node.remove()
-      return node
-    },
-    removeNodes () {
-      return each(arguments, n => isMounted(n) && n.remove())
     },
     mutate (node, options, assignArbitrary = true) {
       if (isArr(node)) return node.map(n => domfn.mutate(n, options, assignArbitrary))
-      if (options) {
-        for (let name in options) {
-          let args = options[name]
-          if (!isArr(args)) args = [args]
+      each(options, (args, name) => {
+        if (!isArr(args)) args = [args]
 
-          if (name in domfn) {
-            const result = domfn[name](node, ...args)
-            if (result !== node) options[name] = result
-          } else if (name === 'class' || name === 'className') {
-            domfn.Class(node, ...args)
-          } else if (name === 'children' || name === 'inner') {
-            node.innerHTML = ''
-            if (isRenderable(args)) domfn.append(node, args)
-          } else if (name === 'text') {
-            node.textContent = args
-          } else if (name === 'html') {
-            node.innerHTML = args
-          } else {
-            let mode = name.substr(0, 4)
-            const isOnce = mode === 'once'
-            if (!isOnce) mode = name.substr(0, 2)
-            const isOn = mode === 'on'
-            if (isOnce || isOn) {
-              let type = name.substr(isOnce ? 4 : 2)
-              const evtfn = EventManager(isOnce)
-              if (!options[mode]) options[mode] = {}
-              if (type.length) {
-                if (type[0] === '_') type = type.replace('_', '')
-                options[mode][type] = evtfn(node, type, ...args)
-              } else {
-                options[mode][type] = evtfn(node, ...args)
-              }
-            } else if (assignArbitrary || name in node) {
-              isFunc(node[name]) ? node[name](...args) : node[name] = args
+        if (name in domfn) {
+          const result = domfn[name](node, ...args)
+          if (result !== node) options[name] = result
+        } else if (name === 'class' || name === 'className') {
+          domfn.Class(node, ...args)
+        } else if (name === 'children' || name === 'inner') {
+          node.innerHTML = ''
+          render(args, node)
+        } else if (name === 'text') {
+          node.textContent = args
+        } else if (name === 'html') {
+          node.innerHTML = args
+        } else {
+          let mode = name.substr(0, 4)
+          const isOnce = mode === 'once'
+          if (!isOnce) mode = name.substr(0, 2)
+          const isOn = mode === 'on'
+          if (isOnce || isOn) {
+            let type = name.substr(isOnce ? 4 : 2)
+            const evtfn = EventManager(isOnce)
+            if (!options[mode]) options[mode] = {}
+            if (type.length) {
+              if (type[0] === '_') type = type.replace('_', '')
+              options[mode][type] = evtfn(node, type, ...args)
+            } else {
+              options[mode][type] = evtfn(node, ...args)
             }
+          } else if (assignArbitrary || name in node) {
+            isFunc(node[name]) ? node[name](...args) : node[name] = args
           }
         }
-      }
+      })
       return options
     }
   }
@@ -701,11 +716,8 @@
     set[isBool(state) ? state ? 'add' : 'delete' : 'has'](n)
   )
 
-  const createdNodes = $weakset()
-  const Created = mutateSet(createdNodes)
-
-  const mountedNodes = $weakset()
-  const Mounted = mutateSet(mountedNodes)
+  const Created = mutateSet($weakset())
+  const Mounted = mutateSet($weakset())
 
   const getTag = el => (el.tagName || String(el)).toLowerCase()
   const isComponent = el => components.has(getTag(el))
@@ -812,11 +824,11 @@
   }
 
   // Thanks A. Sharif, for medium.com/javascript-inside/safely-accessing-deeply-nested-values-in-javascript-99bf72a0855a
-  const extract = (obj, path) => (!isNil(obj) || UNDEF) && path
+  const extract = (obj, path) => (isDef(obj) || UNDEF) && path
   .replace(/\[(\w+)\]/g, '.$1')
   .replace(/^\./, '')
   .split('.')
-  .reduce((xs, x) => xs && xs[x] ? xs[x] : UNDEF, obj)
+  .reduce((xs, x) => xs && isDef(xs[x]) ? xs[x] : UNDEF, obj)
 
   const checkAttr = (
     name,
@@ -826,17 +838,16 @@
   ) => attr && handleAttribute(name, el, attr, oldValue)
 
   // node lifecycle event dispatchers
-  const CR = n => {
-    if (!Created(n)) emit(n, CREATE)
-  }
+  const CR = n => !Created(n) && emit(n, CREATE)
 
   const MNT = n => {
-    if (Mounted(n)) return
-    if (isComponent(n)) {
-      updateComponent(n, MOUNT)
-    } else {
-      Mounted(n, true)
-      emit(n, MOUNT)
+    if (!Mounted(n)) {
+      if (isComponent(n)) {
+        updateComponent(n, MOUNT)
+      } else {
+        Mounted(n, true)
+        emit(n, MOUNT)
+      }
     }
   }
 
@@ -845,34 +856,30 @@
     emit(n, DESTROY)
   }
 
-  const defaultConnector = 'appendChild'
+  const render = (node, host = 'body', connector = 'appendChild') => {
+    if (isStr(host)) {
+      dom(host).then(h => {
+        render(node, h, connector)
+      })
+      return
+    }
 
-  const render = (node, host = 'body', connector = defaultConnector) => {
-    if (!isComponent(node)) CR(node)
-    dom(host).then(
-      h => {
-        if (!isMounted(h) && connector !== defaultConnector) {
-          once.mount(h, () => {
-            h[connector](node)
-            MNT(node)
-          })
-        } else {
-          h[connector](node)
-          MNT(node)
-        }
-      },
-      errs => err('render fault: ', errs)
-    )
-    return node
+    if (connector.includes('pend')) {
+      attatch(host, connector, node)
+    } else if (!isMounted(host)) {
+      once.mount(host, e => attatch(host, connector, node))
+    }
   }
 
   const create = (tag, options, ...children) => {
     const el = isNode(tag) ? tag : doc.createElement(tag)
     const iscomponent = isComponent(tag)
 
-    if (isRenderable(options)) children.unshift(options)
-    if (children.length && el.nodeName !== '#text') {
-      domfn.append(el, children)
+    if (!(el instanceof Text)) {
+      if (isRenderable(options)) children.unshift(options)
+      if (children.length) {
+        attatch(el, 'appendChild', children)
+      }
     }
 
     if (isObj(options)) {
@@ -910,9 +917,19 @@
     return create(new Text(txt), options)
   }
 
+  const svg = (...args) => create(
+    doc.createElementNS('http://www.w3.org/2000/svg', 'svg'),
+    ...args
+  )
+
   const body = (...args) => {
     args.length && run(() => domfn.append(doc.body, args))
     return args.length > 1 ? args : args[0]
+  }
+
+  const html = (...args) => {
+    const renderables = prime(args)
+    return renderables.length < 2 ? renderables[0] : renderables
   }
 
   // find a node independent of DOMContentLoaded state using a promise
@@ -930,11 +947,13 @@
         reject([400, selector])
       }
     }),
-    {create, query, queryAll, queryEach, html, text, frag, body}
+    {create, query, queryAll, queryEach, text, svg, frag, body, html, prime}
   ), {
     // gotta get the d
     get: (d, key) => Reflect.get(d, key) || create.bind(UNDEF, key),
-    set: (d, key, val) => Reflect.set(d, key, val)
+    set (d, key, val) {
+      d[key] = val
+    }
   })
 
   const MountNodes = n => updateComponent(n, MOUNT) || MNT(n)
@@ -971,7 +990,6 @@
     listMap,
     model,
     notifier,
-    not,
     on,
     once,
     yieldloop,
