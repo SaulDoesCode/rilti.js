@@ -902,10 +902,14 @@
           mountListener && mountListener.on()
         })
       }
-      const {renderBefore: rbefore, renderAfter: rafter, render: r} = options
-      if (r) render(el, r)
-      else if (rbefore) render(el, rbefore, 'before')
-      else if (rafter) render(el, rafter, 'after')
+
+      if (options.$) render(el, options.$)
+      else {
+        const {renderBefore: rbefore, renderAfter: rafter, render: r} = options
+        if (r) render(el, r)
+        else if (rbefore) render(el, rbefore, 'before')
+        else if (rafter) render(el, rafter, 'after')
+      }
     }
 
     iscomponent ? updateComponent(el, UNDEF, extract(options, 'props')) : CR(el)
