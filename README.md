@@ -75,8 +75,8 @@ const state = model({count: 0})
 body(
   div(
     h1(state.sync.text.count),
-    button({onclick: e => state.count++}, '+'),
-    button({onclick: e => state.count--}, '-')
+    button({onclick: e => ++state.count}, '+'),
+    button({onclick: e => --state.count}, '-')
   )
 )
 ```
@@ -196,6 +196,7 @@ otherwise such as with has/get(this/that) type functions
 
 ```js
 const {
+  attatch,
   replace,
   css, // (node, stylePropery, val) || (node, { styleProp:'4em' }) set element.style properties
   Class, // (node, class, =state) add/remove or toggle classes
@@ -215,9 +216,10 @@ const {
 
 ## The Dao of Rilti
 
-1. Nominalism Good | Idealism Bad
+1. Nominalism Good | Obscuritanism, Idealism & Universalism Bad
    * Object Oriented anything is evil (no classes, no this)
    * Reserve identities only for things that would be otherwise obscure
+   * Don't hide things let things be what they are
    * Data/Message passing before abstraction
    * Logic is also just data (with potential) so pass it around too
    * [Factory-Functions always](https://gist.github.com/mpj/17d8d73275bca303e8d2)
