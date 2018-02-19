@@ -69,7 +69,7 @@
 
 example(
 'Click Counting Button',
-'A simple button that counts up on every click',
+'counts up on every click',
 demo => {
 const {dom: {button}, model} = rilti
 const m = model({clicks: 0})
@@ -204,4 +204,50 @@ colorblock({
   box-shadow: 0 2px 6px rgba(0,0,0,.1);
 }`
 )
+
+example(
+'Remove sequential',
+'remove nodes one after another with an intermediate delay',
+demo => {
+const {dom:{div}, domfn: {remove}, each, on} = rilti
+let elements = []
+const addBlocks = i => {
+  const block = div({$: demo}, i)
+  elements.push(block)
+  if (i === 49) {
+    on.destroy(block, e => {
+      div({
+        $: demo,
+        onclick: (e, el) => {
+          elements = []
+          each(50, addBlocks)
+          el.remove()
+          remove(elements, 500, true)
+        }
+      },
+        '∞'
+      )
+    })
+  }
+}
+each(50, addBlocks)
+remove(elements, 500, true)
+}, `
+.remove-sequential {
+  flex-flow: row wrap;
+}
+.remove-sequential > div {
+  display: inline-block;
+  margin: 5px;
+  width: 30px;
+  height: 30px;
+  line-height: 30px;
+  border-radius: 3px;
+  border: 1px solid pink;
+  user-select: none;
+  cursor: pointer;
+  text-shadow: 0 1px 3px hsla(0,0%,0%,.12);
+}
+`)
+
 }

@@ -70,14 +70,15 @@
         prop: true,
         update (el, val, oldVal) {
           const tab = el.model(val)
-          const oldtab = el.model(oldVal)
-          if (oldtab) {
-            Class(oldtab.title, 'active', false)
-            oldtab.view.remove()
-          }
           if (tab) {
             Class(tab.title, 'active', true)
-            el.head.after(tab.view)
+            const oldtab = el.model(oldVal)
+            if (oldtab) {
+              Class(oldtab.title, 'active', false)
+              oldtab.view.replaceWith(tab.view)
+            } else {
+              el.head.after(tab.view)
+            }
             el.model.emitSync.active(val, tab)
             el.model.emitSync('active:' + val, tab)
           }
