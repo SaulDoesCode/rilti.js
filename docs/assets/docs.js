@@ -126,6 +126,44 @@ demo.append(
 )
 
 example(
+'Lifecycles',
+'handle creation, mounting & destruction',
+demo => {
+const {dom: {div}, render, once} = rilti
+
+div({
+  cycle: {
+    create (el) {
+      console.log('created:', el)
+      render(el, demo)
+    },
+    mount (el) {
+      el.host = el.parentNode
+      console.log('mounted:', el, 'to:', el.host)
+      once.click(el.host, () => el.remove())
+    },
+    destroy (el) {
+      console.log('destroyed:', el)
+      once.click(el.host, () => render(el, demo))
+    },
+    remount (el) {
+      console.log('remounted:', el, 'to:', el.host)
+      once.click(el.host, () => el.remove())
+    }
+  }
+},
+  'click me'
+)
+},
+`.databinding > *:not(style) {
+  display: block;
+  text-align: left;
+  margin: 5px auto;
+  width: 280px;
+}`
+)
+
+example(
 'Component',
 'define behaviour for custom elements',
 demo => {
@@ -185,9 +223,11 @@ colorblock({
   render: demo,
   props: {
     color: 'crimson'
+  },
+  onclick (e, el) {
+    el.declareOntology()
   }
 })
-.declareOntology()
 },
 `color-block {
   display: flex;
