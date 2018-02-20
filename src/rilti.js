@@ -175,10 +175,9 @@
     return each(queryAll(selector, host), fn)
   }
 
-  const isMounted = (descendant, parent = doc) => {
-    if (isNodeList(descendant)) return Array.from(descendant).every(n => isMounted(n))
-    return parent === descendant || !!(parent.compareDocumentPosition(descendant) & 16)
-  }
+  const isMounted = (descendant, parent = doc) => (
+    isNodeList(descendant) ? Array.from(descendant).every(n => isMounted(n)) : parent === descendant || !!(parent.compareDocumentPosition(descendant) & 16)
+  )
 
   const listMap = (map = $map()) => assign(
     (key, val) => (
@@ -203,17 +202,17 @@
   const notifier = (host = {}) => {
     const listeners = listMap()
     // extract listener functions from object and arm them
-    const listenMulti = (obj, one) => each(
-      obj,
-      (fn, name) => (obj[name] = listen(name, fn, one))
-    )
+    const listenMulti = (obj, one) => each(obj, (fn, name) => {
+      obj[name] = listen(name, fn, one)
+    })
     // arm listener
     const listen = (name, fn, one = false) => {
       if (isObj(name)) return listenMulti(name, one)
 
       const ln = extend(args => {
-        fn.apply(ln, args)
+        fn.call(ln, ...args, ln)
         ln.one && ln.off()
+        return ln
       }, {
         get armed () { return listeners.has(name, ln) },
         set armed (state) {
@@ -235,7 +234,6 @@
       (name, ...data) => listeners.each(name, ln => ln(data)),
       false
     )
-
     const emit = infinifyFN(
       (name, ...data) => listeners.each(name, ln => setTimeout(ln, 0, data)),
       false
@@ -245,7 +243,9 @@
   }
 
   const map2json = (map, obj = {}) => {
-    map.forEach((val, key) => Reflect.set(obj, key, val))
+    map.forEach((val, key) => {
+      obj[key] = val
+    })
     return JSON.stringify(obj)
   }
 
@@ -293,16 +293,15 @@
     }
     // merge data into the store Map (or Map-like) object
     if (isStr(data)) {
-      try {
-        mut(JSON.parse(data), true)
-      } catch (e) {}
+      try { mut(JSON.parse(data), true) } catch (e) {}
     } else if (!isNil(data)) {
       mut(data, true)
     }
 
     const syncs = $map()
     const sync = $proxy((obj, key, prop = key) => {
-      if (isInput(obj)) return sync.input(obj, prop)
+      const isinput = isInput(obj)
+      if (isinput) [prop, key] = [key, 'value']
       if (!syncs.has(obj)) syncs.set(obj, $map())
 
       syncs
@@ -312,8 +311,20 @@
         on('set:' + prop, val => { obj[key] = val })
       )
 
+      if (isinput) {
+        var stop = EventManager(
+          false,
+          obj,
+          'input',
+          e => mut(prop, obj[key].trim())
+        ).off
+      }
+
       if (has(prop)) obj[key] = mut(prop)
-      once('delete:' + prop, () => sync.stop(obj, prop))
+      once('delete:' + prop, () => {
+        isFunc(stop) && stop()
+        sync.stop(obj, prop)
+      })
       return obj
     }, {
       get: (fn, prop) => Reflect.get(fn, prop) || (
@@ -340,34 +351,6 @@
     }, {
       get: (fn, key) => fn(key)
     })
-
-    sync.input = (input, prop) => {
-      if (!syncs.has(input)) syncs.set(input, $map())
-      syncs
-      .get(input)
-      .set(
-        prop,
-        on('set:' + prop, val => {
-          if (input.value !== val) input.value = val
-        })
-      )
-
-      if (has(prop)) input.value = mut(prop)
-
-      const stop = EventManager(
-        false,
-        input,
-        'input',
-        () => mut(prop, input.value.trim())
-      ).off
-
-      once('delete:' + prop, () => {
-        stop()
-        sync.stop(input, prop)
-      })
-
-      return input
-    }
 
     const Async = $proxy((key, fn) => has(key) ? fn(store.get(key)) : once('set:' + key, fn), {
       get: (_, key) => $promise(resolve => {
@@ -602,7 +585,7 @@
           node[isNil(v) ? 'removeAttribute' : 'setAttribute'](a, v)
         })
       } else if (isStr(attr)) {
-        if (!isPrimitive(val)) return node.getAttribute(attr)
+        if (isNil(val)) return node.getAttribute(attr)
         node.setAttribute(attr, val)
       }
       return node

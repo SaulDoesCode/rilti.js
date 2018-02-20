@@ -401,7 +401,7 @@ component('tick-box', {
     const {span} = rilti.dom
     const start = performance.now()
     while(count != 0) span({
-      render: document.body,
+      $: document.body,
       css: {
         background:'#fff',
         width:'110px',
@@ -428,7 +428,7 @@ component('tick-box', {
     // int loops are chunked making heavy loads less blocking
     each(count, i =>
       span({
-        render: document.body,
+        $: document.body,
         css: {
           background:'#fff',
           width:'110px',
