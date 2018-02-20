@@ -13,6 +13,7 @@
   const CREATE = 'create'
   const MOUNT = 'mount'
   const DESTROY = 'destroy'
+  const REMOUNT = 'remount'
   const [
     $map,
     $set,
@@ -520,17 +521,14 @@
   )
 
   const attatch = (host, connector, ...renderables) => {
+    if (isStr(host)) {
+      dom(host).then(h => attatch(h, connector, ...renderables))
+      return
+    }
     (renderables = prime(renderables)).forEach(n => {
       if (!isComponent(n)) CR(n)
-      if (isStr(host)) {
-        dom(host).then(h => {
-          host[connector](n)
-          MNT(n)
-        })
-      } else {
-        host[connector](n)
-        MNT(n)
-      }
+      host[connector](n)
+      MNT(n)
     })
     return renderables
   }
@@ -701,6 +699,7 @@
 
   const Created = mutateSet($weakset())
   const Mounted = mutateSet($weakset())
+  const Destroyed = mutateSet($weakset())
 
   const getTag = el => (el.tagName || String(el)).toLowerCase()
   const isComponent = el => components.has(getTag(el))
@@ -723,7 +722,7 @@
     else if (isStr(config)) [stage, config] = [config, components.get(name)]
     else if (!isObj(config)) config = components.get(name)
 
-    const {create, mount, destroy, props, methods, attr} = config
+    const {create, mount, remount, unmount, destroy, props, methods, attr} = config
 
     if (!Created(el)) {
       methods && asimilateMethods(el, methods)
@@ -736,14 +735,19 @@
     }
     if (!Mounted(el) && stage === MOUNT) {
       Mounted(el, true)
-      mount && mount(el)
+      mount && mount.call(el, el)
       emit(el, stage)
     } else if (stage === DESTROY) {
       Mounted(el, false)
-      destroy && destroy(el)
+      Destroyed(el, true)
+      if (destroy) {
+        destroy.call(el, el)
+        config.destroy = UNDEF
+      }
+      unmount && unmount.call(el, el)
       emit(el, stage)
     }
-
+    remount && on.remount(el, remount.bind(el, el))
     return el
   }
 
@@ -807,11 +811,14 @@
   }
 
   // Thanks A. Sharif, for medium.com/javascript-inside/safely-accessing-deeply-nested-values-in-javascript-99bf72a0855a
-  const extract = (obj, path) => (isDef(obj) || UNDEF) && path
-  .replace(/\[(\w+)\]/g, '.$1')
-  .replace(/^\./, '')
-  .split('.')
-  .reduce((xs, x) => xs && isDef(xs[x]) ? xs[x] : UNDEF, obj)
+  const extract = (obj, path, fn) => {
+    const result = path
+    .replace(/\[(\w+)\]/g, '.$1')
+    .replace(/^\./, '')
+    .split('.')
+    .reduce((xs, x) => xs && isDef(xs[x]) ? xs[x] : UNDEF, obj)
+    if (result !== UNDEF) return fn ? fn(result) : result
+  }
 
   const checkAttr = (
     name,
@@ -825,7 +832,10 @@
 
   const MNT = n => {
     if (!Mounted(n)) {
-      if (isComponent(n)) {
+      if (Destroyed(n)) {
+        Destroyed(n, false)
+        emit(n, REMOUNT)
+      } else if (isComponent(n)) {
         updateComponent(n, MOUNT)
       } else {
         Mounted(n, true)
@@ -836,23 +846,15 @@
 
   const DST = n => {
     Mounted(n, false)
+    Destroyed(n, true)
     emit(n, DESTROY)
   }
 
-  const render = (node, host = 'body', connector = 'appendChild') => {
-    if (isStr(host)) {
-      dom(host).then(h => {
-        render(node, h, connector)
-      })
-      return
-    }
-
-    if (connector.includes('pend')) {
-      attatch(host, connector, node)
-    } else if (!isMounted(host)) {
-      once.mount(host, e => attatch(host, connector, node))
-    }
-  }
+  const render = (
+    node,
+    host = 'body',
+    connector = 'appendChild'
+  ) => attatch(host, connector, node)
 
   const create = (tag, options, ...children) => {
     const el = isNode(tag) ? tag : doc.createElement(tag)
@@ -860,9 +862,7 @@
 
     if (!(el instanceof Text)) {
       if (isRenderable(options)) children.unshift(options)
-      if (children.length) {
-        attatch(el, 'appendChild', children)
-      }
+      if (children.length) render(children, el)
     }
 
     if (isObj(options)) {
@@ -870,28 +870,24 @@
       if (options.props && !iscomponent) asimilateProps(el, options.props)
       options.methods && asimilateMethods(el, options.methods)
       if (options.lifecycle || options.cycle) {
-        const {mount, destroy, create} = options.lifecycle || options.cycle
+        const {mount, destroy, create, remount, unmount} = options.lifecycle || options.cycle
         once.create(el, e => {
           Created(el, true)
           create && create.call(el, el)
         })
 
-        if (mount) {
-          var mountListener = once.mount(el, mount.bind(el, el))
-        }
-
-        (mount || destroy) && on.destroy(el, e => {
-          destroy && destroy.call(el, el)
-          mountListener && mountListener.on()
-        })
+        mount && once.mount(el, mount.bind(el, el))
+        destroy && once.destroy(el, destroy.bind(el, el))
+        unmount && on.destroy(el, unmount.bind(el, el))
+        remount && on.remount(el, remount.bind(el, el))
       }
 
-      if (options.$) render(el, options.$)
-      else {
-        const {renderBefore: rbefore, renderAfter: rafter, render: r} = options
-        if (r) render(el, r)
-        else if (rbefore) render(el, rbefore, 'before')
-        else if (rafter) render(el, rafter, 'after')
+      const renderHost = options.$ || options.render
+      if (renderHost) render(el, renderHost)
+      else if (options.renderAfter) {
+        attatch(options.renderAfter, 'after', el)
+      } else if (options.renderBefore) {
+        attatch(options.renderBefore, 'before', el)
       }
     }
 
@@ -905,8 +901,7 @@
   }
 
   const svg = (...args) => create(
-    doc.createElementNS('http://www.w3.org/2000/svg', 'svg'),
-    ...args
+    doc.createElementNS('http://www.w3.org/2000/svg', 'svg'), ...args
   )
 
   const body = (...args) => {
