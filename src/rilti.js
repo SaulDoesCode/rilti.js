@@ -334,7 +334,7 @@
       return obj
     }, {
       get: (fn, prop) => Reflect.get(fn, prop) || (
-         (obj, key = prop) => fn(obj, key, prop)
+         (obj, key = prop) => isNil(obj) ? sync.text(prop) : fn(obj, key, prop)
       )
     })
 
@@ -515,7 +515,7 @@
 
   const prime = (...nodes) => flatten(
     nodes.map(n => {
-      if (isFunc(n)) n = n()
+      if (isFunc(n)) return n
       if (n instanceof NodeList) return Array.from(n)
       if (isArr(n)) return prime(...n)
       if (isStr(n)) {
@@ -537,9 +537,13 @@
       return
     }
     (renderables = prime(renderables)).forEach(n => {
-      if (!isComponent(n)) CR(n)
-      host[connector](n)
-      MNT(n)
+      if (isFunc(n)) {
+        attatch(host, connector, n())
+      } else {
+        if (!isComponent(n)) CR(n)
+        host[connector](n)
+        MNT(n)
+      }
     })
     return renderables
   }
@@ -630,32 +634,33 @@
         } else if (name === 'children' || name === 'inner') {
           node.innerHTML = ''
           render(args, node)
-          return
-        }
-
-        if (!isArr(args)) args = [args]
-        if (name in domfn) {
-          const result = domfn[name](node, ...args)
-          if (result !== node) options[name] = result
-        } else if (name === 'class' || name === 'className') {
-          domfn.Class(node, ...args)
+        } else if (name === 'sync') {
+          options[name] = args(node)
         } else {
-          let mode = name.substr(0, 4)
-          const isOnce = mode === 'once'
-          if (!isOnce) mode = name.substr(0, 2)
-          const isOn = mode === 'on'
-          if (isOnce || isOn) {
-            let type = name.substr(isOnce ? 4 : 2)
-            const evtfn = EventManager(isOnce)
-            if (!options[mode]) options[mode] = {}
-            if (type.length) {
-              if (type[0] === '_') type = type.replace('_', '')
-              options[mode][type] = evtfn(node, type, ...args)
-            } else {
-              options[mode][type] = evtfn(node, ...args)
+          if (!isArr(args)) args = [args]
+          if (name in domfn) {
+            const result = domfn[name](node, ...args)
+            if (result !== node) options[name] = result
+          } else if (name === 'class' || name === 'className') {
+            domfn.Class(node, ...args)
+          } else {
+            let mode = name.substr(0, 4)
+            const isOnce = mode === 'once'
+            if (!isOnce) mode = name.substr(0, 2)
+            const isOn = mode === 'on'
+            if (isOnce || isOn) {
+              let type = name.substr(isOnce ? 4 : 2)
+              const evtfn = EventManager(isOnce)
+              if (!options[mode]) options[mode] = {}
+              if (type.length) {
+                if (type[0] === '_') type = type.replace('_', '')
+                options[mode][type] = evtfn(node, type, ...args)
+              } else {
+                options[mode][type] = evtfn(node, ...args)
+              }
+            } else if (assignArbitrary || name in node) {
+              isFunc(node[name]) ? node[name](...args) : node[name] = args[0]
             }
-          } else if (assignArbitrary || name in node) {
-            isFunc(node[name]) ? node[name](...args) : node[name] = args[0]
           }
         }
       })
