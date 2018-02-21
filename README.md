@@ -38,11 +38,62 @@ button({
   render: 'body',
   onclick: e => ++state.clicks
 },
-  'clicks: ', state.sync.text.clicks
+  'clicks: ', state.sync.clicks()
 )
 ```
 ``state.sync.text.clicks`` <- Creates a Text node,     
 with a value bound to the model's property ``clicks``.
+
+```js
+state.sync[prop] -> fn(=obj, key = prop) -> obj ? sync.text[prop]() : obj
+```
+so in this case
+```js
+state.sync.clicks() -> new Text(state.clicks)
+```
+but this is also possible
+```js
+state.sync(new Text(), 'textContent', 'clicks') -> new Text(state.clicks)
+```
+or
+```js
+state.sync.clicks(new Text(), 'textContent') -> new Text(state.clicks)
+```
+or this at a lower level
+```js
+const textNode = new Text(state.clicks)
+state.on['set:clicks'](clicks => {
+  textNode.textContent = clicks
+})
+```
+
+you could also avoid ``.sync`` and go
+```js
+const {dom: {button}, model} = rilti
+const state = model({clicks: 0})
+
+const clicks = new Text(state.clicks)
+state.on('set:clicks', count => {
+  clicks.textContent = count
+})
+
+button({
+  render: 'body',
+  onclick: e => ++state.clicks
+},
+  'clicks: ', clicks
+)
+```
+
+Either way the above will produce this html
+```html
+<button>clicks: 0</button>
+<!-- Which is Technically -->
+<button>
+  "clicks:" <!-- text node -->
+  "0" <!-- text node bound to state.clicks -->
+</button>
+```
 
 #### Simple Persistent Markdown Scratch-Pad with ``.model``
 
@@ -69,15 +120,14 @@ with a value bound to the model's property ``clicks``.
 ### Two Button Counter
 
 ```js
-const {dom: {body, button, div, h1}, model} = rilti
+const {dom: {button, div, h1}, model} = rilti
 const state = model({count: 0})
 
-body(
-  div(
-    h1(state.sync.text.count),
-    button({onclick: e => ++state.count}, '+'),
-    button({onclick: e => --state.count}, '-')
-  )
+div(
+  {render: 'body'},// append to <body> on load
+  h1(state.sync.text.count),// same as: state.sync.count()
+  button({onclick: e => ++state.count}, '+'),
+  button({onclick: e => --state.count}, '-')
 )
 ```
 
@@ -88,10 +138,9 @@ Just generate everything, it's so simple.
 ```js
 const {compose, dom: {a, button, h1, header, nav, section}} = rilti
 
-section({
-  id: 'navbar',
-  render: 'body' // <- append to document.body on dom load
-},
+section(
+  {$: 'body', id: 'navbar'},
+// ^- $ is shorthand for render: 'Node/Selector'
   compose(header, h1)('My Wicked Website'),
   nav(
     ['Home','Blog','About','Contact'].map(
@@ -288,6 +337,21 @@ dom['random-tag']({
   attr: {
     contenteditable: 'true',
   },
+  // set classes
+  class: 'card active',
+  // or
+  class: ['card', 'active']
+  // or conditionally
+  class: {
+    card: true,
+    active: false // active won't be added
+  },
+  // some styles?
+  css: {
+    boxShadow: '0 2px 6px rgba(0,0,0,.12)',
+    '--highlight-color': 'crimson',
+  // ^- oh yeah, css variables work too
+  },
   // attach properties to the element
   props: {
     oldtxt: '',
@@ -327,13 +391,17 @@ dom['random-tag']({
   // if there's just one listener then use:
   // once_evt: fn instead of once: { evt: fn }
   once_dblclick (evt, el) { el.remove() },
+  //  ^- underscore is optional
   // manage the element's lifecycle
   cycle: {
     create (el) { /*...*/ },
     mount (el) { /*...*/ },
-    destroy (el) { /*...*/ }
+    unmount (el) { /*...*/ },
+    remount (el) { /*...*/ }
   }
-})
+},
+  ...children
+)
 ```
 
 #### Directives / Custom Attributes
@@ -351,7 +419,7 @@ rilti.directives.delete('custom-attr')
 
 #### Web Components / Custom Elements, no polyfills needed
 ```js
-const {domfn: {css, attr, mutate}, on, component} = rilti
+const {domfn: {css, attr}, on, component} = rilti
 
 component('tick-box', {
   create (el) {
@@ -369,7 +437,7 @@ component('tick-box', {
   mount (el) {
     console.log('tick-box mounted to document')
   },
-  destroy (el) {
+  unmount (el) {
    console.log('tick-box is no more :(')
   },
   attr: {
