@@ -12,8 +12,8 @@
   const NULL = null
   const CREATE = 'create'
   const MOUNT = 'mount'
-  const DESTROY = 'destroy'
   const REMOUNT = 'remount'
+  const UNMOUNT = 'unmount'
   const [
     $map,
     $set,
@@ -60,9 +60,9 @@
   const isInt = o => isNum(o) && o % 1 === 0
   const isArrlike = o => o && (isArr(o) || (!isFunc(o) && o.length % 1 === 0))
   const isEmpty = o => !o || !((isObj(o) ? $keys(o) : o).length || o.size)
-  const isEl = o => o && o instanceof Element
-  const isNode = o => o && o instanceof Node
-  const isNodeList = o => o && (o instanceof NodeList || (isArrlike(o) && Array.from(o).every(isNode)))
+  const isEl = o => o instanceof Element
+  const isNode = o => o instanceof Node
+  const isNodeList = (o, arr = true) => o instanceof NodeList || (arr && isArrlike(o) && Array.from(o).every(isNode))
   const isMap = o => o && o instanceof Map
   const isSet = o => o && o instanceof Set
   const isRegExp = o => o && o instanceof RegExp
@@ -317,7 +317,12 @@
           false,
           obj,
           'input',
-          e => mut(prop, obj[key].trim())
+          e => {
+            mut(prop, obj[key].trim())
+            if (validators.has(prop)) {
+              validateProp(prop)
+            }
+          }
         ).off
       }
 
@@ -346,6 +351,7 @@
       }
       return obj
     }
+
     sync.text = $proxy((options, prop) => {
       if (isStr(options)) [prop, options] = [options, '']
       return sync(text(), 'textContent', prop)
@@ -376,7 +382,12 @@
         const regexp = validator
         validator = val => isStr(val) && regexp.test(val)
       }
-      if (isFunc(validator)) validators.set(key, validator)
+      if (isFunc(validator)) {
+        if (!isBool(validator())) {
+          throw new Error(`".${key}": validator invalid`)
+        }
+        validators.set(key, validator)
+      }
     }, {
       get: (_, key) => validateProp(key),
       set: (vd, key, val) => vd(key, val)
@@ -605,44 +616,29 @@
     prepend: curry((node, ...children) => render(children, node, 'prepend'), 2),
     appendTo: curry((node, host) => attatch(host, 'append', node)),
     prependTo: curry((node, host) => attatch(host, 'prepend', node)),
-    remove (node, after, sequential) {
-      if (isNodeList(node)) {
-        if (isInt(after) && sequential) {
-          let i = 0
-          const next = () => {
-            if (i < node.length) {
-              domfn.remove(node[i++])
-              setTimeout(next, after)
-            }
-          }
-          setTimeout(next, after)
-        } else {
-          return each(node, n => domfn.remove(n, after))
-        }
-      } else if (isInt(after)) {
-        setTimeout(() => isMounted(node) && node.remove(), after)
-      } else if (isMounted(node)) {
-        node.remove()
-      }
+    remove (node, after) {
+      if (isInt(after)) setTimeout(() => domfn.remove(node), after)
+      else if (isMounted(node)) node.remove()
+      else if (isNodeList(node)) each(node, n => domfn.remove(n))
       return node
     },
     mutate (node, options, assignArbitrary = true) {
       if (isArr(node)) return node.map(n => domfn.mutate(n, options, assignArbitrary))
-      each(options, (args, name) => {
-        if (!isArr(args)) args = [args]
+      return each(options, (args, name) => {
+        if (name === 'html' || name === 'text') {
+          node[name === 'html' ? 'innerHTML' : 'textContent'] = args
+        } else if (name === 'children' || name === 'inner') {
+          node.innerHTML = ''
+          render(args, node)
+          return
+        }
 
+        if (!isArr(args)) args = [args]
         if (name in domfn) {
           const result = domfn[name](node, ...args)
           if (result !== node) options[name] = result
         } else if (name === 'class' || name === 'className') {
           domfn.Class(node, ...args)
-        } else if (name === 'children' || name === 'inner') {
-          node.innerHTML = ''
-          render(args, node)
-        } else if (name === 'text') {
-          node.textContent = args
-        } else if (name === 'html') {
-          node.innerHTML = args
         } else {
           let mode = name.substr(0, 4)
           const isOnce = mode === 'once'
@@ -659,11 +655,10 @@
               options[mode][type] = evtfn(node, ...args)
             }
           } else if (assignArbitrary || name in node) {
-            isFunc(node[name]) ? node[name](...args) : node[name] = args
+            isFunc(node[name]) ? node[name](...args) : node[name] = args[0]
           }
         }
       })
-      return options
     }
   }
 
@@ -699,7 +694,7 @@
 
   const Created = mutateSet($weakset())
   const Mounted = mutateSet($weakset())
-  const Destroyed = mutateSet($weakset())
+  const Unmounted = mutateSet($weakset())
 
   const getTag = el => (el.tagName || String(el)).toLowerCase()
   const isComponent = el => components.has(getTag(el))
@@ -722,7 +717,7 @@
     else if (isStr(config)) [stage, config] = [config, components.get(name)]
     else if (!isObj(config)) config = components.get(name)
 
-    const {create, mount, remount, unmount, destroy, props, methods, attr} = config
+    const {create, mount, remount, unmount, props, methods, attr} = config
 
     if (!Created(el)) {
       methods && asimilateMethods(el, methods)
@@ -734,16 +729,17 @@
       emit(el, CREATE)
     }
     if (!Mounted(el) && stage === MOUNT) {
-      Mounted(el, true)
-      mount && mount.call(el, el)
-      emit(el, stage)
-    } else if (stage === DESTROY) {
-      Mounted(el, false)
-      Destroyed(el, true)
-      if (destroy) {
-        destroy.call(el, el)
-        config.destroy = UNDEF
+      if (Unmounted(el)) {
+        remount && remount.call(el, el)
+        emit(el, REMOUNT)
+      } else {
+        Mounted(el, true)
+        mount && mount.call(el, el)
+        emit(el, stage)
       }
+    } else if (stage === UNMOUNT) {
+      Mounted(el, false)
+      Unmounted(el, true)
       unmount && unmount.call(el, el)
       emit(el, stage)
     }
@@ -782,13 +778,11 @@
     if (!(name in el) && cfg.prop) {
       let {set, get, bool, toggle} = cfg.prop
       if (toggle) {
-        const toggleIsFN = isFunc(toggle)
-        if (toggleIsFN) {
-          toggle = toggle.bind(el, el)
-        }
+        const isFN = isFunc(toggle)
+        if (isFN) toggle = toggle.bind(el, el)
         set = state => {
           domfn.attrToggle(el, name, state)
-          toggleIsFN && toggle(state)
+          isFN && toggle(state)
         }
         get = () => el.hasAttribute(name)
       } else {
@@ -819,6 +813,16 @@
     .reduce((xs, x) => xs && isDef(xs[x]) ? xs[x] : UNDEF, obj)
     if (result !== UNDEF) return fn ? fn(result) : result
   }
+  /*extract.or = (obj, ...paths) => {
+    if (isNil(obj)) return
+    const fn = paths[paths.length - 1]
+    const hasfn = isFunc(fn)
+    if (hasfn) paths.pop()
+    let result
+    let path
+    for (path of paths) if (isDef(result = extract(obj, path))) break
+    if (isDef(result)) return hasfn ? fn(result, path) : result
+  }*/
 
   const checkAttr = (
     name,
@@ -832,8 +836,8 @@
 
   const MNT = n => {
     if (!Mounted(n)) {
-      if (Destroyed(n)) {
-        Destroyed(n, false)
+      if (Unmounted(n)) {
+        Unmounted(n, false)
         emit(n, REMOUNT)
       } else if (isComponent(n)) {
         updateComponent(n, MOUNT)
@@ -844,10 +848,10 @@
     }
   }
 
-  const DST = n => {
+  const UNMNT = n => {
     Mounted(n, false)
-    Destroyed(n, true)
-    emit(n, DESTROY)
+    Unmounted(n, true)
+    emit(n, UNMOUNT)
   }
 
   const render = (
@@ -861,7 +865,8 @@
     const iscomponent = isComponent(tag)
 
     if (!(el instanceof Text)) {
-      if (isRenderable(options)) children.unshift(options)
+      if (isFunc(options)) options(el)
+      else if (isRenderable(options)) children.unshift(options)
       if (children.length) render(children, el)
     }
 
@@ -870,16 +875,16 @@
       if (options.props && !iscomponent) asimilateProps(el, options.props)
       options.methods && asimilateMethods(el, options.methods)
       if (options.lifecycle || options.cycle) {
-        const {mount, destroy, create, remount, unmount} = options.lifecycle || options.cycle
+        const cycle = options.lifecycle || options.cycle
+        const {mount, create, remount, unmount} = cycle
         once.create(el, e => {
           Created(el, true)
           create && create.call(el, el)
         })
-
         mount && once.mount(el, mount.bind(el, el))
-        destroy && once.destroy(el, destroy.bind(el, el))
-        unmount && on.destroy(el, unmount.bind(el, el))
-        remount && on.remount(el, remount.bind(el, el))
+
+        cycle[UNMOUNT] = unmount && on.unmount(el, unmount.bind(el, el))
+        cycle[REMOUNT] = remount && on.remount(el, remount.bind(el, el))
       }
 
       const renderHost = options.$ || options.render
@@ -896,7 +901,7 @@
   }
 
   const text = (options, txt) => {
-    if (isStr(options)) [txt, options] = [options, {}]
+    if (isStr(options)) [txt, options] = [options, UNDEF]
     return create(new Text(txt), options)
   }
 
@@ -939,12 +944,12 @@
   })
 
   const MountNodes = n => updateComponent(n, MOUNT) || MNT(n)
-  const DestroyNodes = n => updateComponent(n, DESTROY) || DST(n)
+  const UnmountNodes = n => updateComponent(n, UNMOUNT) || UNMNT(n)
 
   new MutationObserver(muts => muts.forEach(
     ({addedNodes, removedNodes, target, attributeName, oldValue}) => {
       addedNodes.length && addedNodes.forEach(MountNodes)
-      removedNodes.length && removedNodes.forEach(DestroyNodes)
+      removedNodes.length && removedNodes.forEach(UnmountNodes)
       attributeName && checkAttr(attributeName, target, oldValue)
     })
   ).observe(
@@ -952,7 +957,6 @@
     {attributes: true, attributeOldValue: true, childList: true, subtree: true}
   )
 
-  // I'm really sorry but I don't believe in module loaders, besides who calls their library rilti?
   root.rilti = {
     all,
     some,
