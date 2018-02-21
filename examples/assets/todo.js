@@ -138,7 +138,7 @@
       }
       mutate(el, {children: [el.del_el, el.txt_el, el.tick_el]})
     },
-    destroy (el) { el.del() },
+    unmount (el) { el.del() },
     attr: {
       state: {
         prop: { bool: true },

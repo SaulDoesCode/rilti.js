@@ -31,10 +31,6 @@ body {
   }
 }
 
-rilti-tabs > article {
-  animation: fade-in 100ms ease;
-}
-
 pre {
   display: block;
   text-align: left;
@@ -43,8 +39,21 @@ pre {
   margin: 0 auto;
   border-radius: 2px;
   box-shadow: inset 0 0 10px hsla(0,0%,0%,.13);
+  text-shadow: 0 1px 2px hsla(0,0%,0%,.1);
   font-size: 15px;
-  background: hsl(0, 0%, 27%);
+  background: hsl(0, 0%, 20%);
+}
+
+.hljs-comment {
+  display: block;
+  overflow: hidden;
+  max-height: 18px;
+  transition: all 160ms ease-in;
+}
+
+.hljs-comment:hover {
+  max-height: 1800px;
+  overflow: visible;
 }
 
 #page-nav > header {
@@ -97,6 +106,7 @@ pre {
   overflow: auto;
   width: 100%;
   padding: 15px 0;
+  animation: fade-in 250ms ease;
 }
 
 #page-nav[active="examples"] > article > h2 {

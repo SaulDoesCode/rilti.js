@@ -78,7 +78,7 @@ button({
   render: demo,
   onclick: e => ++m.clicks
 },
-  'clicks: ', m.sync.text.clicks
+  'clicks: ', m.sync.clicks()
 )
 },
 `.click-counting-button > button {
@@ -105,23 +105,81 @@ button({
 
 example(
 'Databinding',
-'databinding with `.model.sync`',
+'databinding & validation with `.model`',
 demo => {
-const {dom: {input, label}, model} = rilti
-const m = model({msg: 'type something'})
+const {
+  dom: {input, table, th, tr, td},
+  model,
+  isStr
+} = rilti
 
-const edit = m.sync.msg(input())
+const state = model({ip: '127.0.0.1'})
 
-demo.append(
-  label(m.sync.text.msg),
-  edit
+/*
+// model.valid.prop = val => bool
+state.valid.ip = ip => {
+  if (!isStr(ip)) return false
+
+  const octets = ip.split('.')
+  .map(n => parseInt(n))
+
+  return octets[0] > 0 &&
+  octets.length === 4 &&
+  octets.every(octet =>
+    octet >= 0 && octet < 256
+  )
+}
+*/
+
+state.valid.ip = /^(?!0)(?!.*\.$)((1?\d?\d|25[0-5]|2[0-4]\d)(\.|$)){4}$/
+
+state.on['validate:ip'](valid => {
+  valid_ip.textContent = valid
+  edit.style
+  .borderRight = `2px solid ${
+    valid ? '#58ed58' : '#f64949'
+  }`
+})
+
+const valid_ip = td(state.valid.ip)
+
+const edit = input(state.sync.ip)
+edit.maxLength = 15
+
+const display = table(
+  tr(
+    th('ip'),
+    td(
+      state.sync.ip()
+    )
+  ),
+  tr(
+    th('valid'),
+    valid_ip
+  )
 )
+
+demo.append(edit, display)
 },
-`.databinding > *:not(style) {
-  display: block;
+`.databinding > * {
   text-align: left;
   margin: 5px auto;
-  width: 280px;
+}
+.databinding > input {
+  width: 135px;
+  outline: 0;
+  border: 1px solid #fff;
+  padding: 4px;
+  box-shadow: 0 2px 4px hsla(0,0%,0%,.12);
+}
+.databinding th {
+  min-width: 50px;
+  border-right: 1px solid hsl(52, 19%, 76%);
+}
+.databinding td {
+  min-width: 135px;
+}
+.databinding > table > tr > * {
 }`
 )
 
@@ -129,39 +187,101 @@ example(
 'Lifecycles',
 'handle creation, mounting & destruction',
 demo => {
-const {dom: {div}, render, once} = rilti
+const {dom: {button, div, span}, domfn: {mutate}, render, model} = rilti
 
-div({
-  cycle: {
-    create (el) {
-      console.log('created:', el)
-      render(el, demo)
-    },
-    mount (el) {
-      el.host = el.parentNode
-      console.log('mounted:', el, 'to:', el.host)
-      once.click(el.host, () => el.remove())
-    },
-    destroy (el) {
-      console.log('destroyed:', el)
-      once.click(el.host, () => render(el, demo))
-    },
-    remount (el) {
-      console.log('remounted:', el, 'to:', el.host)
-      once.click(el.host, () => el.remove())
+mutate(demo, {css: {'--demo-color': 'hsl(50, 13%, 64%)'}})
+
+const state = model()
+const display = div(
+  {class: 'display'},
+  'Active State: ',
+  span({
+    css: {
+      color: 'var(--demo-color)',
+      fontWeight: '600'
     }
+  },
+    state.sync.text.mode
+  )
+)
+const control = button({class: 'c-btn'})
+
+const cycle = {
+  create (el) {
+    mutate(control, {
+      text: state.mode = 'create',
+      onceclick: e => render(el, demo)
+    })
+  },
+  mount (el) {
+    state.mode = 'mount'
+    mutate(control, {
+      text: 'unmount',
+      onceclick: e => el.remove()
+    })
+  },
+  unmount (el) {
+    state.mode = 'unmounted'
+    mutate(control, {
+      text: 'mount',
+      onceclick: e => render(el, demo)
+    })
+  },
+  remount (el) {
+    state.mode = 'remount'
+    mutate(control, {
+      text: 'unmount',
+      onceclick: e => el.remove()
+    })
   }
+}
+
+// managed element
+div({class: 'managed', cycle})
+
+render([display, control], demo)
 },
-  'click me'
-)
-},
-`.databinding > *:not(style) {
+`
+.lifecycles {
+  min-height: 150px;
   display: block;
-  text-align: left;
-  margin: 5px auto;
-  width: 280px;
-}`
-)
+  font-size: 1.05em;
+}
+.display {
+  text-shadow: 0 2px 3px rgba(0,0,0,.1);
+  min-width: 184px;
+}
+.display, .c-btn {
+  display: inline-block;
+  vertical-align: top;
+  margin: 10px;
+}
+.c-btn {
+  outline: none;
+  padding: 6px 8px;
+  border-radius: 2px;
+  border: 1px solid var(--demo-color);
+  background: #fff;
+  min-width: 100px;
+  color: var(--demo-color);
+  cursor: pointer;
+  transition: all 120ms ease;
+}
+.c-btn:hover, .c-btn:active {
+  background: var(--demo-color);
+  box-shadow: 0 2px 6px rgba(0,0,0,.1);
+  text-shadow: 0 2px 3px rgba(0,0,0,.1);
+  color: #fff;
+}
+.managed {
+  display: block;
+  width: 50px;
+  height: 50px;
+  margin: 10px auto;
+  background: var(--demo-color);
+  border-radius: 2.5px;
+  box-shadow: 0 2px 6px rgba(0,0,0,.1);
+}`)
 
 example(
 'Component',
@@ -244,50 +364,5 @@ colorblock({
   box-shadow: 0 2px 6px rgba(0,0,0,.1);
 }`
 )
-
-example(
-'Remove sequential',
-'remove nodes one after another with an intermediate delay',
-demo => {
-const {dom:{div}, domfn: {remove}, each, on} = rilti
-let elements = []
-const addBlocks = i => {
-  const block = div({$: demo}, i)
-  elements.push(block)
-  if (i === 49) {
-    on.destroy(block, e => {
-      div({
-        $: demo,
-        onclick: (e, el) => {
-          elements = []
-          each(50, addBlocks)
-          el.remove()
-          remove(elements, 500, true)
-        }
-      },
-        '∞'
-      )
-    })
-  }
-}
-each(50, addBlocks)
-remove(elements, 500, true)
-}, `
-.remove-sequential {
-  flex-flow: row wrap;
-}
-.remove-sequential > div {
-  display: inline-block;
-  margin: 5px;
-  width: 30px;
-  height: 30px;
-  line-height: 30px;
-  border-radius: 3px;
-  border: 1px solid pink;
-  user-select: none;
-  cursor: pointer;
-  text-shadow: 0 1px 3px hsla(0,0%,0%,.12);
-}
-`)
 
 }
