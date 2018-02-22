@@ -53,7 +53,7 @@
   const isObj = o => o && o.constructor === Object
   const isBool = o => typeof o === 'boolean'
   const isStr = o => typeof o === 'string'
-  const isNum = o => typeof o === 'number'
+  const isNum = o => typeof o === 'number' && !isNaN(o)
   const isNull = o => o === NULL
   const isPrimitive = some(isStr, isBool, isNum)
   const isIterable = o => !isNil(o) && typeof o[Symbol.iterator] === 'function'
@@ -300,7 +300,7 @@
     }
 
     const syncs = $map()
-    const sync = $proxy((obj, key, prop = key) => {
+    const sync = $proxy((obj, key, prop = key, valid) => {
       const isinput = isInput(obj)
       if (isinput) [prop, key] = [key, 'value']
       if (!syncs.has(obj)) syncs.set(obj, $map())
@@ -309,10 +309,13 @@
       .get(obj)
       .set(
         prop,
-        on('set:' + prop, val => { obj[key] = val })
+        on(
+          (valid ? 'validate' : 'set') + ':' + prop,
+          val => { obj[key] = val }
+        )
       )
 
-      if (isinput) {
+      if (!valid && isinput) {
         var stop = EventManager(
           false,
           obj,
@@ -326,15 +329,19 @@
         ).off
       }
 
-      if (has(prop)) obj[key] = mut(prop)
+      if (valid) {
+        obj[key] = validateProp(prop)
+      } else if (has(prop)) {
+        obj[key] = mut(prop)
+      }
       once('delete:' + prop, () => {
-        isFunc(stop) && stop()
+        stop && stop()
         sync.stop(obj, prop)
       })
       return obj
     }, {
       get: (fn, prop) => Reflect.get(fn, prop) || (
-         (obj, key = prop) => isNil(obj) ? sync.text(prop) : fn(obj, key, prop)
+         (obj, key = prop, valid) => isNil(obj) ? sync.text(prop) : fn(obj, key, prop, valid)
       )
     })
 
@@ -352,11 +359,15 @@
       return obj
     }
 
-    sync.text = $proxy((options, prop) => {
-      if (isStr(options)) [prop, options] = [options, '']
-      return sync(text(), 'textContent', prop)
+    sync.text = $proxy((options, prop, valid) => {
+      if (isStr(options)) [prop, options] = [options, UNDEF]
+      if (!valid && prop.includes('valid:')) {
+        valid = true
+        prop = prop.substr(6)
+      }
+      return sync(text(options), 'textContent', prop, valid)
     }, {
-      get: (fn, key) => fn(key)
+      get: (fn, key) => fn(UNDEF, key)
     })
 
     const Async = $proxy((key, fn) => has(key) ? fn(store.get(key)) : once('set:' + key, fn), {
@@ -906,7 +917,7 @@
   }
 
   const text = (options, txt) => {
-    if (isStr(options)) [txt, options] = [options, UNDEF]
+    if (isPrimitive(options)) [txt, options] = [options, UNDEF]
     return create(new Text(txt), options)
   }
 
