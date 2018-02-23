@@ -550,10 +550,12 @@
     (renderables = prime(renderables)).forEach(n => {
       if (isFunc(n)) {
         attatch(host, connector, n())
-      } else {
-        if (!isComponent(n)) CR(n)
+      } else if (isNode(host)) {
+        CR(n, isComponent(n))
         host[connector](n)
         MNT(n)
+      } else if (isArr(host)) {
+        host.push(n)
       }
     })
     return renderables
@@ -738,11 +740,12 @@
     if (!Created(el)) {
       methods && asimilateMethods(el, methods)
       props && asimilateProps(el, props)
-      afterProps && asimilateProps(el, afterProps)
-      attr && each(attr, (cfg, name) => handleAttribute(name, el, cfg))
       Created(el, true)
       create && create(el)
+      attr && each(attr, (cfg, name) => handleAttribute(name, el, cfg))
+      afterProps && asimilateProps(el, afterProps)
       emit(el, CREATE)
+      remount && on.remount(el, remount.bind(el, el))
     }
     if (!Mounted(el) && stage === MOUNT) {
       if (Unmounted(el)) {
@@ -759,7 +762,6 @@
       unmount && unmount.call(el, el)
       emit(el, stage)
     }
-    remount && on.remount(el, remount.bind(el, el))
     return el
   }
 
@@ -829,7 +831,8 @@
     .reduce((xs, x) => xs && isDef(xs[x]) ? xs[x] : UNDEF, obj)
     if (result !== UNDEF) return fn ? fn(result) : result
   }
-  /*extract.or = (obj, ...paths) => {
+/*
+  extract.or = (obj, ...paths) => {
     if (isNil(obj)) return
     const fn = paths[paths.length - 1]
     const hasfn = isFunc(fn)
@@ -838,7 +841,8 @@
     let path
     for (path of paths) if (isDef(result = extract(obj, path))) break
     if (isDef(result)) return hasfn ? fn(result, path) : result
-  }*/
+  }
+*/
 
   const checkAttr = (
     name,
@@ -848,7 +852,7 @@
   ) => attr && handleAttribute(name, el, attr, oldValue)
 
   // node lifecycle event dispatchers
-  const CR = n => !Created(n) && emit(n, CREATE)
+  const CR = (n, iscomponent) => !Created(n) && !iscomponent && emit(n, CREATE)
 
   const MNT = n => {
     if (!Mounted(n)) {
@@ -879,6 +883,9 @@
   const create = (tag, options, ...children) => {
     const el = isNode(tag) ? tag : doc.createElement(tag)
     const iscomponent = isComponent(tag)
+    if (iscomponent) {
+      var componentHandled
+    }
 
     if (!(el instanceof Text)) {
       if (isFunc(options)) options(el)
@@ -903,6 +910,11 @@
         cycle[REMOUNT] = remount && on.remount(el, remount.bind(el, el))
       }
 
+      if (iscomponent) {
+        updateComponent(el, UNDEF, extract(options, 'props'))
+        componentHandled = true
+      }
+
       const renderHost = options.$ || options.render
       if (renderHost) render(el, renderHost)
       else if (options.renderAfter) {
@@ -912,7 +924,7 @@
       }
     }
 
-    iscomponent ? updateComponent(el, UNDEF, extract(options, 'props')) : CR(el)
+    iscomponent ? !componentHandled && updateComponent(el, UNDEF) : CR(el)
     return el
   }
 
