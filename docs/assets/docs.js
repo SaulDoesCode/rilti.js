@@ -107,59 +107,25 @@ example(
 'Databinding',
 'databinding & validation with `.model`',
 demo => {
-const {
-  dom: {input, table, th, tr, td},
-  model,
-  isStr
-} = rilti
-
+const {model, dom: {b, br, div, input}} = rilti
 const state = model({ip: '127.0.0.1'})
-
-/*
-// model.valid.prop = val => bool
-state.valid.ip = ip => {
-  if (!isStr(ip)) return false
-
-  const octets = ip.split('.')
-  .map(n => parseInt(n))
-
-  return octets[0] > 0 &&
-  octets.length === 4 &&
-  octets.every(octet =>
-    octet >= 0 && octet < 256
-  )
-}
-*/
 
 state.valid.ip = /^(?!0)(?!.*\.$)((1?\d?\d|25[0-5]|2[0-4]\d)(\.|$)){4}$/
 
-state.on['validate:ip'](valid => {
-  valid_ip.textContent = valid
-  edit.style
-  .borderRight = `2px solid ${
-    valid ? '#58ed58' : '#f64949'
-  }`
+state.on['validate:ip'](ok => {
+  edit.style.borderColor = ok ? '#4de84d' : '#f64949'
 })
 
-const valid_ip = td(state.valid.ip)
-
 const edit = input(state.sync.ip)
-edit.maxLength = 15
-
-const display = table(
-  tr(
-    th('ip'),
-    td(
-      state.sync.ip()
-    )
-  ),
-  tr(
-    th('valid'),
-    valid_ip
-  )
+const display = div(
+  b('ip: '),
+  state.sync.ip(),
+  br(),
+  b('valid: '),
+  state.sync['valid:ip']()
 )
 
-demo.append(edit, display)
+demo.append(display, edit)
 },
 `.databinding > * {
   text-align: left;
@@ -171,15 +137,6 @@ demo.append(edit, display)
   border: 1px solid #fff;
   padding: 4px;
   box-shadow: 0 2px 4px hsla(0,0%,0%,.12);
-}
-.databinding th {
-  min-width: 50px;
-  border-right: 1px solid hsl(52, 19%, 76%);
-}
-.databinding td {
-  min-width: 135px;
-}
-.databinding > table > tr > * {
 }`
 )
 

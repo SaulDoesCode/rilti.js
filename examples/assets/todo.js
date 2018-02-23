@@ -8,7 +8,7 @@
     const all = todos.size
     let done = 0
     todos.each(val => val && done++)
-    return {all, done, undone: all - done}
+    return {all, done, undone: all - done || 0}
   }
 
   const updateStorage = () => {
