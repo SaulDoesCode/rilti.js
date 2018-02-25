@@ -32,14 +32,6 @@
     arity <= args.length ? fn(...args) : curry.bind(UNDEF, fn, arity, ...args)
   )
 
-  /*
-    Don't know what to do with this yet
-    const intervener = curry((intermediate, fn, ctx) => {
-      const IisFN = isFunc(intermediate)
-      return (...args) => IisFN ? intermediate(fn.apply(ctx, args)) : fn.apply(ctx, args)
-    }, 2)
-  */
-
   // all the is this that related stuff
   const isArr = Array.isArray
   const isEqual = curry((match, Case) => match === Case || (isFunc(Case) && Case(match)))
@@ -93,37 +85,6 @@
     }
   })
 
-  const debounce = (fn, wait = 0) => {
-    let bounce
-    return function () {
-      clearTimeout(bounce)
-      bounce = setTimeout(fn.bind(this), wait, ...arguments)
-    }
-  }
-
-  const throttle = (fn, wait) => {
-    let throttling
-    let lastFn
-    let lastTime
-    return function () {
-      const ctx = this
-      const args = arguments
-      if (!throttling) {
-        fn.apply(ctx, args)
-        lastTime = Date.now()
-        throttling = true
-      } else {
-        clearTimeout(lastFn)
-        lastFn = setTimeout(() => {
-          if (Date.now() - lastTime >= wait) {
-            fn.apply(ctx, args)
-            lastTime = Date.now()
-          }
-        }, wait - (Date.now() - lastTime))
-      }
-    }
-  }
-
   const yieldloop = (
     count,
     fn,
@@ -137,7 +98,7 @@
     }
   ) => chunk()
 
-  const each = (iterable, fn) => {
+  const each = (iterable, fn, useYield) => {
     if (isNil(iterable)) return
 
     if (isObj(iterable)) {
@@ -148,7 +109,11 @@
     } else if (iterable.forEach) {
       iterable.forEach(fn)
     } else if (isInt(iterable)) {
-      yieldloop(iterable, fn)
+      if (useYield) yieldloop(iterable, fn)
+      else {
+        let i = 0
+        while (i !== iterable) fn(i++, iterable)
+      }
     } else if (isIterable(iterable)) {
       for (const [key, value] of iterable) fn(value, key, iterable)
     }
@@ -370,6 +335,15 @@
       get: (fn, key) => fn(UNDEF, key)
     })
 
+    sync.template = (strings, ...keys) => (
+     flatten(
+       strings.map((str, i) => [
+         str,
+         sync.text[keys[i]]
+       ])
+     )
+    )
+
     const Async = $proxy((key, fn) => has(key) ? fn(store.get(key)) : once('set:' + key, fn), {
       get: (_, key) => $promise(resolve => {
         has(key) ? resolve(store.get(key)) : once('set:' + key, resolve)
@@ -520,7 +494,7 @@
     if (doc.readyState === 'complete' || doc.body) {
       runAsync(fn)
     } else {
-      root.addEventListener('DOMContentLoaded', fn, {once: true})
+      root.addEventListener('DOMContentLoaded', fn)
     }
   }
 
@@ -586,6 +560,7 @@
       return node
     }, 2),
     Class: curry((node, c, state = !node.classList.contains(c)) => {
+      if (isArr(node) || isSet(node)) return each(node, n => domfn.Class(n, c, state))
       if (isObj(c)) {
         each(c, (state, className) => {
           domfn.Class(
@@ -634,53 +609,55 @@
     appendTo: curry((node, host) => attatch(host, 'append', node)),
     prependTo: curry((node, host) => attatch(host, 'prepend', node)),
     remove (node, after) {
+      if (isArr(node) || isSet(node)) return each(node, n => domfn.remove(n, after))
       if (isInt(after)) setTimeout(() => domfn.remove(node), after)
       else if (isMounted(node)) node.remove()
       else if (isNodeList(node)) each(node, n => domfn.remove(n))
       return node
-    },
-    mutate (node, options, assignArbitrary = true) {
-      if (isArr(node)) return node.map(n => domfn.mutate(n, options, assignArbitrary))
-      return each(options, (args, name) => {
-        if (name === 'html' || name === 'text') {
-          node[name === 'html' ? 'innerHTML' : 'textContent'] = args
-        } else if (name === 'children' || name === 'inner') {
-          node.innerHTML = ''
-          render(args, node)
-        } else if (name === 'sync') {
-          options[name] = args(node)
-        } else {
-          if (!isArr(args)) args = [args]
-          if (name in domfn) {
-            const result = domfn[name](node, ...args)
-            if (result !== node) options[name] = result
-          } else if (name === 'class' || name === 'className') {
-            domfn.Class(node, ...args)
-          } else {
-            let mode = name.substr(0, 4)
-            const isOnce = mode === 'once'
-            if (!isOnce) mode = name.substr(0, 2)
-            const isOn = mode === 'on'
-            if (isOnce || isOn) {
-              let type = name.substr(isOnce ? 4 : 2)
-              const evtfn = EventManager(isOnce)
-              if (!options[mode]) options[mode] = {}
-              if (type.length) {
-                if (type[0] === '_') type = type.replace('_', '')
-                options[mode][type] = evtfn(node, type, ...args)
-              } else {
-                options[mode][type] = evtfn(node, ...args)
-              }
-            } else if (assignArbitrary || name in node) {
-              isFunc(node[name]) ? node[name](...args) : node[name] = args[0]
-            }
-          }
-        }
-      })
     }
   }
 
-  const asimilateProps = (el, props) => {
+  const mutate = domfn.mutate = (node, options, assignArbitrary = true) => {
+    if (isArr(node)) return node.map(n => mutate(n, options, assignArbitrary))
+    return each(options, (args, name) => {
+      if (name === 'html' || name === 'text') {
+        node[name === 'html' ? 'innerHTML' : 'textContent'] = args
+      } else if (name === 'children' || name === 'inner') {
+        node.innerHTML = ''
+        render(args, node)
+      } else if (name === 'sync') {
+        options[name] = args(node)
+      } else {
+        if (!isArr(args)) args = [args]
+        if (name in domfn) {
+          const result = domfn[name](node, ...args)
+          if (result !== node) options[name] = result
+        } else if (name === 'class' || name === 'className') {
+          domfn.Class(node, ...args)
+        } else {
+          let mode = name.substr(0, 4)
+          const isOnce = mode === 'once'
+          if (!isOnce) mode = name.substr(0, 2)
+          const isOn = mode === 'on'
+          if (isOnce || isOn) {
+            let type = name.substr(isOnce ? 4 : 2)
+            const evtfn = EventManager(isOnce)
+            if (!options[mode]) options[mode] = {}
+            if (type.length) {
+              if (type[0] === '_') type = type.replace('_', '')
+              options[mode][type] = evtfn(node, type, ...args)
+            } else {
+              options[mode][type] = evtfn(node, ...args)
+            }
+          } else if (assignArbitrary || name in node) {
+            isFunc(node[name]) ? node[name](...args) : node[name] = args[0]
+          }
+        }
+      }
+    })
+  }
+
+  const assimilateProps = (el, props) => {
     for (const prop in props) {
       if (prop in el) {
         el[prop] = props[prop]
@@ -698,7 +675,7 @@
     }
   }
 
-  const asimilateMethods = (el, methods) => {
+  const assimilateMethods = (el, methods) => {
     for (const name in methods) {
       $define(el, name, {
         value: methods[name].bind(el, el)
@@ -738,12 +715,12 @@
     const {create, mount, remount, unmount, props, methods, attr} = config
 
     if (!Created(el)) {
-      methods && asimilateMethods(el, methods)
-      props && asimilateProps(el, props)
+      methods && assimilateMethods(el, methods)
+      props && assimilateProps(el, props)
       Created(el, true)
       create && create(el)
       attr && each(attr, (cfg, name) => handleAttribute(name, el, cfg))
-      afterProps && asimilateProps(el, afterProps)
+      afterProps && assimilateProps(el, afterProps)
       emit(el, CREATE)
       remount && on.remount(el, remount.bind(el, el))
     }
@@ -894,11 +871,11 @@
     }
 
     if (isObj(options)) {
-      domfn.mutate(el, options, false)
-      if (options.props && !iscomponent) asimilateProps(el, options.props)
-      options.methods && asimilateMethods(el, options.methods)
-      if (options.lifecycle || options.cycle) {
-        const cycle = options.lifecycle || options.cycle
+      mutate(el, options, false)
+      if (options.props && !iscomponent) assimilateProps(el, options.props)
+      options.methods && assimilateMethods(el, options.methods)
+      const cycle = options.lifecycle || options.cycle
+      if (cycle) {
         const {mount, create, remount, unmount} = cycle
         once.create(el, e => {
           Created(el, true)
@@ -928,13 +905,14 @@
     return el
   }
 
-  const text = (options, txt) => {
+  const text = (options, txt = '') => {
     if (isPrimitive(options)) [txt, options] = [options, UNDEF]
     return create(new Text(txt), options)
   }
 
   const svg = (...args) => create(
-    doc.createElementNS('http://www.w3.org/2000/svg', 'svg'), ...args
+    doc.createElementNS('http://www.w3.org/2000/svg', 'svg'),
+    ...args
   )
 
   const body = (...args) => {
@@ -996,12 +974,12 @@
     domfn,
     directive,
     directives,
-    debounce,
     each,
     extend,
     extract,
     flatten,
     listMap,
+    mutate,
     model,
     notifier,
     on,
@@ -1011,7 +989,6 @@
     route,
     run,
     runAsync,
-    throttle,
     timeout,
     isMounted,
     isDef,
