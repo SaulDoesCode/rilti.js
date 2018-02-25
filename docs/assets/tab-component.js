@@ -5,17 +5,18 @@
       accessors: {
         active: {
           get: ({controller: {active}}) => active,
-          async set (el, name) {
+          set (el, name) {
             const M = el.model
-            await M.async.ready
-            if (M.active !== name && M.views.has(name)) {
-              const view = M.views(name)
-              M.active = name
-              M.activeView = view
-              emit(el, 'active', view)
-              M.emit.active(name, view)
-              M.emit['active:' + name](view)
-            }
+            M.async.ready.then(() => {
+              if (M.active !== name && M.views.has(name)) {
+                const view = M.views(name)
+                M.active = name
+                M.activeView = view
+                emit(el, 'active', view)
+                M.emit.active(name, view)
+                M.emit['active:' + name](view)
+              }
+            })
           }
         },
         activeView: ({model: {active, views}}) => views(active)
@@ -39,18 +40,18 @@
 
         div({
           $: M.head,
-          onclick () { el.active = name }
+          onclick () {
+            el.active = name
+          }
         },
           name
         )
       })
       delete el.tabs
 
-      if (el.heading) {
-        M.head.prepend(
-          el.heading = h2(el.heading)
-        )
-      }
+      el.heading && M.head.prepend(
+        el.heading = h2(el.heading)
+      )
 
       M.on.active((name, view) => {
         mutate(M.view, {inner: view})

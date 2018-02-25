@@ -42,9 +42,7 @@ a:active, a:visited {
   color: inherit;
 }
 a:hover {
-  -webkit-filter: brightness(120%);
-  -moz-filter: brightness(120%);
-  filter: brightness(120%);
+  text-decoration: underline;
 }
 abbr[title] {
   border-bottom: none;

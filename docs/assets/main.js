@@ -1,9 +1,9 @@
-/* global rilti location fetch Prism */
-const {dom, domfn: {mutate, emit, remove, Class}, model, component, extend, each, isRenderable, isFunc, render, once, on} = rilti
-const {a, p, pre, code, nav, main, div, span, section, header, h1, h3, iframe, script, style} = dom
+{ /* global rilti location fetch Prism */
+const {dom, domfn: {emit, remove, Class}, model, extend, each, render, flatten, notifier, on} = rilti
+const {a, p, pre, code, nav, main, div, span, section, header, h1, h3, iframe} = dom
 const tabComponent = dom['tab-component']
 
-const hub = model()
+var hub = model()
 
 fetch('../dist/rilti.min.js').then(res => res.text())
 .then(src => hub('riltiSrc', src))
@@ -14,54 +14,81 @@ const $ = 'body'
 const expose = () => span({class: 'expose'}, '::')
 const link = (href, name, options = {}) => a(extend({href}, options), name)
 
-header(
-  {$, id: 'site-head'},
-  h1('rilti', expose(), 'docs')
-)
-
-const router = routes => {
-  for (let route in routes) {
-    if (route !== 'default' && route[0] !== '#') {
-      route = '#' + route
+const router = notifier(routes => {
+  if (!router.working) {
+    on.hashchange(window, e => router.activate())
+    router.working = true
+  }
+  each(routes, (route, hash) => {
+    if (route.default) router.routes.default = route
+    if (hash !== 'default' && hash[0] !== '#') {
+      hash = '#' + hash
     }
-    router.routes[route] = routes[route]
-    router.activate(route)
-  }
-  if (!router.on) {
-    window.onhashchange = e => router.activate(location.hash)
-    router.on = true
-  }
-  return routes
-}
+    router.routes[hash] = route
+  })
+  router.activate()
+  return router.routes
+})
 router.routes = {}
-router.activate = hash => {
-  const route = router.routes[(hash === location.hash && hash) || 'default']
-  if (!route) return
+router.activate = (
+  hash = location.hash,
+  route = router.routes[location.hash === hash ? hash : 'default']
+) => {
+  if (!route || route === router.active) return
+  router.emit(hash, route)
+  router.emit.route(hash, route)
   route.host.innerHTML = ''
   if (Array.isArray(route.view)) route.host.append(...route.view)
   else route.host.append(route.view)
+  router.active = route
   if (route.active instanceof Function) {
     route.active(route, hash)
   }
+  return route
 }
 router.del = hash => delete router.routes[hash]
 
-const host = main({$, id: 'page-view'})
-const overview = section()
-
-router({default: {host, view: overview}})
+const navLinks = ['overview', 'api', 'examples']
+.map(name => {
+  const href = '#' + name
+  const l = link(href, name)
+  router.on.route(hash => Class(l, 'active', href === hash))
+  return l
+})
 
 header(
-  {$: overview, class: 'section-heading'},
-  link('#', 'examples')
+  {$, id: 'site-head'},
+  h1('rilti', expose(), 'docs'),
+  nav(navLinks)
 )
 
-const example = (name, source, css = '', $ = overview, vsite = iframe()) => {
-  source = source.trim()
-  css = css.trim()
+const host = main({$, id: 'page-view'})
+const overview = section(`OVERVIEW`)
+const apiview = section(`API`)
+const exampleview = section()
+
+router({
+  overview: {
+    host,
+    view: overview,
+    default: true
+  },
+  api: {
+    host,
+    view: apiview
+  },
+  examples: {
+    host,
+    view: exampleview
+  }
+})
+
+const example = ({name, js, css, $ = exampleview, vsite = iframe()}) => {
+  js = js.trim()
+  if (css) css = css.trim()
   vsite.onload = async e => {
     const $doc = vsite.contentDocument
-    $doc.body.setAttribute('example', '')
+    $doc.body.setAttribute('example', name.toLowerCase())
     const defaultStyle = $doc.createElement('style')
     defaultStyle.textContent = await hub.async.normalizeSrc
 
@@ -72,7 +99,7 @@ const example = (name, source, css = '', $ = overview, vsite = iframe()) => {
     riltiScript.textContent = await hub.async.riltiSrc
 
     const vScript = $doc.createElement('script')
-    vScript.textContent = source
+    vScript.textContent = js
 
     $doc.head.append(
       defaultStyle,
@@ -84,7 +111,7 @@ const example = (name, source, css = '', $ = overview, vsite = iframe()) => {
 
   const tabs = {
     result: vsite,
-    js: pre(code(Prism.highlight(source, Prism.languages.javascript)))
+    js: pre(code(Prism.highlight(js, Prism.languages.javascript)))
   }
   if (css) tabs.css = pre(code(Prism.highlight(css, Prism.languages.css)))
 
@@ -98,9 +125,9 @@ const example = (name, source, css = '', $ = overview, vsite = iframe()) => {
   })
 }
 
-example(
-'data-binding',
-`
+example({
+  name: 'data-binding',
+  js: `
 const {dom, model} = rilti
 const {label, input, section} = dom
 
@@ -115,14 +142,14 @@ section({
   label(state.sync.text.msg),
   input(state.sync.msg)
 )`,
-`
+  css: `
 .field {
   background: #fff;
   padding: 8px 10px;
   margin: 5px auto;
   max-width: 250px;
   border-radius: 0 0 4px 4px;
-  border-top: 1px solid hsl(0,0%,80%);
+  border-top: 2px solid hsl(0,0%,80%);
   box-shadow: 0 2px 4px rgba(0,0,0,.14);
 }
 .field > label {
@@ -140,4 +167,104 @@ section({
   border-bottom: 1px solid hsl(0,0%,80%);
   box-shadow: 0 3px 4px -2px rgba(0,0,0,.12);
 }`
-)
+})
+
+example({
+  name: 'mouse tracker',
+  js: `
+const {dom, model, render, on} = rilti
+const {div} = dom
+
+const state = model()
+
+on.mousemove(document, ({clientX, clientY}) => {
+  state({x: clientX, y: clientY})
+})
+
+render(
+  state.sync.template\`
+    pointer is at (\${'x'}x, \${'y'}y)\`
+)`
+})
+
+example({
+  name: 'lifecycles',
+  js: `
+const {render, dom, mutate} = rilti
+const {button, div} = dom
+
+const phase = div({class: 'phase'})
+const control = button()
+
+render([phase, control])
+
+const seat = (text, next) => el => {
+  mutate(phase, {text})
+  mutate(control, {
+    text: next,
+    onceclick: e =>
+      next[0] < 'u' ?
+      render(el) :
+      el.remove()
+  })
+}
+
+const cycle = {
+  create: seat('create', 'mount'),
+  mount: seat('mount', 'unmount'),
+  unmount: seat('unmount', 'remount'),
+  remount: seat('remount', 'unmount')
+}
+
+div({class: 'managed', cycle})
+`,
+  css: `
+body[example] {
+  display: block;
+  font-size: 1.05em;
+  --demo-color: hsl(345, 92%, 44%);
+}
+.phase {
+  text-shadow: 0 2px 3px rgba(0,0,0,.1);
+  min-width: 184px;
+  color: var(--demo-color);
+  font-weight: 600;
+}
+.phase::before {
+  color: #545454;
+  content: "stage: ";
+}
+.phase, button {
+  display: inline-block;
+  vertical-align: middle;
+  margin: 10px;
+}
+button {
+  outline: none;
+  padding: 6px;
+  border-radius: 2px;
+  border: 1px solid var(--demo-color);
+  background: #fff;
+  min-width: 100px;
+  color: var(--demo-color);
+  cursor: pointer;
+  transition: all 120ms ease;
+}
+button:hover, button:active {
+  background: var(--demo-color);
+  box-shadow: 0 2px 6px rgba(0,0,0,.1);
+  text-shadow: 0 2px 3px rgba(0,0,0,.1);
+  color: #fff;
+}
+.managed {
+  display: block;
+  width: 50px;
+  height: 50px;
+  margin: 10px auto;
+  background: var(--demo-color);
+  border-radius: 2.5px;
+  box-shadow: 0 2px 6px rgba(0,0,0,.1);
+}`
+})
+
+}

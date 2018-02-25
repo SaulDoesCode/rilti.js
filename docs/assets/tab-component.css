@@ -73,11 +73,10 @@ tab-component > section {
   width: 98%;
   padding: 1.2mm;
   margin: 0 auto;
-  background: hsl(0, 0%, 90%);
-  border: 2px solid hsl(0, 0%, 88%);
-  border-bottom: 2px solid hsl(0, 0%, 80%);
+  background: hsl(0, 0%, 94%);
+  border: 2px solid hsl(0, 0%, 91%);
+  border-bottom: 2px solid hsl(0, 0%, 88%);
   border-radius: 0 0 2px 2px;
-  box-shadow: 0 2px 3px -2px rgba(0,0,0,.52);
 }
 
 @media all and (max-width: 510px) {

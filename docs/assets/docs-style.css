@@ -2,7 +2,7 @@ body {
   font-family: Nunito, Verdunda, Roboto, Helvetica, sans-serif;
   height: 100%;
   color: hsl(0,0%,33%);
-  background: hsl(0,0%,98.5%);
+  background: #fff;
   overflow: auto;
   --theme-color: #e22f55;
 }
@@ -46,14 +46,59 @@ span.expose {
 }
 
 #site-head > h1 {
-  margin: 15px auto;
+  margin: 5px 5px 15px 5px;
+}
+
+#site-head > nav {
+  display: flex;
+  justify-content: space-around;
+  align-content: center;
+  align-items: center;
+  flex-flow: row wrap;
+  width: 96%;
+  max-width: 500px;
+  margin: 0 5px 6px 5px;
+  border-bottom: 1px solid var(--theme-color);
+  box-shadow: 0 6px 4px -5px rgba(0,0,0,.11);
+}
+
+#site-head > nav > a {
+  display: inline-flex;
+  justify-content: center;
+  align-content: flex-end;
+  align-items: flex-end;
+  flex-flow: row nowrap;
+  -webkit-user-drag: none;
+  user-drag: none;
+  -moz-user-select: none;
+  -webkit-user-select: none;
+  user-select: none;
+  text-decoration: none !important;
+  margin: 0 5px;
+  height: 50px;
+  padding: 10px 20px;
+  top: 1px;
+  border-radius: 3px 3px 0 0;
+  border-bottom: 2px solid rgba(0,0,0,0);
+  transition: all 120ms ease-in;
+}
+
+#site-head > nav > a:hover,
+#site-head > nav > a.active {
+  border-bottom: 2px solid var(--theme-color);
+  text-shadow: 0 2px 5px hsla(0,0%,0%,.2);
+}
+
+#site-head > nav > a.active {
+  box-shadow: 0 8px 4px -5px rgba(0,0,0,.09);
+  font-weight: 600;
 }
 
 #page-view {
   display: block;
-  max-width: 720px;
+  max-width: 700px;
   margin: 0 auto;
-  padding: 8px;
+  padding: 4px;
 }
 
 .section-heading {
@@ -83,8 +128,8 @@ span.expose {
 }
 
 .example {
-  margin: 5px auto;
-  max-width: 530px;
+  margin: 20px auto 40px auto;
+  max-width: 520px;
 }
 
 .example > header {

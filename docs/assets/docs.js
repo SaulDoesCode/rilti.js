@@ -16,8 +16,10 @@
         class: 'example-tab',
         props: {
           tabs: {
-            demo: div(
-              {class: 'demo-box ' + name.toLowerCase().replace(/\s/g, '-'), cycle: {create: code}},
+            demo: div({
+              class: 'demo-box ' + name.toLowerCase().replace(/\s/g, '-'),
+              cycle: {create: code}
+            },
               css ? style(css) : ''
             ),
             code: example.src({code}),
