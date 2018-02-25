@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>rilti.js pexeso</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="./assets/rilti-styles.css">
+    <script src="../src/rilti.js"></script>
+    <script src="./assets/pexeso.js"></script>
+    <style>
+      body {
+        background: #fff;
+        text-align: center;
+      }
+      header {
+        font-size: 1.4em;
+        margin: 10px auto;
+        width: 70%;
+        color: hsl(0,0%,40%);
+      }
+      hr {
+        width: 80%;
+        margin: 15px auto;
+      }
+      .board {
+        display: flex;
+        justify-content: space-around;
+        align-content: center;
+        align-items: center;
+        flex-flow: row wrap;
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        user-select: none;
+        max-width: 620px;
+        height: auto;
+        overflow: hidden;
+        margin: 2vh auto;
+      }
+      .card {
+        display: inline-flex;
+        justify-content: center;
+        align-content: center;
+        align-items: center;
+        flex-flow: row wrap;
+        --card-size: 100px;
+        width: var(--card-size);
+        height: var(--card-size);
+        font-size: 0;
+        margin: 10px;
+        background: rgb(255, 207, 61);
+        color: rgb(255, 207, 61);
+        border-radius: 4px;
+        transition: all 160ms ease;
+      }
+      .card.visible {
+        font-size: calc(var(--card-size) / 1.5);
+        text-shadow: 0 1px 3px rgba(0,0,0,.08);
+        background: rgba(255,255,255,0);
+        pointer-events: none;
+      }
+      @keyframes scored {
+        0% {
+          transform: rotateZ(0deg);
+        }
+        100% {
+          transform: rotateZ(360deg);
+        }
+      }
+      .score {
+        color: rgb(244, 11, 11);
+        animation: 2s scored ease;
+      }
+    </style>
+  </head>
+</html>
