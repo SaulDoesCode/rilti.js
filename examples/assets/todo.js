@@ -1,5 +1,5 @@
 { /* global localStorage rilti */
-  const {throttle, dom, domfn: {attr, emit, mutate}, on, model, component} = rilti
+  const {dom, domfn: {attr, emit, mutate}, on, model, component} = rilti
   const {span, aside, button, header, input} = dom
 
   const todos = model(localStorage.getItem('todos'))
@@ -124,7 +124,7 @@
       el.txt_el = span({
         class: 'txt',
         attr: {contenteditable: true},
-        on_input: throttle(el.update, 20)
+        on_input: el.update
       })
 
       el.tick_el = tickBox({
