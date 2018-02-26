@@ -1,5 +1,4 @@
-const {dom, domfn, each, timeout, render} = rilti
-const {Class, hasClass, remove} = domfn
+const {dom, domfn: {Class, hasClass, remove}, each, timeout, render} = rilti
 const {div, section, header, h1, hr} = dom
 
 const shuffle = arr => {
@@ -13,7 +12,7 @@ const shuffle = arr => {
   return arr
 }
 
-const emojis = shuffle('😀,😂,😃,😆,😜,😝,😁,😉,😊,😏,😋,😎,😍,😘,😯,😛'.split(','))
+let emojis = shuffle('😀,😂,😃,😆,😜,😝,😁,😉,😊,😏,😋,😎,😍,😘,😯,😛'.split(','))
 
 let actionTimeout
 let activeCard
@@ -30,7 +29,8 @@ const Activate = card => {
     const pair = [lastActive, activeCard]
     if (lastActive.emoji === activeCard.emoji) {
       Class(pair, 'score', true)
-      scoreNode.textContent = --left
+      pairsLeft.textContent = --pairCount
+      if (pairCount === 0) resetGame()
       actionTimeout = timeout(() => {
         remove(pair)
         actionTimeout = undefined
@@ -45,16 +45,25 @@ const Activate = card => {
   }
 }
 
-let left = emojis.length
-const scoreNode = dom.text(left)
+let cards, pairCount
+const pairsLeft = dom.text(pairCount)
+const pairCounter = div(pairsLeft, ' pairs left to go')
 
-header(
+const heading = header(
   {$: 'body'},
-  h1('Pexeso'),
-  'match the cards',
-  hr(),
-  [scoreNode, ' pairs left to go']
+  h1('PEXESO'),
+  div(' match the cards'),
+  hr()
 )
+
+const startButton = div({
+  $: heading,
+  class: 'start-btn',
+  onclick (e, el) {
+    remove(el)
+    startGame()
+  }
+}, 'Start Game')
 
 const board = section({$: 'body', class: 'board'})
 
@@ -62,13 +71,26 @@ const card = emoji => div({
   props: {emoji},
   class: 'card',
   onclick: (e, el) => Activate(el)
-},
-  emoji
-)
+}, emoji)
 
-const cards = []
-each(emojis.length, i => {
-  cards.push(card(emojis[i]), card(emojis[i]))
-})
+const resetGame = () => {
+  const congrats = h1('Good Show Man!')
+  remove(congrats, 4500)
+  remove(pairCounter)
+  if (cards.length) remove(cards)
+  render([startButton, congrats], heading)
+}
 
-render(shuffle(shuffle(cards)), board)
+const startGame = () => {
+  actionTimeout = activeCard = lastActive = undefined
+  emojis = shuffle(emojis)
+
+  render(pairCounter, heading)
+
+  cards = []
+  pairsLeft.textContent = pairCount = Math.floor(emojis.length / 2)
+  each(pairCount, i => {
+    cards.push(card(emojis[i]), card(emojis[i]))
+  })
+  render(shuffle(cards), board)
+}

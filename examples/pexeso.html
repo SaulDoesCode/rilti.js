@@ -5,12 +5,14 @@
     <title>rilti.js pexeso</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="./assets/rilti-styles.css">
-    <script src="../src/rilti.js"></script>
+    <script src="https://rawgit.com/SaulDoesCode/rilti.js/master/dist/rilti.min.js"></script>
     <script src="./assets/pexeso.js"></script>
     <style>
       body {
+        font-family: Nunito, Verdunda, Roboto, Helvetica, sans-serif;
         background: #fff;
         text-align: center;
+        --theme-color: rgb(255, 207, 61);
       }
       header {
         font-size: 1.4em;
@@ -18,9 +20,35 @@
         width: 70%;
         color: hsl(0,0%,40%);
       }
+      header > h1 {
+        position: relative;
+        display: inline-block;
+      }
+      header > div {
+        color: hsl(0,0%,45%);
+      }
+      header > h1::first-letter {
+        color: var(--theme-color);
+        font-size: 1.1em;
+        text-shadow: 0 1px 3px rgba(0,0,0,.2);
+      }
       hr {
         width: 80%;
-        margin: 15px auto;
+        margin: 10px auto;
+      }
+      .start-btn {
+        display: block;
+        padding: 10px;
+        margin: 50px auto;
+        max-width: 200px;
+        border-radius: 4px;
+        font-size: 1.8em;
+        color: #fff;
+        background: var(--theme-color);
+        user-select: none;
+        cursor: pointer;
+        text-shadow: 0 1px 3px rgba(0,0,0,.1);
+        box-shadow: 0 2px 5px rgba(0,0,0,.09);
       }
       .board {
         display: flex;
@@ -28,8 +56,6 @@
         align-content: center;
         align-items: center;
         flex-flow: row wrap;
-        -webkit-user-select: none;
-        -moz-user-select: none;
         user-select: none;
         max-width: 620px;
         height: auto;
@@ -47,8 +73,8 @@
         height: var(--card-size);
         font-size: 0;
         margin: 10px;
-        background: rgb(255, 207, 61);
-        color: rgb(255, 207, 61);
+        background: var(--theme-color);
+        color: var(--theme-color);
         border-radius: 4px;
         transition: all 160ms ease;
       }

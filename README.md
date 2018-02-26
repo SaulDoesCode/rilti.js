@@ -7,6 +7,8 @@ a small flavorful and unapologetic library built for the modern web
 ##### currently in beta phase and potentially subject to breaking changes
 Feel free to fork or raise issues. Constructive criticism is welcome
 
+🐫 🐱 👶
+
 ## features
 * elm-like ideas about architecture
 * mostly declarative programming style
