@@ -20,10 +20,8 @@ const router = notifier(routes => {
     router.working = true
   }
   each(routes, (route, hash) => {
-    if (route.default) router.routes.default = route
-    if (hash !== 'default' && hash[0] !== '#') {
-      hash = '#' + hash
-    }
+    if (route.main) router.routes.main = route
+    if (hash !== 'main' && hash[0] !== '#') hash = '#' + hash
     router.routes[hash] = route
   })
   router.activate()
@@ -32,7 +30,7 @@ const router = notifier(routes => {
 router.routes = {}
 router.activate = (
   hash = location.hash,
-  route = router.routes[location.hash === hash ? hash : 'default']
+  route = router.routes[location.hash && location.hash === hash ? hash : 'main']
 ) => {
   if (!route || route === router.active) return
   router.emit(hash, route)
@@ -71,7 +69,7 @@ router({
   overview: {
     host,
     view: overview,
-    default: true
+    main: true
   },
   api: {
     host,
