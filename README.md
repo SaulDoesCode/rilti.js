@@ -28,6 +28,51 @@ Feel free to fork or raise issues. Constructive criticism is welcome
 
 To use rilti just download **/dist/rilti.min.js** and pop it in a script tag. **If you have any issues just tell me, I'm on it.**
 
+## The Dao of Rilti
+
+1. Nominalism Good | Obscuritanism, Idealism & Universalism Bad
+   * Object Oriented anything is evil (no classes, no this)
+   * Reserve identities only for things that would be otherwise obscure
+   * Don't hide things let things be what they are
+   * Data/Message passing before abstraction
+   * Logic is also just data (with potential) so pass it around too
+   * [Factory-Functions always](https://gist.github.com/mpj/17d8d73275bca303e8d2)
+2. No HTML, Text & Elements are Objects too!
+   * Selectors & Templates? I can't even...
+   * Writing plain HTML adds extra complexity to javascript driven sites
+   * Webpages should be alive, don't fear the DOM mess with it
+3. MASA: Minimal API Surface Area.
+   * Polymorphic functions/functions-as-class-like-objects
+   * Infer data, good structure or Proxies instead of 12 parameter long functions
+   * As Functional As Possible
+   * Perspectivism vs Pragmatism, people won't always use an API the same way.
+   * Leave some internals or lower level API features accessible for extendibility
+
+A MASA example is ``rilti.listMap`` where the get/set methods are one function that is both the object and its interface.      
+``listMap() -> {each, has, del, map} = fn(key, val)``    
+
+Different strokes for different folks:
+Also look at ``rilti.on`` which can be used like this ``on['any-event'](node, func, =options)``,
+as well as like this ``on('any-event', node)(func, =options)``    
+and also ``on(node, { click: e => {} }, =options)``.
+
+#### examples of rilti used to build things
+* [Rilti News - Progressive Web App](https://grimstack.io/news/)         
+* [Todo-list](https://codepen.io/SaulDoesCode/pen/zRaMQY)         
+* [Javascript calculator](https://codepen.io/SaulDoesCode/pen/VQqeBL)     
+* [Emil Cioran - Simple Tribute Page](https://codepen.io/SaulDoesCode/pen/VQqeBL)     
+* [rilti-todomvc](https://github.com/SaulDoesCode/rilti-todomvc)      
+* [grimstack.io blog site](https://grimstack.io)     
+* [grimstack.io/portfolio WIP Portfolio don't look](https://grimstack.io/portfolio)     
+
+#### Plugins:
+* rilti-tilt.js - compact mouse motion based element tilting effect, based on vanilla-tilt.js
+
+#### future plans
+* offer collection of useful optional plugins
+* stabalize features and release
+* expand with a UI library
+
 ## Example time!
 
 ### Click Counting Button
@@ -280,49 +325,6 @@ const {
   mutate // multitool i.e. (node, {class: 'card', css: {'--higlight-color': 'crimson'}}) -> options obj
 } = rilti.domfn
 ```
-
-## The Dao of Rilti
-
-1. Nominalism Good | Obscuritanism, Idealism & Universalism Bad
-   * Object Oriented anything is evil (no classes, no this)
-   * Reserve identities only for things that would be otherwise obscure
-   * Don't hide things let things be what they are
-   * Data/Message passing before abstraction
-   * Logic is also just data (with potential) so pass it around too
-   * [Factory-Functions always](https://gist.github.com/mpj/17d8d73275bca303e8d2)
-2. No HTML, Text & Elements are Objects too!
-   * Selectors & Templates? I can't even...
-   * Writing plain HTML adds extra complexity to javascript driven sites
-   * Webpages should be alive, don't fear the DOM mess with it
-3. MASA: Minimal API Surface Area.
-   * Polymorphic functions/functions-as-class-like-objects
-   * Infer data, good structure or Proxies instead of 12 parameter long functions
-   * As Functional As Possible
-   * Perspectivism vs Pragmatism, people won't always use an API the same way.
-   * Leave some internals or lower level API features accessible for extendibility
-
-A MASA example is ``rilti.listMap`` where the get/set methods are one function that is both the object and its interface.      
-``listMap() -> {each, has, del, map} = fn(key, val)``    
-
-Different strokes for different folks:
-Also look at ``rilti.on`` which can be used like this ``on['any-event'](node, func, =options)``,
-as well as like this ``on('any-event', node)(func, =options)``    
-and also ``on(node, { click: e => {} }, =options)``.
-
-#### examples of rilti used to build things in the wild
-* [Rilti News - Progressive Web App](https://grimstack.io/news/)
-* [clone and open ./examples/todo.html](https://github.com/SaulDoesCode/rilti.js/archive/master.zip)      
-* [grimstack.io blog site](https://grimstack.io)     
-* [grimstack.io/portfolio WIP Portfolio](https://grimstack.io/portfolio)     
-* [rilti-todomvc](https://github.com/SaulDoesCode/rilti-todomvc)      
-
-#### Plugins:
-* rilti-tilt.js - compact mouse motion based element tilting effect, based on vanilla-tilt.js
-
-#### future plans
-* offer collection of useful optional plugins
-* stabalize features and release
-* expand with a UI library
 
 #### Async Property accessors with ``.model().async`` and Async/Await
 
