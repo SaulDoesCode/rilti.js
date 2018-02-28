@@ -133,6 +133,22 @@ div(
 )
 ```
 
+### Mouse tracker using model.sync.template
+```js
+const {model, render, on} = rilti
+
+const state = model()
+
+on.mousemove(document, ({clientX: x, clientY: y}) => {
+  state({x, y})
+})
+
+render(
+  state.sync.template`
+    pointer is at (${'x'}x, ${'y'}y)`
+)
+```
+
 ### Declaratively Generate a Site Navbar
 Stop writing html (yes JSX too)!
 Just generate everything, it's so simple.
