@@ -60,7 +60,7 @@ and also ``on(node, { click: e => {} }, =options)``.
 * [Rilti News - Progressive Web App](https://grimstack.io/news/)         
 * [Todo-list](https://codepen.io/SaulDoesCode/pen/zRaMQY)         
 * [Javascript calculator](https://codepen.io/SaulDoesCode/pen/VQqeBL)     
-* [Emil Cioran - Simple Tribute Page](https://codepen.io/SaulDoesCode/pen/VQqeBL)     
+* [Emil Cioran - Simple Tribute Page](https://codepen.io/SaulDoesCode/pen/jYMQmK)     
 * [rilti-todomvc](https://github.com/SaulDoesCode/rilti-todomvc)      
 * [grimstack.io blog site](https://grimstack.io)     
 * [grimstack.io/portfolio WIP Portfolio don't look](https://grimstack.io/portfolio)     
