@@ -1,14 +1,20 @@
-{ /* global rilti location fetch Prism */
-const {dom, domfn: {emit, remove, Class}, model, extend, each, render, flatten, notifier, on} = rilti
-const {a, p, pre, code, nav, main, div, span, section, header, h1, h3, iframe} = dom
+{ /* global rilti location fetch Prism marked */
+const {dom, domfn: {emit, remove, Class}, model, extend, each, render, run, notifier, on} = rilti
+const {a, prime, p, pre, code, nav, main, div, span, section, header, h1, h3, iframe} = dom
 const tabComponent = dom['tab-component']
 
 var hub = model()
+
+const parseMD = marked.options({
+  highlight: (src, lang) => Prism.highlight(src, Prism.languages[lang])
+})
 
 fetch('../dist/rilti.min.js').then(res => res.text())
 .then(src => hub('riltiSrc', src))
 fetch('./assets/normalize.css').then(res => res.text())
 .then(src => hub('normalizeSrc', src))
+fetch('./assets/overview.md').then(res => res.text())
+.then(md => hub('readme', prime(parseMD(md))))
 
 const $ = 'body'
 const expose = () => span({class: 'expose'}, '::')
@@ -61,7 +67,7 @@ header(
 )
 
 const host = main({$, id: 'page-view'})
-const overview = section(`OVERVIEW`)
+const overview = section()
 const apiview = section(`API`)
 const exampleview = section()
 
@@ -79,6 +85,10 @@ router({
     host,
     view: exampleview
   }
+})
+
+hub.on['set:readme'](md => {
+  render(md, overview)
 })
 
 const example = ({name, js, css, $ = exampleview, vsite = iframe()}) => {

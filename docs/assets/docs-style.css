@@ -1,10 +1,15 @@
 body {
-  font-family: Nunito, Verdunda, Roboto, Helvetica, sans-serif;
+  font-family: 'Source Sans Pro', Roboto, Helvetica, sans-serif;
   height: 100%;
   color: hsl(0,0%,33%);
   background: #fff;
   overflow: auto;
   --theme-color: #e22f55;
+}
+
+
+h1,h2,h3,h4,h5,h6 {
+  font-family: Nunito, Verdunda, 'Source Sans Pro', Roboto, Helvetica, sans-serif;
 }
 
 iframe {
@@ -27,6 +32,14 @@ pre {
   font-size: 15px;
   background: hsl(0, 0%, 20%);
   color: #fff;
+}
+
+*:not(pre) > code {
+  display: inline-block;
+  background: hsl(0, 0%, 95%);
+  color: hsl(0, 0%, 30%);
+  border-radius: 2px;
+  padding: 1px;
 }
 
 span.expose {
@@ -99,6 +112,17 @@ span.expose {
   max-width: 700px;
   margin: 0 auto;
   padding: 4px;
+  font-size: 1.15em;
+  line-height: 1.5;
+}
+
+#page-view a {
+  text-decoration: underline;
+  transition: all 100ms ease-in;
+}
+
+#page-view a:hover {
+  font-weight: 600;
 }
 
 .section-heading {
