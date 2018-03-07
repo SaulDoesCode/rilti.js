@@ -10,7 +10,7 @@
 {
   /* global rilti cancelAnimationFrame requestAnimationFrame */
   const NULL = null
-  const {isNode, isNodeList, isStr, domfn: {css}, dom: {div, queryAll}, each, extend, on} = rilti
+  const {isNode, isNodeList, isStr, domfn: {css}, fastdom: {div}, queryAll, each, on} = rilti
 
   const isSettingTrue = setting => setting === '' || setting === true || setting === 1
 
@@ -31,7 +31,7 @@
   var Tilt = (element, settings = defaultSettings) => {
     if (isStr(element)) element = queryAll(element)
 
-    if (settings !== defaultSettings) extend(settings, defaultSettings)
+    if (settings !== defaultSettings) Object.assign(settings, defaultSettings)
 
     if (!isNode(element)) {
       if (isNodeList(element)) return each(element, el => Tilt(el, settings))
@@ -54,7 +54,7 @@
     if (glare) {
       var glareElement
       var glareElementWrapper = div({
-        class: 'js-tilt-glare',
+        className: 'js-tilt-glare',
         css: {
           position: 'absolute',
           top: '0',
@@ -66,7 +66,7 @@
         render: element
       },
         glareElement = div({
-          class: 'js-tilt-glare-inner',
+          className: 'js-tilt-glare-inner',
           css: {
             'position': 'absolute',
             'top': '50%',
@@ -192,6 +192,6 @@
   rilti.directive('tilt', {
     init: (el, val) => Tilt(el, settingDecoder(val)),
     update: (el, val) => Tilt(el, settingDecoder(val)),
-    destroy: el => el.tiltOff()
+    remove: el => el.tiltOff()
   })
 }

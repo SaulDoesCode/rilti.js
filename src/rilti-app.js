@@ -1,10 +1,10 @@
 // Please note this rilti extention requires localForage.js to work
 
 { /* global rilti WebSocket btoa localStorage localforage fetch */
-  const {isObj, isArr, model, notifier, extend, each} = rilti
+  const {isObj, isArr, model, emitter, each} = rilti
 
   rilti.ws = (loc, conf = {}) => {
-    const state = notifier()
+    const state = emitter()
     const ws = new WebSocket(loc)
     ws.onopen = () => {
       state.emit.open(state.isOpen = ws.readyState === 1)
@@ -23,7 +23,7 @@
 
     if (!conf.defaults) conf.defaults = {}
 
-    return extend(state, {
+    return Object.assign({
       ws,
       close () {
         ws.close()
@@ -45,7 +45,7 @@
           if (!conf.silent) console.error(err)
         }
       }
-    })
+    }, state)
   }
 
   rilti.arrayBufferToB64 = buff => {
@@ -57,7 +57,7 @@
   }
 
   rilti.cache = name => {
-    const store = notifier(localforage.createInstance({name}))
+    const store = emitter(localforage.createInstance({name}))
 
     store.delete = key => new Promise((resolve, reject) => {
       store.removeItem(key, err => {
@@ -130,7 +130,7 @@
     }, reject))
 
     store.local = new Proxy(
-      extend((prop, value) => {
+      Object.assign((prop, value) => {
         if (isObj(prop)) {
           each(prop, (val, key) => store.local(key, val))
         } else if (value !== undefined) {
@@ -177,7 +177,7 @@
 
   rilti.app = (name, conf = {}, data = {}) => {
     if (name in rilti.apps) return rilti.apps[name]
-    conf = extend(conf, defaultConf, true)
+    conf = Object.assign(conf, defaultConf, true)
 
     const core = model(data)
     if (conf.cache) core.cache = rilti.cache(name)
