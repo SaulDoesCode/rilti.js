@@ -7,7 +7,9 @@ a small flavorful and unapologetic library built for the modern web
 ##### currently in beta phase and potentially subject to breaking changes
 Feel free to fork or raise issues. Constructive criticism is welcome
 
-🐫 🐱 👶
+* 🐫 Loadbearing Spirit - Expressive DOM generation and custom-element components sans polyfill
+* 🐱 Lion - Fearless Almost Magical *State Solution* with data-binding so simple you could cry
+* 👶 Child - Proxy based DOM manipulation and Powerful all accepting Rendering System
 
 ## features
 * elm-like ideas about architecture
@@ -31,11 +33,13 @@ To use rilti just download **/dist/rilti.min.js** and pop it in a script tag. **
 ## The Dao of Rilti
 
 1. Nominalism Good | Obscuritanism, Idealism & Universalism Bad
-   * Object Oriented anything is evil (no classes, no this)
+   * Things are little more than their names
+   * More than one way of doing things, what is right/best is always contextual.
+   * No Object Oriented anything (no classes, no this)
    * Reserve identities only for things that would be otherwise obscure
    * Don't hide things let things be what they are
-   * Data/Message passing before abstraction
-   * Logic is also just data (with potential) so pass it around too
+   * Nothing for the sake of itself, no postmodern sollutions.
+   * Logic is just data (with potential) so pass it around too
    * [Factory-Functions always](https://gist.github.com/mpj/17d8d73275bca303e8d2)
 2. No HTML, Text & Elements are Objects too!
    * Selectors & Templates? I can't even...
@@ -47,9 +51,6 @@ To use rilti just download **/dist/rilti.min.js** and pop it in a script tag. **
    * As Functional As Possible
    * Perspectivism vs Pragmatism, people won't always use an API the same way.
    * Leave some internals or lower level API features accessible for extendibility
-
-A MASA example is ``rilti.listMap`` where the get/set methods are one function that is both the object and its interface.      
-``listMap() -> {each, has, del, map} = fn(key, val)``    
 
 Different strokes for different folks:
 Also look at ``rilti.on`` which can be used like this ``on['any-event'](node, func, =options)``,
@@ -74,6 +75,28 @@ and also ``on(node, { click: e => {} }, =options)``.
 * expand with a UI library
 
 ## Example time!
+
+#### Simple Persistent Markdown Scratch-Pad
+
+```javascript
+  const {dom: {article, body, textarea}, model} = rilti
+  const m = model()
+
+  const editor = textarea(m.sync.note)
+// automagic data binding -^
+  const display = article()
+
+  body(editor, display)
+// ^- render to document.body
+
+  m.on('set:note', note => {
+    localStorage.setItem('note', note)
+    display.html = Markdown.parse(note)
+// plugin your favorite md lib -^
+  })
+
+  m.note = localStorage.getItem('note') || 'Write something...'
+```
 
 ### Click Counting Button
 
@@ -142,28 +165,6 @@ Either way the above will produce this html
 </button>
 ```
 
-#### Simple Persistent Markdown Scratch-Pad with ``.model``
-
-```javascript
-  const {dom: {article, body, textarea}, model} = rilti
-  const m = model()
-
-  const editor = m.sync.note(textarea())
-// automagic data binding -^
-  const display = article()
-
-  body(editor, display)
-// ^- render to document.body
-
-  m.on('set:note', note => {
-    localStorage.setItem('note', note)
-    display.innerHTML = Markdown.parse(note)
-// plugin your favorite md lib -^
-  })
-
-  m.note = localStorage.getItem('note') || 'Write something...'
-```
-
 ### Two Button Counter
 
 ```js
@@ -184,13 +185,14 @@ const {model, render, on} = rilti
 
 const state = model()
 
-on.mousemove(document, ({clientX: x, clientY: y}) => {
-  state({x, y})
+on.mousemove(document, ({clientX, clientY}) => {
+  state({clientX, clientY})
 })
 
 render(
   state.sync.template`
-    pointer is at (${'x'}x, ${'y'}y)`
+    pointer is at (${'clientX'}x, ${'clientY'}y)
+  `
 )
 ```
 
@@ -252,54 +254,44 @@ The above produces this html
 |--------|--------------|
 | ``.dom["any-tag"](=options, ...children)`` | where the magic happens, define behavior for elements and see them come to life |
 | ``.dom(StringOrNode, StringOrNode)`` | same as querySelector but returns a promise, it's essentially an async querySelector |
-| ``.dom.query(string, StringOrNode)`` | improved alternative to ``document.querySelector``|
-| ``.dom.queryAll(string, StringOrNode)`` | improved alternative to ``document.querySelectorAll``|
-| ``.dom.queryEach(string, StringOrNode, func)`` | queries nodes returned by selector and iterates over them like ``.forEach`` would|
-| ``.dom.html(string)`` | convert a string to an html document fragment |
+| ``.query(string, StringOrNode)`` | improved alternative to ``document.querySelector``|
+| ``.queryAll(string, StringOrNode)`` | improved alternative to ``document.querySelectorAll``|
+| ``.queryEach(string, StringOrNode, func)`` | queries nodes returned by selector and iterates over them like ``.forEach`` would|
+| ``.dom.frag(=string)`` | create a fragment or convert html text to nodes |
 | ``.on(target, type, listener, =options)`` | generates event listener |
 | ``.once(target, type, listener, =options)`` | generates event listener that triggers only once |
 | ``.curry(func, =argsLimit)`` | curries a function |
-| ``.compose(...func)`` | compose functions, compose(fn1,fn2,fn3)(val) // -> result |
-| ``.component(tag, {create, mount, destroy, attr, props, methods})`` | define custom elements, no polyfills needed |
+| ``.component(tag, {create, mount, unmount, attr, props, methods})`` | define custom elements, no polyfills needed |
 | ``.each(iterable, func)`` | loop through objects, numbers, array(like)s, sets, maps... |
 | ``.extend(hostObj, obj, =safeMode)`` | extends host object with all props of other object, won't overwrite if safe is true |
-| ``.extract(obj, path)``  | safely extract deeply nested values from objects e.g. ``extract({a: {b: [{c: 1}] } }, 'a.b.0.c') -> 1`` |
 | ``.flatten(arraylike)`` | flattens multidimensional arraylike objects |
-| ``.notifier(=obj)`` | extendable event system /pub sub pattern |
-| ``.model(=obj)`` | Backbone like model with validation, please see [SuperModel.js](https://github.com/SaulDoesCode/SuperModel.js) it's the same |
-| ``.render(node, StringOrNode, =connector)`` | renders nodes to a node of your choice, independent of ready state |
+| ``.emitter(=obj)`` | extendable event system /pub sub pattern |
+| ``.model(=obj)`` | Backbone like model with validation |
+| ``.render(AlmostAnything, Selector/Node, =connector = 'appendChild')`` | renders things, independent of ready state |
 | ``.run(func)`` | asynchronously executes a given function when the DOM is loaded |
-| ``.runAsync(func, ...args)`` | run a function asynchronously, and it doesn't even use setTimeout |
-| ``.route(=hashString, func(hash))`` | detect and respond to location.hash changes |
+| ``.runAsync(func, ...args)`` | run a function asynchronously |
 | ``.isMounted(node, =parentNode)`` | determines whether or not the dom or other node contains a specific node |
 
 ##### rilti also exports a couple of useful Type-Testing functions
 usage : ``rilti.isX( {any} ) // -> boolean``   
-``isMounted,
-isDef,
+``isArr,
 isNil,
-isPromise,
-isPrimitive,
-isNull,
+isDef,
+isObj,
 isFunc,
-isStr,
 isBool,
+isStr,
 isNum,
-isInt,
-isIterator,
+isArrlike,
+isNodeList,
+isNode,
+isPrimitive,
+isPromise,
 isRenderable,
 isRegExp,
-isObj,
-isArr,
-isArrlike,
-isEmpty,
-isEl,
-isEqual,
-isNode,
-isNodeList,
 isInput,
-isMap,
-isSet``
+isEmpty,
+isEl``
 
 ### DOM manipulation
 rilti contains a ``domfn`` that contains several useful dom manipulation functions.
@@ -308,22 +300,46 @@ otherwise such as with has/get(this/that) type functions
 
 ```js
 const {
-  attatch,
-  replace,
+  attach,
   css, // (node, stylePropery, val) || (node, { styleProp:'4em' }) set element.style properties
-  Class, // (node, class, =state) add/remove or toggle classes
+  class, // (node, class, =state) add/remove or toggle classes
   hasClass, // (node, class) -> bool
   attr, // (node, attrNameOrObj, =value): attr(el, 'href', '/') or attr(el, 'href') -> '/'
-  rmAttr, // (node, attrName) removes attributes
+  removeAttribute, // (node, ...attrNames) removes attributes
   hasAttr, // hasAttr(node, attrName) -> bool
-  getAttr, // getAttr(node, attrName) -> string
-  setAttr, // setAttr(node, attrName, value)
   attrToggle, // (node, attrName, state = !hasAttr, =val = getAttr(name) || '')
   emit, // (node, {type string/Event/CustomEvent}) dispatchEvents on node
   append, prepend, appendTo, prependTo, // (node, selectorOrNode)
   remove, // (node, =afterMS) // remove node or remove after timeout
   mutate // multitool i.e. (node, {class: 'card', css: {'--higlight-color': 'crimson'}}) -> options obj
 } = rilti.domfn
+```
+
+everything found in rilti.domfn will be available as:        
+``rilti.$(Node).domfnMethod(...args)``
+
+```js
+const contentCard = async (src, hidden = false) => {
+  const card = rilti.dom.div()
+  card.class = 'card'
+  card.class({hidden})
+  card.attr['aria-hidden'] = hidden
+
+  card.css({
+    '--custom-theme': 'hsl(331, 70%, 48%)',
+    borderTop: '2px solid var(--custom-theme, --theme-color)'
+  })
+
+  card.prependTo('.content-list')
+
+  try {
+    const res = await fetch(src)
+    card.append(res.text()) // <- yup
+  } catch (e) {
+    card.remove()
+    console.error('could not load content from: ' + src)
+  }
+}
 ```
 
 #### Async Property accessors with ``.model().async`` and Async/Await
@@ -377,21 +393,21 @@ dom['random-tag']({
     oldtxt: '',
     // create property get/set traps
     accesors: {
-      txt: {
-        get: el => el.innerText,
-        set (el, val) { el.innerText = val.trim() }
+      contents: {
+        get: el => el.txt,
+        set (el, val) { el.txt = val.trim() }
       },
       // or as one function
-      txt (el, val) {
+      innerds (el, val) {
         if (val === undefined) {
-          return el.innerText
+          return el.txt
         }
-        el.innerText = val.trim()
+        el.txt = val.trim()
       }
     },
     // plain getter/setters work too
-    get txt () { return this.innerText },
-    set txt (val) { this.innerText = val.trim() }
+    get ye_old_txt () { return this.innerText },
+    set ye_old_txt (val) { this.innerText = val.trim() }
   },
   methods: {
     // el will be pre-bound upon execution
@@ -399,9 +415,9 @@ dom['random-tag']({
     // or rust struct methods
     warn (el, ...args) {
       el.oldtxt = el.txt
-      el.txt = 'Sure you want to remove random-tag?'
+      el.contents = '  Sure you want to remove random-tag?  '
     },
-    reset (el) { el.txt = el.oldtxt }
+    reset (el) { el.contents = el.oldtxt }
   },
   // listen for events
   on: {
@@ -409,8 +425,8 @@ dom['random-tag']({
     mouseout (evt, {reset}) { reset() }
   },
   // if there's just one listener then use:
-  // once_evt: fn instead of once: { evt: fn }
-  once_dblclick (evt, el) { el.remove() },
+  // once/onxevent: fn instead of once: { evt: fn }
+  oncedblclick (evt, el) { el.remove() },
   //  ^- underscore is optional
   // manage the element's lifecycle
   cycle: {
@@ -420,7 +436,7 @@ dom['random-tag']({
     remount (el) { /*...*/ }
   }
 },
-  ...children
+  ...children // [], "", =>, .then, Node, NodeList : should all render
 )
 ```
 
@@ -431,7 +447,7 @@ dom['random-tag']({
 rilti.directive('custom-attr', {
   init (element, value) { ... },
   update (element, value, oldValue) { ... },
-  destroy (element, value) { ... }
+  remove (element, value) { ... }
 })
 // revoke a directive
 rilti.directives.delete('custom-attr')
@@ -439,12 +455,18 @@ rilti.directives.delete('custom-attr')
 
 #### Web Components / Custom Elements, no polyfills needed
 ```js
-const {domfn: {css, attr}, on, component} = rilti
-
-component('tick-box', {
+rilti.component('tick-box', {
+  props: {
+    accessors: {
+      ticked: {
+        get: el => el.attr.has('ticked'),
+        set: (el, state) => el.attrToggle('ticked', !!state)
+      }
+    }
+  },
   create (el) {
-    on.click(el, e => el.ticked = !el.ticked)
-    css(el, {
+    el.on.click(e => el.attrToggle('ticked'))
+    el.css({
       display: 'block',
       width: '20px',
       height: '20px',
@@ -455,38 +477,60 @@ component('tick-box', {
     })
   },
   mount (el) {
-    console.log('tick-box mounted to document')
+    console.log('tick-box mounted to ', el.parent)
   },
   unmount (el) {
-   console.log('tick-box is no more :(')
+    console.log('unmounted: tick-box is no more :(')
   },
   attr: {
     ticked: {
-      toggle (el, state) {
-        !el.disabled && css(el, {
-          backgroundColor: state ? 'dimgrey' : 'white',
-          border: `1px solid ${state ? 'white' : 'dimgrey'}`
+      update (el) {
+        el.css({
+          backgroundColor: 'dimgrey',
+          border: `1px solid #fff`
         })
-      }
-    },
-    disabled: {
-      toggle (el, state) {
-        css(el, {
-          cursor: state === 'true' ? 'not-allowed' : 'pointer'
+        el.emit('ticked', true)
+      },
+      remove (el) {
+        el.css({
+          backgroundColor: '#fff',
+          border: `1px solid dimgrey`
         })
+        el.emit('ticked', false)
       }
     }
   }
 })
 ```
 
+## Performance
+rilti is about getting things done fast on your terms,
+this means maximum expresivity minimal code,
+but of course there's always a compromise
+between nice to have features and raw performance,
+therefore rilti has two element generation systems
+which are the same in many aspects.
+``rilti.dom(tag, =opts, ...children) -> Proxy(Function -> Node)`` and
+``rilti.fastdom(tag, =opts, ...children) -> Node``
+
+both can do ``const {div, span, anytag} = rilti.fastdom || rilti.dom``
+
+``rilti.fastdom`` is a reduced version of ``rilti.dom`` it focusses purely
+on Node generation with minimal niceties like proxy magic,
+it also throws out deliberate lifecycle hooks.
+
+If you're building a todo app or anything that needs high interactivity use ``rilti.dom``,
+but **if you want 10000 table elements quick and dirty use ``rilti.fastdom``**
+
+**NOTE**: *the performance after rendering is unaffected in either case*
+
 #### see how fast rilti.js renders your elements
 
 ```html
 <script src="/rilti/dist/rilti.min.js"></script>
 <script>
-  const testRiltiBlocking = (count = 10000) => {
-    const {span} = rilti.dom
+  const riltiGoFast = (fast = true, count = 10000) => {
+    const {span} = rilti[fast ? 'fastdom' : 'dom']
     const start = performance.now()
     while(count != 0) span({
       $: document.body,
@@ -508,69 +552,16 @@ component('tick-box', {
 
     console.log(`That took ${performance.now() - start}ms`)
   }
-  testRiltiBlocking(); // -> this usually takes ~ 7800ms on my i5 machine
 
-  const testRiltiChunked = (count = 10000) => {
-    const {each, dom: {span}} = rilti
-    const start = performance.now()
-    // int loops are chunked making heavy loads less blocking
-    each(count, i =>
-      span({
-        $: document.body,
-        css: {
-          background:'#fff',
-          width:'110px',
-          color: 'dimgrey',
-          textAlign: 'center',
-          height:'110px',
-          margin:'5px',
-          padding:'4px',
-          float:'left',
-          boxShadow:'0 1px 4px hsla(0,0%,0%,.3)'
-        }
-      },
-        "damn daniel, back at it again with those white spans ",
-        count--
-      )
-    )
-    console.log(`The first chunk took ${performance.now() - start}ms`);
-  }
-  testRiltiChunked();
-  // -> site useable even while rendering thousands of nodes
+  riltiGoFast(); // -> this usually takes ~1394ms on my i5 machine
+  document.body.textContent = ''
+  riltiGoFast(false); // -> this usually takes ~ 7856ms on my i5 machine
 </script>
 ```
 
-**listMap** is just a utility to manage a ``Map`` that contains ``Set``s
-```javascript
-  const lm = rilti.listMap()
-
-  // set
-  lm('key', 'value0')
-  lm('key', 'value1')
-  // get
-  lm('key') // -> Set['value0', 'value1']
-  // get the base map
-  lm.map // -> Map{key: Set[...]}
-  // has
-  lm.has('key') // -> true
-  lm.has('key', 'value2') // -> false
-  // delete a value
-  lm.del('key', 'value0')
-  // or
-  lm('key').delete('value0')
-
-  // loop over contents
-  lm.each('key', value => {
-    console.log(value)
-  })
-  // value0
-  // value1
-  // ...
-```
-
 #### weight
-* unminified:  > 28kb
-* minified: > 11kb
+* unminified:  > 36kb
+* minified: > 14.1kb
 * minified && compressed: > 6kb
 
 #### license = MIT
