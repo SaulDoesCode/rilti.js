@@ -256,6 +256,9 @@
   */
 
   const html = (input, host) => {
+    if (isFunc(input)) input = input(host)
+    if (isNode(input)) return input
+    if (isArr(input)) return vpend(input)
     if (isPromise(input)) {
       if (isNode(host)) {
         input.then(content => {
@@ -264,7 +267,7 @@
         return
       }
     }
-    return isNode(input) ? input : isFunc(input) ? html(input(host)) : isArr(input) ? vpend(input) : document.createRange().createContextualFragment(input)
+    return document.createRange().createContextualFragment(input)
   }
 
   const frag = inner => inner !== UNDEF ? html(inner) : document.createDocumentFragment()
@@ -296,8 +299,11 @@
         i++
       }
     }
-    if (host) host[connector](dfrag)
-    return dfrag
+    if (host) {
+      host[connector](dfrag)
+    } else {
+      return dfrag
+    }
   }
 
   const prime = (...nodes) => {
@@ -538,7 +544,7 @@
     return proxy
   }
 
-  const getTag = el => (el.tagName || String(el).toUpperCase())
+  const getTag = el => el !== UNDEF && (el.tagName || String(el).toUpperCase())
   const isComponent = el => components.has(isStr(el) ? el : getTag(el))
 
   const components = new Map()
