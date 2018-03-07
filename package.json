@@ -1,6 +1,6 @@
 {
   "name": "rilti.js",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "small opinionated furture forward frontend framework",
   "main": "init.js",
   "repository": {
@@ -27,6 +27,7 @@
     "ignore": [
       "./dist/",
       "./docs/",
+      "./docs/*.js",
       "./examples/",
       "./examples/assets/",
       "*.min.js",
