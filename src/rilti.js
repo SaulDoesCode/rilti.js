@@ -604,6 +604,7 @@
 
   const fastdom = infinify(function (tag, opts) {
     const el = typeof tag === 'string' ? document.createElement(tag) : tag
+    let children = Array.prototype.slice.call(arguments, 2)
 
     if (isObj(opts)) {
       for (const key in opts) {
@@ -615,12 +616,12 @@
         else if (key.indexOf('once') === 0) once(el, opts[key])
         else el.setAttribute(key, opts[key])
       }
+    } else if (typeof opts === 'string' || opts instanceof Node || isFunc(opts)) {
+      children.unshift(opts)
+    } else if (isArr(opts)) {
+      children = opts.concat(children)
     }
 
-    const children = Array.prototype.slice.call(arguments, 2)
-    if (typeof opts === 'string' || opts instanceof Node) {
-      children.unshift(opts)
-    }
     if (children.length) {
       for (let i = 0; i < children.length; i++) {
         let child = children[i]
