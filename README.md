@@ -5,7 +5,7 @@ a small flavorful and unapologetic library built for the modern web
 [![JavaScript Style Guide](https://cdn.rawgit.com/standard/standard/master/badge.svg)](https://github.com/standard/standard)
 
 ##### currently in beta phase and potentially subject to breaking changes
-Feel free to fork or raise issues. Constructive criticism is welcome
+Feel free to fork or raise issues. Constructive criticism is always welcome
 
 * 🐫 Loadbearing Spirit - Expressive DOM generation and custom-element components sans polyfill
 * 🐱 Lion - Fearless Almost Magical *State Solution* with data-binding so simple you could cry
@@ -15,14 +15,15 @@ Feel free to fork or raise issues. Constructive criticism is welcome
 * elm-like ideas about architecture
 * mostly declarative programming style
 * node lifecycle hooks
+* observe attributes
 * models with data binding, validation, events & sync/async accessors
 * generate all your elements in js don't write clunky html
 * program without concern for page load state
 * components aka. custom-elements. No polyfill needed!
 * vue-like directives aka custom attributes
 * great dom manipulation functions
-* functional composition & currying
-* powerful notifier system (pub/sub with proxy magic)
+* composition & currying
+* powerful emitter system (pub/sub with proxy magic)
 * no classes, no this, no extra fuzz, functional positive
 * no old javascript, we use modern features like Proxy
 * a gziped rilti.min.js weighs > 6kb
@@ -201,12 +202,14 @@ Stop writing html (yes JSX too)!
 Just generate everything, it's so simple.
 
 ```js
-const {compose, dom: {a, button, h1, header, nav, section}} = rilti
+const {a, button, h1, header, nav, section} = rilti.fastdom
 
 section(
   {$: 'body', id: 'navbar'},
 // ^- $ is shorthand for render: 'Node/Selector'
-  compose(header, h1)('My Wicked Website'),
+  header(
+    h1('My Wicked Website')
+  ),
   nav(
     ['Home','Blog','About','Contact'].map(
       name => a({class: 'nv-btn', href: '#/' + name.toLowerCase()}, name)
