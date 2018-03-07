@@ -255,11 +255,12 @@ The above produces this html
 ### API
 | method | description  |
 |--------|--------------|
-| ``.dom["any-tag"](=options, ...children)`` | where the magic happens, define behavior for elements and see them come to life |
-| ``.dom(StringOrNode, StringOrNode)`` | same as querySelector but returns a promise, it's essentially an async querySelector |
-| ``.query(string, StringOrNode)`` | improved alternative to ``document.querySelector``|
-| ``.queryAll(string, StringOrNode)`` | improved alternative to ``document.querySelectorAll``|
-| ``.queryEach(string, StringOrNode, func)`` | queries nodes returned by selector and iterates over them like ``.forEach`` would|
+| ``.dom(tag, =options, ...children)`` | where the magic happens, define behavior for elements and see them come to life |
+| ``.dom["any-tag"](=options, ...children)`` | pre-bound tag version of ``.dom``  |
+| ``.query(string, Selector/Node)`` | improved alternative to ``document.querySelector``|
+| ``.queryAll(string, Selector/Node)`` | improved alternative to ``document.querySelectorAll``|
+| ``.queryAsync(string, func, Selector/Node)`` | same as querySelector but async, good for pre-load logic |
+| ``.queryEach(string, Selector/Node, func)`` | queries nodes returned by selector and iterates over them like ``.forEach`` would|
 | ``.dom.frag(=string)`` | create a fragment or convert html text to nodes |
 | ``.on(target, type, listener, =options)`` | generates event listener |
 | ``.once(target, type, listener, =options)`` | generates event listener that triggers only once |
