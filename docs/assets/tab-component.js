@@ -1,10 +1,16 @@
 { /* global rilti */
-  const {component, dom: {prime, header, section, div, h2}, domfn: {mutate, Class, emit}, isFunc, each, model} = rilti
+  const {component, dom: {header, section, div, h2}, isFunc, each, model, prime} = rilti
   component('tab-component', {
     props: {
+      model: el => model({
+        views: model(),
+        head: header({$: el}),
+        view: section({$: el})
+      }),
       accessors: {
+        activeView: ({model: {active, views}}) => views(active),
         active: {
-          get: ({controller: {active}}) => active,
+          get: ({model: {active}}) => active,
           set (el, name) {
             const M = el.model
             M.async.ready.then(() => {
@@ -12,22 +18,14 @@
                 const view = M.views(name)
                 M.active = name
                 M.activeView = view
-                emit(el, 'active', view)
+                el.emit('active', view)
                 M.emit.active(name, view)
                 M.emit['active:' + name](view)
               }
             })
           }
-        },
-        activeView: ({model: {active, views}}) => views(active)
+        }
       }
-    },
-    create (el) {
-      el.model = model({
-        views: model(),
-        head: header({$: el}),
-        view: section({$: el})
-      })
     },
     mount (el) {
       const M = el.model
@@ -38,14 +36,7 @@
         V(name, view)
         isFunc(active) && M.on['active:' + name](active)
 
-        div({
-          $: M.head,
-          onclick () {
-            el.active = name
-          }
-        },
-          name
-        )
+        div({$: M.head, onclick () { el.active = name }}, name)
       })
       delete el.tabs
 
@@ -54,11 +45,9 @@
       )
 
       M.on.active((name, view) => {
-        mutate(M.view, {inner: view})
-        mutate(el, {attr: {active: name}})
-        each(M.head.children, n => {
-          Class(n, 'active', n.textContent === name)
-        })
+        M.view.children = view
+        el.attr.active = name
+        each(M.head.$children, n => n.class('active', n.txt === name))
       })
       M.ready = true
     }

@@ -5,7 +5,7 @@
     <title>rilti.js pexeso</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="./assets/rilti-styles.css">
-    <script src="https://rawgit.com/SaulDoesCode/rilti.js/master/dist/rilti.min.js"></script>
+    <script src="../src/rilti.js"></script>
     <script src="./assets/pexeso.js"></script>
     <style>
       body {
@@ -27,7 +27,7 @@
       header > div {
         color: hsl(0,0%,45%);
       }
-      header > h1::first-letter {
+      header > h1:first-of-type::first-letter {
         color: var(--theme-color);
         font-size: 1.1em;
         text-shadow: 0 1px 3px rgba(0,0,0,.2);

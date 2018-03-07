@@ -1,4 +1,4 @@
-const {dom, domfn: {Class}, model, each, isNum, isEmpty} = rilti
+const {dom, $, model, each, isNum, isEmpty} = rilti
 const {section, main, button} = dom
 
 const C = model({
@@ -8,7 +8,7 @@ const C = model({
     C.view = 0
     C.left = C.right = ''
     C.preOperator = true
-    if (C.activeOp) Class(C.activeOp, 'active', false)
+    if (C.activeOp) C.activeOp.class.active = false
   }
 })
 
@@ -40,8 +40,8 @@ C.on.operator(o => {
     C.operator = C.right = ''
     C.preOperator = true
   }
-  if (C.activeOp) Class(C.activeOp, 'active', false)
-  Class(C.activeOp = view.operators[o], 'active', true)
+  if (C.activeOp) C.activeOp.class.active = false
+  ;(C.activeOp = view.operators[o]).class.active = true
 })
 
 const view = {keys: [], operators: {}}
@@ -51,8 +51,9 @@ view.numpad = section({
   $: view.body,
   class: 'numpad',
   onclick ({target}) {
-    if (C.activeOp !== target && target.textContent in view.operators) {
-      C.emit.operator(target.textContent)
+    target = $(target)
+    if (C.activeOp !== target && target.txt in view.operators) {
+      C.emit.operator(target.txt)
     } else if (view.clear === target) return C.reset()
     const num = (view.decimal === target && '.') || view.keys.indexOf(target)
     if (num !== -1) C.emit.number(num)

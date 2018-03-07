@@ -1,5 +1,18 @@
-const {dom, domfn: {Class, hasClass, remove}, each, timeout, render} = rilti
-const {div, section, header, h1, hr} = dom
+const {dom, domfn: {remove}, each, render} = rilti
+const {div, section, header, h1, hr, text} = dom
+
+const timeout = (fn, ms = 1000, current) => Object.assign(fn, {
+  ms,
+  start () {
+    current = setTimeout(fn, fn.ms, undefined)
+    return fn
+  },
+  stop (run = false) {
+    if (run) fn()
+    clearTimeout(current)
+    return fn
+  }
+})
 
 const shuffle = arr => {
   let j, x, i
@@ -18,17 +31,17 @@ let actionTimeout
 let activeCard
 let lastActive
 const Activate = card => {
-  if (card === activeCard || hasClass(card, 'score')) return
+  if (card === activeCard || card.class.score) return
   if (actionTimeout) actionTimeout.stop(true)
   if (activeCard) {
-    if (lastActive) Class(lastActive, 'visible', false)
+    if (lastActive) lastActive.class.visible = false
     lastActive = activeCard
   }
-  Class(activeCard = card, 'visible', true)
+  (activeCard = card).class.visible = true
   if (lastActive) {
     const pair = [lastActive, activeCard]
     if (lastActive.emoji === activeCard.emoji) {
-      Class(pair, 'score', true)
+      pair.forEach(n => n.class('score', true))
       pairsLeft.textContent = --pairCount
       if (pairCount === 0) resetGame()
       actionTimeout = timeout(() => {
@@ -37,7 +50,7 @@ const Activate = card => {
       }, 2000).start()
     } else {
       actionTimeout = timeout(() => {
-        Class(pair, 'visible', false)
+        pair.forEach(n => n.class('visible', false))
         actionTimeout = undefined
       }, 1000).start()
     }
@@ -46,7 +59,7 @@ const Activate = card => {
 }
 
 let cards, pairCount
-const pairsLeft = dom.text(pairCount)
+const pairsLeft = text(pairCount)
 const pairCounter = div(pairsLeft, ' pairs left to go')
 
 const heading = header(
@@ -60,7 +73,7 @@ const startButton = div({
   $: heading,
   class: 'start-btn',
   onclick (e, el) {
-    remove(el)
+    el.remove()
     startGame()
   }
 }, 'Start Game')
@@ -88,7 +101,7 @@ const startGame = () => {
   render(pairCounter, heading)
 
   cards = []
-  pairsLeft.textContent = pairCount = Math.floor(emojis.length / 2)
+  pairsLeft.txt = pairCount = Math.floor(emojis.length / 2)
   each(pairCount, i => {
     cards.push(card(emojis[i]), card(emojis[i]))
   })

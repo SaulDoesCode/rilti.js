@@ -1,6 +1,6 @@
 { /* global rilti location fetch Prism marked */
-const {dom, domfn: {emit, remove, Class}, model, extend, each, render, run, notifier, on} = rilti
-const {a, prime, p, pre, code, nav, main, div, span, section, header, h1, h3, iframe} = dom
+const {dom, fastdom, model, each, render, emitter, on} = rilti
+const {a, prime, p, pre, code, nav, main, div, span, section, header, h1, h3} = dom
 const tabComponent = dom['tab-component']
 
 var hub = model()
@@ -16,11 +16,10 @@ fetch('./assets/normalize.css').then(res => res.text())
 fetch('./assets/overview.md').then(res => res.text())
 .then(md => hub('readme', prime(parseMD(md))))
 
-const $ = 'body'
 const expose = () => span({class: 'expose'}, '::')
-const link = (href, name, options = {}) => a(extend({href}, options), name)
+const link = (href, name, options = {}) => a(Object.assign({href}, options), name)
 
-const router = notifier(routes => {
+const router = emitter(routes => {
   if (!router.working) {
     on.hashchange(window, e => router.activate())
     router.working = true
@@ -56,17 +55,17 @@ const navLinks = ['overview', 'api', 'examples']
 .map(name => {
   const href = '#' + name
   const l = link(href, name)
-  router.on.route(hash => Class(l, 'active', href === hash))
+  router.on.route(hash => l.class('active', href === hash))
   return l
 })
 
 header(
-  {$, id: 'site-head'},
+  {$: 'body', id: 'site-head'},
   h1('rilti', expose(), 'docs'),
   nav(navLinks)
 )
 
-const host = main({$, id: 'page-view'})
+const host = main({$: 'body', id: 'page-view'})
 const overview = section()
 const apiview = section(`API`)
 const exampleview = section()
@@ -91,7 +90,7 @@ hub.on['set:readme'](md => {
   render(md, overview)
 })
 
-const example = ({name, js, css, $ = exampleview, vsite = iframe()}) => {
+const example = ({name, js, css, render = exampleview, vsite = fastdom.iframe()}) => {
   js = js.trim()
   if (css) css = css.trim()
   vsite.onload = async e => {
@@ -123,7 +122,8 @@ const example = ({name, js, css, $ = exampleview, vsite = iframe()}) => {
   }
   if (css) tabs.css = pre(code(Prism.highlight(css, Prism.languages.css)))
 
-  return tabComponent({$,
+  return tabComponent({
+    render,
     class: 'example',
     props: {
       tabs,
@@ -198,7 +198,7 @@ render(
 example({
   name: 'lifecycles',
   js: `
-const {render, dom, mutate} = rilti
+const {render, dom} = rilti
 const {button, div} = dom
 
 const phase = div({class: 'phase'})
@@ -206,15 +206,14 @@ const control = button()
 
 render([phase, control])
 
-const seat = (text, next) => el => {
-  mutate(phase, {text})
-  mutate(control, {
-    text: next,
-    onceclick: e =>
-      next[0] < 'u' ?
-      render(el) :
-      el.remove()
-  })
+const seat = (txt, next) => el => {
+  phase.txt = txt
+  control.txt = next
+  control.once.click(e =>
+    next[0] < 'u' ?
+    render(el) :
+    el.remove()
+  )
 }
 
 const cycle = {
@@ -274,5 +273,4 @@ button:hover, button:active {
   box-shadow: 0 2px 6px rgba(0,0,0,.1);
 }`
 })
-
 }
