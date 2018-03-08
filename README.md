@@ -338,7 +338,7 @@ const contentCard = async (src, hidden = false) => {
 
   try {
     const res = await fetch(src)
-    card.append(res.text()) // <- yup
+    card.append(await res.text())
   } catch (e) {
     card.remove()
     console.error('could not load content from: ' + src)
@@ -440,7 +440,7 @@ dom['random-tag']({
     remount (el) { /*...*/ }
   }
 },
-  ...children // [], "", =>, .then, Node, NodeList : should all render
+  ...children // [], "", =>, Node, NodeList : should all render
 )
 ```
 

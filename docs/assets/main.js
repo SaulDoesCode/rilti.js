@@ -13,7 +13,7 @@ fetch('../dist/rilti.min.js').then(res => res.text())
 .then(src => hub('riltiSrc', src))
 fetch('./assets/normalize.css').then(res => res.text())
 .then(src => hub('normalizeSrc', src))
-fetch('./assets/overview.md').then(res => res.text())
+fetch('/README.md').then(res => res.text())
 .then(md => hub('readme', prime(parseMD(md))))
 
 const expose = () => span({class: 'expose'}, '::')
@@ -41,6 +41,7 @@ router.activate = (
   router.emit(hash, route)
   router.emit.route(hash, route)
   route.host.innerHTML = ''
+  route.host.setAttribute('active', hash.slice(1))
   if (Array.isArray(route.view)) route.host.append(...route.view)
   else route.host.append(route.view)
   router.active = route

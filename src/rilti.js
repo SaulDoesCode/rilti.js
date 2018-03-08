@@ -1,29 +1,32 @@
-{ /* global Node Text NodeList Element CustomEvent MutationObserver HTMLInputElement HTMLTextAreaElement define */
+{ /* global Node Text NodeList Element CustomEvent MutationObserver HTMLInputElement HTMLTextAreaElement */
   const UNDEF = void 0
 
   const isArr = Array.isArray
   const isNil = o => o === UNDEF || o === null
   const isDef = o => o !== UNDEF && o !== null
-  const isObj = o => typeof o === 'object' && o.constructor === Object
-  const isFunc = o => typeof o === 'function'
+  const isFunc = o => o instanceof Function
   const isBool = o => typeof o === 'boolean'
+  const isObj = o => typeof o === 'object' && o.constructor === Object
   const isStr = o => typeof o === 'string'
   const isNum = o => typeof o === 'number' && !isNaN(o)
   const isInt = o => isNum(o) && o % 1 === 0
-  const isArrlike = o => isArr(o) || (isDef(o) && o.length % 1 === 0 && !(isFunc(o) || isNode(o)))
+  const isArrlike = o => isArr(o) || o instanceof NodeList || (isDef(o) && !(isFunc(o) || isNode(o)) && o.length % 1 === 0)
   const isNodeList = (o, arr = true) => o instanceof NodeList || (arr && allare(o, isNode))
   const isNode = o => o instanceof Node
-  const isPrimitive = o => isStr(o) || isNum(o) || isBool(o)
+  const isPrimitive = o => {
+    o = typeof o
+    return o === 'string' || o === 'number' || o === 'boolean'
+  }
   const isPromise = o => typeof o === 'object' && isFunc(o.then)
   const isRegExp = o => o instanceof RegExp
   const isEl = o => o instanceof Element
   const isInput = o => o instanceof HTMLInputElement || o instanceof HTMLTextAreaElement
   const isEmpty = o => isNil(o) || !((isObj(o) ? Object.keys(o) : o).length || o.size)
-  const isRenderable = o => isNode(o) || isPrimitive(o) || ProxyNodes(o) || allare(o, isRenderable) || isPromise(o)
+  const isRenderable = o => o instanceof Node || ProxyNodes(o) || isPrimitive(o) || allare(o, isRenderable)
 
   const allare = (arr, like) => {
     if (isArrlike(arr)) {
-      const isfn = isFunc(like)
+      const isfn = like instanceof Function
       for (let i = 0; i < arr.length; i++) {
         if (!(isfn ? like(arr[i]) : arr[i] === like)) {
           return false
@@ -47,7 +50,7 @@
   const runAsync = (fn, ...args) => setTimeout(fn, 0, ...args)
   const run = fn => {
     if (document.body || document.readyState === 'complete') {
-      setTimeout(fn, 0, UNDEF)
+      setTimeout(fn, 0)
     } else {
       window.addEventListener('DOMContentLoaded', fn)
     }
@@ -74,9 +77,9 @@
   const query = (selector, host = document) => (
     isNode(selector) ? selector : query(host).querySelector(selector)
   )
-  const queryAsync = (selector, fn, host) => run(
-    () => fn(query(selector, host))
-  )
+  const queryAsync = (selector, fn, host) => {
+    document.body ? fn(query(selector, host)) : run(() => fn(query(selector, host)))
+  }
   const queryAll = (selector, host = document) => (
     Array.from(query(host).querySelectorAll(selector))
   )
@@ -217,12 +220,13 @@
   }
 
   const MNT = n => {
-    CR(n)
+    const iscomponent = isComponent(n)
+    CR(n, !Created(n), iscomponent)
     if (!Mounted(n)) {
       if (Unmounted(n)) {
         Unmounted(n, false)
         emit(n, 'remount')
-      } else if (isComponent(n)) {
+      } else if (iscomponent) {
         updateComponent(n, 'mount')
       } else {
         Mounted(n, true)
@@ -256,50 +260,29 @@
   */
 
   const html = (input, host) => {
-    if (isFunc(input)) input = input(host)
-    if (isNode(input)) return input
-    if (isArr(input)) return vpend(input)
-    if (isPromise(input)) {
-      if (isNode(host)) {
-        input.then(content => {
-          vpend(prime(content), host)
-        })
-        return
-      }
-    }
-    return document.createRange().createContextualFragment(input)
+    if (input instanceof Function) input = input(host)
+    if (typeof input === 'string') {
+      return Array.from(document.createRange().createContextualFragment(input).childNodes)
+    } else if (input instanceof Node) return input
+    else if (isArr(input)) return input.map(i => html(i))
   }
 
   const frag = inner => inner !== UNDEF ? html(inner) : document.createDocumentFragment()
 
   // vpend - virtual append, add nodes and get them as a document fragment
-  const vpend = (children, host, connector = 'appendChild', dfrag = frag()) => {
-    if (isNode(children)) {
-      if (host) host[connector](children)
-      else dfrag.appendChild(children)
-      return dfrag
-    }
+  const vpend = (children, host, connector = 'appendChild', dfrag = frag(), noHostAppend) => {
     for (var i = 0; i < children.length;) {
       let child = children[i]
-      if (isArr(child)) {
-        i += child.length
-        for (let x = 0; x < child.length; x++) {
-          const child1 = html(child[x], host)
-          if (child1 !== UNDEF) {
-            dfrag.appendChild(child1)
-            MNT(child1)
-          }
-        }
-      } else {
-        child = html(child, host)
-        if (child !== UNDEF) {
-          dfrag.appendChild(child)
-          MNT(child)
-        }
+      if (child instanceof Function) child = child(host)
+      if (typeof child === 'string') child = new Text(child)
+      else if (isArr(child)) child = vpend(child, host, connector, dfrag, true)
+      if (child instanceof Node) {
+        dfrag.appendChild(child)
+        MNT(child)
         i++
       }
     }
-    if (host) {
+    if (host && !noHostAppend) {
       host[connector](dfrag)
     } else {
       return dfrag
@@ -309,9 +292,12 @@
   const prime = (...nodes) => {
     for (let i = 0; i < nodes.length; i++) {
       let n = nodes[i]
-      if (isNode(n) || isFunc(n) || isPromise(n)) continue
-      else if (isPrimitive(n)) {
-        n = document.createRange().createContextualFragment(n).childNodes
+      if (n instanceof Node || n instanceof Function) {
+        continue
+      } else if (isPrimitive(n)) {
+        nodes[i] = new Text(n)
+        continue
+        // n = document.createRange().createContextualFragment(n).childNodes
       }
 
       const isnl = n instanceof NodeList
@@ -333,11 +319,11 @@
             continue
           }
         }
-        const nLength = n.length
+        const nlen = n.length
         n.unshift(i, 1)
         nodes.splice.apply(nodes, n)
         n.slice(2, 0)
-        i += nLength
+        i += nlen
       } else {
         throw new Error(`illegal renderable: ${n}`)
       }
@@ -346,36 +332,20 @@
   }
 
   const attach = (host, connector, ...renderables) => {
-    if (isFunc(host)) host = host()
-    if (isStr(host)) {
-      return queryAsync(host, h => attach(h, connector, ...renderables))
-    }
-    const nodeHost = isNode(host)
-    if (nodeHost && (connector === 'after' || connector === 'before') && !isMounted(host)) {
-      once.mount(host, e => attach(host, connector, ...renderables))
-      return
-    }
+    if (host instanceof Function) host = host()
+    const nodeHost = host instanceof Node
     renderables = prime(renderables)
     if (nodeHost) {
-      vpend(renderables, host, connector)
-    } else if (isArr(host)) {
-      for (let i = 0; i < renderables.length; i++) {
-        host.push(renderables[i])
+      if ((connector === 'after' || connector === 'before') && !isMounted(host)) {
+        once.mount(host, e => attach(host, connector, ...renderables))
+      } else {
+        vpend(renderables, host, connector)
       }
+    } else if (isStr(host)) {
+      return queryAsync(host, h => attach(h, connector, ...renderables))
+    } if (isArr(host)) {
+      host.push(...renderables)
     }
-    /*
-    for (let i = 0; i < renderables.length; i++) {
-      let n = renderables[i]
-      if (isFunc(n)) n = n(host)
-      if (nodeHost) {
-        CR(n)
-        host[connector](n)
-        MNT(n)
-      } else if (isArr(host)) {
-        host.push(n)
-      }
-    }
-    */
     return renderables.length < 2 ? renderables[0] : renderables
   }
 
@@ -388,7 +358,7 @@
   const domfn = {
     css (node, styles, prop) {
       if (isObj(styles)) {
-        each(styles, (style, key) => domfn.css(node, key, style))
+        for (const key in styles) domfn.css(node, key, styles[key])
       } else if (isStr(styles)) {
         if (styles.indexOf('--') === 0) {
           node.style.setProperty(styles, prop)
@@ -401,11 +371,13 @@
     class (node, c, state = !node.classList.contains(c)) {
       if (isArr(node)) return node.forEach(n => domfn.class(n, c, state))
       if (isObj(c)) {
-        each(c, (state, className) => domfn.class(
-          node,
-          className,
-          isBool(state) ? state : !node.classList.contains(className)
-        ))
+        for (const className in c) {
+          domfn.class(
+            node,
+            className,
+            isBool(c[className]) ? c[className] : !node.classList.contains(className)
+          )
+        }
       } else {
         if (isStr(c)) c = c.split(' ')
         isArr(c) && c.forEach(cl => {
@@ -417,10 +389,11 @@
     hasClass: curry((node, name) => node.classList.contains(name)),
     attr (node, attr, val) {
       if (isObj(attr)) {
-        each(attr, (v, a) => {
-          node[isNil(v) ? 'removeAttribute' : 'setAttribute'](a, v)
-          attributeChange(node, a)
-        })
+        for (const a in attr) {
+          const present = isNil(attr[a])
+          node[present ? 'removeAttribute' : 'setAttribute'](a, attr[a])
+          attributeChange(node, a, UNDEF, attr[a], !present)
+        }
       } else if (isStr(attr)) {
         if (isNil(val)) return node.getAttribute(attr)
         const old = node.getAttribute(attr)
@@ -464,8 +437,8 @@
   const ProxyNodes = mutateSet(new WeakSet())
 
   const $ = node => {
-    if (ProxyNodes(node)) return node
-    if (isStr(node)) node = query(node)
+    if (typeof node === 'string') node = query(node)
+    else if (ProxyNodes(node)) return node
     if (ProxiedNodes.has(node)) return ProxiedNodes.get(node)
     if (!isNode(node)) throw new TypeError(`$ needs a Node: ${node}`)
 
@@ -531,7 +504,7 @@
             node[innerHTML] = val
           } else {
             node[textContent] = ''
-            if (isDef(val)) attach(node, 'appendChild', val)
+            vpend(isArr(val) ? prime(val) : html(val), node)
           }
         } else {
           node[key] = val
@@ -545,7 +518,7 @@
   }
 
   const getTag = el => el !== UNDEF && (el.tagName || String(el).toUpperCase())
-  const isComponent = el => components.has(isStr(el) ? el : getTag(el))
+  const isComponent = el => components.has(getTag(el))
 
   const components = new Map()
   const component = (tagName, config) => {
@@ -556,7 +529,7 @@
   }
 
   const updateComponent = (el, config, stage, afterProps) => {
-    if (!el.nodeType === 1 || !components.has(el.tagName)) return
+    if (el.nodeType !== 1 || !components.has(el.tagName)) return
     if (isStr(config)) [stage, config] = [config, components.get(el.tagName)]
     else if (!isObj(config)) config = components.get(el.tagName)
 
@@ -603,10 +576,16 @@
     return dom(new Text(txt), options)
   }
 
-  const svg = (...args) => dom(
-    document.createElementNS('http://www.w3.org/2000/svg', 'svg'),
+  const ns = 'http://www.w3.org/2000/svg'
+  const svg = new Proxy((...args) => dom(
+    document.createElementNS(ns, 'svg'),
     ...args
-  )
+  ), {
+    get: (_, tag) => (...args) => dom(
+      document.createElementNS(ns, tag),
+      ...args
+    )
+  })
 
   const fastdom = infinify(function (tag, opts) {
     const el = typeof tag === 'string' ? document.createElement(tag) : tag
@@ -622,19 +601,25 @@
         else if (key.indexOf('once') === 0) once(el, opts[key])
         else el.setAttribute(key, opts[key])
       }
-    } else if (typeof opts === 'string' || opts instanceof Node || isFunc(opts)) {
-      children.unshift(opts)
-    } else if (isArr(opts)) {
-      children = opts.concat(children)
+    } else if (typeof opts === 'string') el.appendChild(new Text(opts))
+    else if (opts instanceof Node) {
+      el.appendChild(opts)
+    } else if (opts instanceof Function) {
+      children.unshift(opts(el))
+    } else if (isArr(opts) || opts instanceof NodeList) {
+      children = Array.prototype.concat.call(opts, children)
     }
 
     if (children.length) {
       for (let i = 0; i < children.length; i++) {
         let child = children[i]
-        if (typeof child === 'string') child = new Text(child)
-        else if (typeof child === 'function') child = child(el)
-        if (child instanceof Node) el.appendChild(child)
-        else if (isArr(child)) vpend(child, el)
+        if (child instanceof Function) child = child(el)
+        if (child instanceof Node) {
+          el.appendChild(child)
+        } else if (isArr(child)) vpend(child, el)
+        else if (child !== UNDEF) {
+          el.appendChild(new Text(child))
+        }
       }
     }
     return el
@@ -643,29 +628,26 @@
   const dom = infinify(Object.assign((tag, opts, ...children) => {
     const el = typeof tag === 'string' ? document.createElement(tag) : tag
 
-    const iscomponent = isComponent(el.tagName)
+    const iscomponent = components.has(el.tagName)
     if (iscomponent) var componentHandled
 
+    const proxied = $(el)
     if (el.nodeType !== 3) {
+      if (opts instanceof Function) {
+        const result = opts.call(el, proxied)
+        if (result !== el && result !== proxied) opts = result
+      }
       if (isRenderable(opts)) children.unshift(opts)
-      else if (isFunc(opts)) {
-        const result = opts(el)
-        if (result !== el && isRenderable(result)) {
-          children.unshift(result)
-        }
-      }
-      if (children.length) {
-        attach(el, 'appendChild', ...children)
-      }
+      if (children.length) attach(el, 'appendChild', ...children)
     }
 
-    const proxied = $(el)
     if (isObj(opts)) {
       var pure = opts.pure
       if (!iscomponent && opts.props) assimilateProps(el, opts.props)
       opts.methods && assimilateMethods(el, opts.methods)
       if (opts.sync) opts.sync = opts.sync(el)
       for (const key in opts) {
+        let val = opts[key]
         const isOnce = key.indexOf('once') === 0
         const isOn = !isOnce && key.indexOf('on') === 0
         if (isOnce || isOn) {
@@ -673,7 +655,7 @@
           const mode = key.substr(0, i)
           let type = key.substr(i)
           const evtfn = EventManager(isOnce)
-          const args = isArr(opts[key]) ? opts[key] : [opts[key]]
+          const args = isArr(val) ? val : [val]
           if (!opts[mode]) opts[mode] = {}
           if (type.length) {
             opts[mode][type] = evtfn(el, type, ...args)
@@ -681,22 +663,22 @@
             opts[mode][type] = evtfn(el, ...args)
           }
         } else if (key in el) {
-          isFunc(el[key]) ? el[key][isArr(opts[key]) ? 'apply' : 'call'](el, opts[key]) : el[key] = opts[key]
+          if (isFunc(el[key])) {
+            isArr(val) ? el[key].apply(el, val) : el[key](val)
+          } else {
+            el[key] = opts[key]
+          }
         } else if (key in domfn) {
-          const result = isArr(opts[key]) ? domfn[key](el, ...opts[key]) : domfn[key](el, opts[key])
-          if (result !== el) opts[key] = result
+          val = isArr(opts[key]) ? domfn[key](el, ...val) : domfn[key](el, val)
+          if (val !== el) opts[key] = val
         }
       }
       if (opts.cycle) {
         const {mount, create, remount, unmount} = opts.cycle
-        once.create(el, e => {
-          Created(el, true)
-          create && create.call(el, proxied || el)
-        })
-        mount && once.mount(el, mount.bind(el, proxied || el))
-
-        opts.cycle.unmount = unmount && on.unmount(el, unmount.bind(el, proxied || el))
-        opts.cycle.remount = remount && on.remount(el, remount.bind(el, proxied || el))
+        create && once.create(el, create.bind(el, proxied))
+        mount && once.mount(el, mount.bind(el, proxied))
+        opts.cycle.unmount = unmount && on.unmount(el, unmount.bind(el, proxied))
+        opts.cycle.remount = remount && on.remount(el, remount.bind(el, proxied))
       }
 
       if (iscomponent) {
@@ -709,10 +691,10 @@
       else if (opts.renderBefore) attach(opts.renderBefore, 'before', el)
     }
 
-    iscomponent ? !componentHandled && updateComponent(el, UNDEF) : CR(el)
+    iscomponent ? !componentHandled && updateComponent(el, UNDEF) : CR(el, true, iscomponent)
     return pure ? el : proxied
   }, {
-    text, body, svg, frag, prime
+    text, body, svg, frag, prime, html
   }),
     true
   )
@@ -1089,9 +1071,11 @@
     once,
     emitter,
     each,
+    svg,
     fastdom,
     dom,
     domfn,
+    html,
     directive,
     directives,
     prime,
