@@ -431,7 +431,6 @@ dom['random-tag']({
   // if there's just one listener then use:
   // once/onxevent: fn instead of once: { evt: fn }
   oncedblclick (evt, el) { el.remove() },
-  //  ^- underscore is optional
   // manage the element's lifecycle
   cycle: {
     create (el) { /*...*/ },
