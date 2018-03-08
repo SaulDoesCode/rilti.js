@@ -273,7 +273,16 @@
   const vpend = (children, host, connector = 'appendChild', dfrag = frag(), noHostAppend) => {
     for (var i = 0; i < children.length;) {
       let child = children[i]
-      if (child instanceof Function) child = child(host)
+      if (child instanceof Function) {
+        child = child(host)
+        if (child instanceof Function) {
+          let lvl = 0
+          while (child instanceof Function && lvl !== 20) {
+            child = child()
+            lvl++
+          }
+        }
+      }
       if (typeof child === 'string') child = new Text(child)
       else if (isArr(child)) child = vpend(child, host, connector, dfrag, true)
       if (child instanceof Node) {
@@ -437,8 +446,10 @@
   const ProxyNodes = mutateSet(new WeakSet())
 
   const $ = node => {
-    if (typeof node === 'string') node = query(node)
-    else if (ProxyNodes(node)) return node
+    if (ProxyNodes(node)) return node
+    else if (typeof node === 'string') {
+      node = query(node)
+    }
     if (ProxiedNodes.has(node)) return ProxiedNodes.get(node)
     if (!isNode(node)) throw new TypeError(`$ needs a Node: ${node}`)
 
@@ -611,16 +622,19 @@
     }
 
     if (children.length) {
+      const dfrag = frag()
       for (let i = 0; i < children.length; i++) {
         let child = children[i]
         if (child instanceof Function) child = child(el)
         if (child instanceof Node) {
-          el.appendChild(child)
-        } else if (isArr(child)) vpend(child, el)
-        else if (child !== UNDEF) {
-          el.appendChild(new Text(child))
+          dfrag.appendChild(child)
+        } else if (isArr(child)) {
+          vpend(child, el, 'appendChild', dfrag, true)
+        } else if (child !== UNDEF) {
+          dfrag.appendChild(new Text(child))
         }
       }
+      el.appendChild(dfrag)
     }
     return el
   })
@@ -633,11 +647,14 @@
 
     const proxied = $(el)
     if (el.nodeType !== 3) {
-      if (opts instanceof Function) {
+      if (ProxyNodes(opts) && opts !== proxied) {
+        children.unshift(opts(proxied))
+      } else if (opts instanceof Function) {
         const result = opts.call(el, proxied)
         if (result !== el && result !== proxied) opts = result
+      } else if (isRenderable(opts)) {
+        children.unshift(opts)
       }
-      if (isRenderable(opts)) children.unshift(opts)
       if (children.length) attach(el, 'appendChild', ...children)
     }
 
@@ -841,9 +858,7 @@
       if (isArr(obj)) {
         const args = Array.from(arguments).slice(1)
         if (args.every(isStr)) return sync.template(obj, ...args)
-      } else if (ProxyNodes(obj)) {
-        obj = obj()
-      }
+      } else if (ProxyNodes(obj)) obj = obj()
       const isinput = isInput(obj)
       if (isinput) [prop, key] = [key, 'value']
       if (!syncs.has(obj)) syncs.set(obj, new Map())
@@ -903,7 +918,12 @@
       return obj
     }
 
-    sync.text = infinify((prop, valid) => sync(new Text(), 'textContent', prop))
+    sync.text = new Proxy(
+      (prop, valid) => sync(new Text(), 'textContent', prop),
+      {
+        get: (fn, prop) => fn(prop)
+      }
+    )
 
     sync.template = (strings, ...keys) => flatten(
       keys.reduce(
