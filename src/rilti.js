@@ -868,6 +868,7 @@
         [action, prop] = prop.split(':')
         var valid = action === 'valid'
         var iscomputed = action === 'compute'
+        if (valid) action = 'validate'
       }
 
       syncs
@@ -919,7 +920,7 @@
     }
 
     sync.text = new Proxy(
-      (prop, valid) => sync(new Text(), 'textContent', prop),
+      prop => sync(new Text(), 'textContent', prop),
       {
         get: (fn, prop) => fn(prop)
       }
