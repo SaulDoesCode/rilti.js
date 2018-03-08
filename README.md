@@ -557,9 +557,9 @@ but **if you want 10000 table elements quick and dirty use ``rilti.fastdom``**
     console.log(`That took ${performance.now() - start}ms`)
   }
 
-  riltiGoFast(); // -> this usually takes ~1394ms on my i5 machine
+  riltiGoFast(); // -> this usually takes ~720ms on my i5 machine
   document.body.textContent = ''
-  riltiGoFast(false); // -> this usually takes ~ 7856ms on my i5 machine
+  riltiGoFast(false); // -> this usually takes ~ 1364ms on my i5 machine
 </script>
 ```
 
