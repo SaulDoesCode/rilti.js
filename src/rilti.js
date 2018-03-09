@@ -37,13 +37,17 @@
     return false
   }
 
+  const compose = (...fns) => fns.reduce((a, b) => (...args) => a(b(...args)))
+
   const curry = (fn, arity = fn.length, ...args) => (
     arity <= args.length ? fn(...args) : curry.bind(UNDEF, fn, arity, ...args)
   )
 
   const flatten = (arr, result = [], encaptulate = true) => {
     if (encaptulate && !isArr(arr)) return [arr]
-    arr.forEach(val => isArr(val) ? flatten(val, result) : result.push(val))
+    for (var i = 0; i < arr.length; i++) {
+      isArr(arr[i]) ? flatten(arr[i], result) : result.push(arr[i])
+    }
     return result
   }
 
@@ -68,7 +72,7 @@
         iterable.forEach(fn)
       } else if (isInt(iterable)) {
         let i = 0
-        while (i !== iterable) fn(i++, iterable)
+        while (i <= iterable) fn(i++, iterable)
       }
     }
     return iterable
@@ -91,9 +95,10 @@
   const EventManager = curry((once, target, type, handle, options = false) => {
     if (isStr(target)) target = query(target)
     if (isObj(type)) {
-      return each(type, (fn, name) => {
-        type[name] = EventManager(once, target, name, fn, options)
-      })
+      for (const name in type) {
+        type[name] = EventManager(once, target, name, type[name], options)
+      }
+      return type
     }
     if (!isFunc(handle)) return EventManager.bind(UNDEF, once, target, type)
 
@@ -271,29 +276,30 @@
 
   // vpend - virtual append, add nodes and get them as a document fragment
   const vpend = (children, host, connector = 'appendChild', dfrag = frag(), noHostAppend) => {
-    for (var i = 0; i < children.length;) {
+    for (var i = 0; i < children.length; i++) {
       let child = children[i]
       if (child instanceof Function) {
-        child = child(host)
-        const isfn = child instanceof Function
-        if (child === host || (isfn && child() === host)) {
-          child = UNDEF
-          i++
-          continue
-        } else if (isfn) {
+        if ((child = child(host)) === host) continue
+        else if (child instanceof Function) {
           let lvl = 0
-          while (child instanceof Function && lvl !== 25) {
+          let ishost = false
+          while (child instanceof Function && lvl < 25) {
             child = child()
+            if ((ishost = child === host)) break
             lvl++
           }
+          if (ishost) continue
         }
       }
-      if (typeof child === 'string') child = new Text(child)
-      else if (isArr(child)) child = vpend(child, host, connector, dfrag, true)
+      if (typeof child === 'string') {
+        if (!child.length) continue
+        child = new Text(child)
+      } else if (isArr(child)) {
+        child = vpend(child, host, connector, dfrag, true)
+      }
       if (child instanceof Node) {
         dfrag.appendChild(child)
         MNT(child)
-        i++
       }
     }
     if (host && !noHostAppend) {
@@ -306,9 +312,8 @@
   const prime = (...nodes) => {
     for (let i = 0; i < nodes.length; i++) {
       let n = nodes[i]
-      if (n instanceof Node || n instanceof Function) {
-        continue
-      } else if (isPrimitive(n)) {
+      if (n instanceof Node || n instanceof Function) continue
+      else if (isPrimitive(n)) {
         nodes[i] = new Text(n)
         continue
         // n = document.createRange().createContextualFragment(n).childNodes
@@ -338,7 +343,7 @@
         nodes.splice.apply(nodes, n)
         n.slice(2, 0)
         i += nlen
-      } else {
+      } else if (isDef(n)) {
         throw new Error(`illegal renderable: ${n}`)
       }
     }
@@ -383,7 +388,9 @@
       return node
     },
     class (node, c, state = !node.classList.contains(c)) {
-      if (isArr(node)) return node.forEach(n => domfn.class(n, c, state))
+      if (isArr(node)) {
+        for (let i = 0; i < node.length; i++) domfn.class(node[i], c, state)
+      }
       if (isObj(c)) {
         for (const className in c) {
           domfn.class(
@@ -423,7 +430,7 @@
       })
       return node
     },
-    attrToggle (node, name, state = !node.hasAttribute(name), val = node.getAttribute(name)) {
+    attrToggle (node, name, state = !node.hasAttribute(name), val = node.getAttribute(name) || '') {
       node[state ? 'setAttribute' : 'removeAttribute'](name, val)
       attributeChange(node, name, state ? val : null, state ? null : val, state)
       return node
@@ -452,19 +459,14 @@
 
   const $ = node => {
     if (ProxyNodes(node)) return node
-    else if (typeof node === 'string') {
-      node = query(node)
-    }
+    if (typeof node === 'string') node = query(node)
     if (ProxiedNodes.has(node)) return ProxiedNodes.get(node)
     if (!isNode(node)) throw new TypeError(`$ needs a Node: ${node}`)
 
     const Class = new Proxy(domfn.class.bind(UNDEF, node), {
       get: (fn, key) => node.classList.contains(key),
       set: (fn, key, val) => fn(key, val),
-      deleteProperty (_, key) {
-        node.classList.remove(key)
-        return true
-      }
+      deleteProperty: (_, key) => !!node.classList.remove(key)
     })
 
     const Attr = new Proxy(domfn.attr.bind(UNDEF, node), {
@@ -523,7 +525,7 @@
         else if (key === 'css') domfn.css(node, val)
         else if (key === 'txt') node[textContent] = val
         else if (key === 'html' || key === 'children') {
-          if (isStr(val) && node[innerHTML] !== val) {
+          if (isStr(val)) {
             node[innerHTML] = val
           } else {
             node[textContent] = ''
@@ -545,7 +547,9 @@
 
   const components = new Map()
   const component = (tagName, config) => {
-    if (!tagName.includes('-')) throw new Error(`component: ${tagName} tagName is un-hyphenated`)
+    if (!tagName.includes('-')) {
+      throw new Error(`component: ${tagName} tagName is un-hyphenated`)
+    }
     components.set(tagName.toUpperCase(), config)
     run(() => queryEach(tagName, updateComponent))
     return dom[tagName]
@@ -823,6 +827,7 @@
   const Models = mutateSet(new WeakSet())
 
   const model = (data, mitter = emitter(), store = new Map()) => {
+    let Model
     const {emit, emitAsync, on, once} = mitter
 
     const del = (key, silent) => {
@@ -845,8 +850,10 @@
         for (const k in key) {
           isNil(key[k]) ? del(k, val) : mut(k, key[k], val)
         }
+        return Model
       } else if (isArr(key)) {
-        key.forEach(([k, v]) => mut(k, v, val))
+        for (var i = 0; i < key.length; i++) mut(key[i][0], key[i][1], val)
+        return Model
       } else {
         const oldval = store.get(key)
         if (isDef(val) && val !== oldval) {
@@ -945,9 +952,7 @@
 
     sync.text = new Proxy(
       prop => sync(new Text(), 'textContent', prop),
-      {
-        get: (fn, prop) => fn(prop)
-      }
+      {get: (fn, prop) => fn(prop)}
     )
 
     sync.template = (strings, ...keys) => flatten(
@@ -995,10 +1000,9 @@
     const compute = new Proxy(function (key, computation) {
       if (isFunc(computation)) computed.set(key, computation)
       else if (isStr(computation)) {
-        const args = Array.from(arguments)
-        if (args.every(isStr)) {
+        if (allare(arguments, isStr)) {
           const result = {}
-          args.forEach(key => {
+          each(arguments, key => {
             result[key] = compute(key)
           })
           return result
@@ -1013,9 +1017,7 @@
           computeProp.result = result
         }
         return result
-      } else {
-        if (isObj(key)) each(key, (v, k) => compute(k, v))
-      }
+      } else if (isObj(key)) each(key, (v, k) => compute(k, v))
     }, {
       get: (fn, key) => fn(key),
       set: (fn, key, computation) => fn(key, computation)
@@ -1032,12 +1034,14 @@
           store.set(key, val)
         }
       })
+      return Model
     }
 
     const filter = fn => {
       store.forEach((val, key) => {
         !fn(val, key) && store.delete(key)
       })
+      return Model
     }
 
     // merge data into the store Map (or Map-like) object
@@ -1047,7 +1051,7 @@
       mut(data, true)
     }
 
-    const Model = new Proxy(
+    Model = new Proxy(
       Object.assign(
         mut,
         mitter,
@@ -1103,6 +1107,7 @@
     attributeObserver,
     flatten,
     curry,
+    compose,
     components,
     component,
     run,
