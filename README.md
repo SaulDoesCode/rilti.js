@@ -174,7 +174,7 @@ const state = model({count: 0})
 
 div(
   {render: 'body'},// append to <body> on load
-  h1(state.sync.text.count),// same as: state.sync.count()
+  h1(state.sync.count),// state.count -> h1.textContent
   button({onclick: e => ++state.count}, '+'),
   button({onclick: e => --state.count}, '-')
 )
@@ -540,9 +540,9 @@ but **if you want 10000 table elements quick and dirty use ``rilti.fastdom``**
       css: {
         background:'#fff',
         width:'110px',
+        height:'110px',
         color: 'dimgrey',
         textAlign: 'center',
-        height:'110px',
         margin:'5px',
         padding:'4px',
         float:'left',

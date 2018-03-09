@@ -496,13 +496,20 @@
         else if (key === 'html') return node[innerHTML]
         else if (key === 'on') return on
         else if (key === 'once') return once
-        else if (key === 'emit') return emit.bind(node, node)
-        else if (key === 'mounted') return isMounted(node)
+        else if (key === 'emit') {
+          emit.bind(node, node)
+          return proxy
+        } else if (key === 'mounted') return isMounted(node)
         else if (key === 'render') return render.bind(node, node)
         else if (key === 'children') return Array.from(node.children)
         else if (key === '$children') return Array.from(node.children).map($)
         else if (key === 'parent' && node.parentNode) return $(node.parentNode)
-        else if (key in domfn) return domfn[key].bind(node, node)
+        else if (key in domfn) {
+          return (...args) => {
+            const result = domfn[key](node, ...args)
+            return result !== node ? result : proxy
+          }
+        }
         return isFunc(node[key]) && !ProxyNodes(node[key]) && !Models(node[key]) ? node[key].bind(node) : node[key]
       },
       set (_, key, val) {
@@ -901,8 +908,20 @@
       })
       return obj
     }, {
-      get: (fn, prop) =>
-      Reflect.has(fn, prop) ? Reflect.get(fn, prop) : (obj, key = prop, valid) => isNil(obj) ? sync.text(prop) : fn(obj, key, prop, valid)
+      get (fn, prop) {
+        if (Reflect.has(fn, prop)) {
+          return Reflect.get(fn, prop)
+        } else {
+          return (obj, key) => {
+            if (isNil(obj)) return sync.text(prop)
+            else if (isNil(key)) {
+              if (ProxyNodes(obj)) obj = obj()
+              key = isNode(obj) && !isInput(obj) ? 'textContent' : prop
+            }
+            return fn(obj, key, prop)
+          }
+        }
+      }
     })
 
     sync.stop = (obj, prop) => {
