@@ -20,7 +20,10 @@
   const isPromise = o => typeof o === 'object' && isFunc(o.then)
   const isRegExp = o => o instanceof RegExp
   const isEl = o => o instanceof Element
-  const isInput = o => o instanceof HTMLInputElement || o instanceof HTMLTextAreaElement
+  const isInput = o => {
+    if (ProxyNodes(o)) o = o()
+    return o instanceof HTMLInputElement || o instanceof HTMLTextAreaElement
+  }
   const isEmpty = o => isNil(o) || !((isObj(o) ? Object.keys(o) : o).length || o.size)
   const isRenderable = o => o instanceof Node || ProxyNodes(o) || isPrimitive(o) || allare(o, isRenderable)
 
@@ -668,7 +671,8 @@
       } else if (opts instanceof Function) {
         const result = opts.call(el, proxied)
         opts = result !== el && result !== proxied ? result : UNDEF
-      } else if (isRenderable(opts)) {
+      }
+      if (isRenderable(opts)) {
         children.unshift(opts)
       }
       if (children.length) attach(el, 'appendChild', ...children)
@@ -889,7 +893,6 @@
         var iscomputed = action === 'compute'
         if (valid) action = 'validate'
       }
-
       syncs
       .get(obj)
       .set(
