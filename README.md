@@ -174,7 +174,8 @@ const state = model({count: 0})
 
 div(
   {render: 'body'},// append to <body> on load
-  h1(state.sync.count),// state.count -> h1.textContent
+  h1(state.sync.count),
+  // ^- state.count -> $(h1).children = count
   button({onclick: e => ++state.count}, '+'),
   button({onclick: e => --state.count}, '-')
 )
