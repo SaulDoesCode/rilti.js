@@ -1,4 +1,4 @@
-{ /* global Node Text NodeList Element CustomEvent MutationObserver HTMLInputElement HTMLTextAreaElement */
+{ /* global Node Text NodeList Element CustomEvent MutationObserver HTMLInputElement HTMLTextAreaElement define */
   const UNDEF = void 0
 
   const isArr = Array.isArray
@@ -275,9 +275,14 @@
       let child = children[i]
       if (child instanceof Function) {
         child = child(host)
-        if (child instanceof Function) {
+        const isfn = child instanceof Function
+        if (child === host || (isfn && child() === host)) {
+          child = UNDEF
+          i++
+          continue
+        } else if (isfn) {
           let lvl = 0
-          while (child instanceof Function && lvl !== 20) {
+          while (child instanceof Function && lvl !== 25) {
             child = child()
             lvl++
           }
@@ -658,7 +663,7 @@
         children.unshift(opts(proxied))
       } else if (opts instanceof Function) {
         const result = opts.call(el, proxied)
-        if (result !== el && result !== proxied) opts = result
+        opts = result !== el && result !== proxied ? result : UNDEF
       } else if (isRenderable(opts)) {
         children.unshift(opts)
       }
@@ -865,7 +870,7 @@
       if (isArr(obj)) {
         const args = Array.from(arguments).slice(1)
         if (args.every(isStr)) return sync.template(obj, ...args)
-      } else if (ProxyNodes(obj)) obj = obj()
+      } else if (ProxyNodes(obj) && key !== 'html') obj = obj()
       const isinput = isInput(obj)
       if (isinput) [prop, key] = [key, 'value']
       if (!syncs.has(obj)) syncs.set(obj, new Map())
@@ -914,9 +919,9 @@
         } else {
           return (obj, key) => {
             if (isNil(obj)) return sync.text(prop)
-            else if (isNil(key)) {
-              if (ProxyNodes(obj)) obj = obj()
-              key = isNode(obj) && !isInput(obj) ? 'textContent' : prop
+            else if (isNil(key) && !isInput(obj)) {
+              if (isNode(obj)) obj = $(obj)
+              if (ProxyNodes(obj)) key = 'html'
             }
             return fn(obj, key, prop)
           }
