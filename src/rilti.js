@@ -929,6 +929,8 @@
             else if (isNil(key) && !isInput(obj)) {
               if (isNode(obj)) obj = $(obj)
               if (ProxyNodes(obj)) key = 'html'
+            } else {
+              key = prop
             }
             return fn(obj, key, prop)
           }
