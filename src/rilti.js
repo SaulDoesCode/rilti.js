@@ -677,18 +677,6 @@
     if (iscomponent) var componentHandled
 
     const proxied = $(el)
-    if (el.nodeType !== 3) {
-      if (ProxyNodes(opts) && opts !== proxied) {
-        children.unshift(opts(proxied))
-      } else if (opts instanceof Function) {
-        const result = opts.call(el, proxied)
-        opts = result !== el && result !== proxied ? result : UNDEF
-      }
-      if (isRenderable(opts)) {
-        children.unshift(opts)
-      }
-      if (children.length) attach(el, 'appendChild', ...children)
-    }
 
     if (isObj(opts)) {
       var pure = opts.pure
@@ -738,6 +726,19 @@
       if (renderHost) attach(renderHost, 'appendChild', el)
       else if (opts.renderAfter) attach(opts.renderAfter, 'after', el)
       else if (opts.renderBefore) attach(opts.renderBefore, 'before', el)
+    }
+
+    if (el.nodeType !== 3) {
+      if (ProxyNodes(opts) && opts !== proxied) {
+        children.unshift(opts(proxied))
+      } else if (opts instanceof Function) {
+        const result = opts.call(el, proxied)
+        opts = result !== el && result !== proxied ? result : UNDEF
+      }
+      if (isRenderable(opts)) {
+        children.unshift(opts)
+      }
+      if (children.length) attach(el, 'appendChild', ...children)
     }
 
     iscomponent ? !componentHandled && updateComponent(el, UNDEF) : CR(el, true, iscomponent)
@@ -895,8 +896,10 @@
         const args = Array.from(arguments).slice(1)
         if (args.every(isStr)) return sync.template(obj, ...args)
       } else if (ProxyNodes(obj) && key !== 'html') obj = obj()
-      const isinput = isInput(obj)
-      if (isinput) [prop, key] = [key, 'value']
+      let isinput = isInput(obj) || obj.isContentEditable
+      if (isinput) {
+        [prop, key] = [key, obj.isContentEditable ? 'innerText' : 'value']
+      }
       if (!syncs.has(obj)) syncs.set(obj, new Map())
 
       let action = 'set'
@@ -906,13 +909,16 @@
         var iscomputed = action === 'compute'
         if (valid) action = 'validate'
       }
+
       syncs
       .get(obj)
       .set(
         prop,
         on(
           action + ':' + prop,
-          val => { obj[key] = val }
+          val => {
+            if (!isinput || obj[key] !== val) obj[key] = val
+          }
         )
       )
 
@@ -942,11 +948,13 @@
         } else {
           return (obj, key) => {
             if (isNil(obj)) return sync.text(prop)
-            else if (isNil(key) && !isInput(obj)) {
-              if (isNode(obj)) obj = $(obj)
-              if (ProxyNodes(obj)) key = 'html'
-            } else {
-              key = prop
+            if (isNil(key)) {
+              if (!isInput(obj) && !obj.isContentEditable) {
+                if (isNode(obj)) obj = $(obj)
+                if (ProxyNodes(obj)) key = 'html'
+              } else {
+                key = prop
+              }
             }
             return fn(obj, key, prop)
           }
