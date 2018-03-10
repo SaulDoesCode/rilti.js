@@ -865,13 +865,7 @@
     const has = key => store.has(key)
 
     const mut = (key, val, silent) => {
-      if (isObj(key)) {
-        for (const k in key) {
-          isNil(key[k]) ? del(k, val) : mut(k, key[k], val)
-        }
-      } else if (isArr(key)) {
-        for (var i = 0; i < key.length; i++) mut(key[i][0], key[i][1], val)
-      } else {
+      if (typeof key === 'string') {
         const oldval = store.get(key)
         if (isDef(val) && val !== oldval) {
           store.set(key, val)
@@ -886,6 +880,12 @@
           emit('get:' + key)
         }
         return oldval
+      } else if (isObj(key)) {
+        for (const k in key) {
+          isNil(key[k]) ? del(k, val) : mut(k, key[k], val)
+        }
+      } else if (isArr(key)) {
+        for (var i = 0; i < key.length; i++) mut(key[i][0], key[i][1], val)
       }
       return Model
     }
@@ -917,7 +917,7 @@
         on(
           action + ':' + prop,
           val => {
-            if (!isinput || obj[key] !== val) obj[key] = val
+            if (!isinput || obj[key].trim() !== val) obj[key] = val
           }
         )
       )
