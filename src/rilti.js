@@ -439,10 +439,22 @@
       return node
     },
     emit,
-    append: (node, ...children) => attach(node, 'append', ...children),
-    prepend: (node, ...children) => attach(node, 'prepend', ...children),
-    appendTo: (node, host) => attach(host, 'append', node),
-    prependTo: (node, host) => attach(host, 'prepend', node),
+    append (node, ...children) {
+      attach(node, 'append', ...children)
+      return node
+    },
+    prepend (node, ...children) {
+      attach(node, 'prepend', ...children)
+      return node
+    },
+    appendTo (node, host) {
+      attach(host, 'append', node)
+      return node
+    },
+    prependTo (node, host) {
+      attach(host, 'prepend', node)
+      return node
+    },
     clear (node) {
       node[isInput(node) ? 'value' : 'innerHTML'] = ''
       return node
@@ -532,7 +544,7 @@
             node[innerHTML] = val
           } else {
             node[textContent] = ''
-            vpend(isArr(val) ? prime(val) : html(val), node)
+            vpend(prime(val), node)
           }
         } else {
           node[key] = val
@@ -834,9 +846,11 @@
     let Model
     const {emit, emitAsync, on, once} = mitter
 
-    const del = (key, silent) => {
-      if (isArr(key)) {
-        key.forEach(k => del(k, silent))
+    function del (key, silent) {
+      if (isStr(silent) && allare(arguments, isStr)) {
+        for (var i = 0; i < arguments.length; i++) {
+          del(arguments[i], silent)
+        }
       } else {
         store.delete(key)
         if (!silent) {
@@ -854,10 +868,8 @@
         for (const k in key) {
           isNil(key[k]) ? del(k, val) : mut(k, key[k], val)
         }
-        return Model
       } else if (isArr(key)) {
         for (var i = 0; i < key.length; i++) mut(key[i][0], key[i][1], val)
-        return Model
       } else {
         const oldval = store.get(key)
         if (isDef(val) && val !== oldval) {
@@ -874,6 +886,7 @@
         }
         return oldval
       }
+      return Model
     }
 
     const syncs = new Map()
@@ -945,7 +958,7 @@
       if (has(obj)) {
         const syncedProps = syncs.get(obj)
         if (!prop) {
-          syncedProps.forEach(ln => ln.off()).clear()
+          each(syncedProps, ln => ln.off()).clear()
         } else if (syncedProps.has(prop)) {
           syncedProps.get(prop).off()
           syncedProps.delete(prop)
