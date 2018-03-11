@@ -456,7 +456,7 @@
       return node
     },
     clear (node) {
-      node[isInput(node) ? 'value' : 'innerHTML'] = ''
+      node[isInput(node) ? 'value' : 'textContent'] = ''
       return node
     },
     remove (node, after) {
@@ -468,6 +468,7 @@
       return node
     }
   }
+  domfn.empty = domfn.clear
 
   const ProxiedNodes = new Map()
   const ProxyNodes = mutateSet(new WeakSet())
@@ -478,13 +479,19 @@
     if (ProxiedNodes.has(node)) return ProxiedNodes.get(node)
     if (!isNode(node)) throw new TypeError(`$ needs a Node: ${node}`)
 
-    const Class = new Proxy(domfn.class.bind(UNDEF, node), {
+    const Class = new Proxy((...args) => {
+      domfn.class(node, ...args)
+      return proxy
+    }, {
       get: (fn, key) => node.classList.contains(key),
       set: (fn, key, val) => fn(key, val),
       deleteProperty: (_, key) => !!node.classList.remove(key)
     })
 
-    const Attr = new Proxy(domfn.attr.bind(UNDEF, node), {
+    const Attr = new Proxy((attr, val) => {
+      const result = domfn.attr(node, attr, val)
+      return result === node ? proxy : result
+    }, {
       get (fn, key) {
         if (key === 'has') return attr => node.hasAttribute(attr)
         if (key === 'remove' || key === 'rm') return domfn.removeAttribute.bind(UNDEF, node)
@@ -529,7 +536,7 @@
         else if (key in domfn) {
           return (...args) => {
             const result = domfn[key](node, ...args)
-            return result !== node ? result : proxy
+            return result === node || result === proxy ? proxy : result
           }
         }
         return isFunc(node[key]) && !ProxyNodes(node[key]) && !Models(node[key]) ? node[key].bind(node) : node[key]
