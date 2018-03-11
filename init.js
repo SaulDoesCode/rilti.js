@@ -31,7 +31,6 @@ app.get('/', (req, res) => {
 
 app.use(express.static('./', {
   dotfiles: 'ignore',
-  maxAge: 0,
   redirect: true,
   setHeaders (res, path, stat) {
     res.set('Access-Control-Allow-Origin', '*')

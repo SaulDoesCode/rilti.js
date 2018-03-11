@@ -43,6 +43,7 @@
     "babel-minify": "^0.2.0",
     "babel-preset-minify": "^0.2.0",
     "chokidar": "^2.0.2",
+    "express": "^4.16.2",
     "standard": "^10.0.3"
   }
 }
