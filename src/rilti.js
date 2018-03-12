@@ -1,6 +1,8 @@
-{ /* global Node Text NodeList Element CustomEvent MutationObserver HTMLInputElement HTMLTextAreaElement define */
+{ /* global Node NodeList Element SVGElement Text CustomEvent MutationObserver HTMLInputElement HTMLTextAreaElement define */
   const UNDEF = void 0
+  const ns = 'http://www.w3.org/2000/svg'
 
+  // isThis(that) -> bool
   const isArr = Array.isArray
   const isNil = o => o === UNDEF || o === null
   const isDef = o => o !== UNDEF && o !== null
@@ -16,6 +18,10 @@
   const isPrimitive = o => {
     o = typeof o
     return o === 'string' || o === 'number' || o === 'boolean'
+  }
+  const isSvg = o => {
+    if (ProxyNodes(o)) o = o()
+    return o instanceof SVGElement
   }
   const isPromise = o => typeof o === 'object' && isFunc(o.then)
   const isRegExp = o => o instanceof RegExp
@@ -404,9 +410,11 @@
         }
       } else {
         if (isStr(c)) c = c.split(' ')
-        isArr(c) && c.forEach(cl => {
-          node.classList[(isBool(state) ? state : !node.classList.contains(cl)) ? 'add' : 'remove'](cl)
-        })
+        if (isArr(c)) {
+          for (var i = 0; i < c.length; i++) {
+            node.classList[(isBool(state) ? state : !node.classList.contains(c[i])) ? 'add' : 'remove'](c[i])
+          }
+        }
       }
       return node
     },
@@ -419,18 +427,19 @@
           attributeChange(node, a, UNDEF, attr[a], !present)
         }
       } else if (isStr(attr)) {
-        if (isNil(val)) return node.getAttribute(attr)
         const old = node.getAttribute(attr)
+        if (isNil(val)) return old
         node.setAttribute(attr, val)
         attributeChange(node, attr, old, val)
       }
       return node
     },
     removeAttribute (node, ...attrs) {
-      flatten(attrs).forEach(attr => {
-        node.removeAttribute(attr)
-        attributeChange(node, attr, UNDEF, UNDEF, false)
-      })
+      attrs = flatten(attrs)
+      for (var i = 0; i < attrs.length; i++) {
+        node.removeAttribute(attrs[i])
+        attributeChange(node, attrs[i], UNDEF, UNDEF, false)
+      }
       return node
     },
     attrToggle (node, name, state = !node.hasAttribute(name), val = node.getAttribute(name) || '') {
@@ -488,21 +497,21 @@
       deleteProperty: (_, key) => !!node.classList.remove(key)
     })
 
+    const getAttr = node.getAttribute.bind(node)
+    const hasAttr = node.hasAttribute.bind(node)
+    const rmAttr = domfn.removeAttribute.bind(UNDEF, node)
+
     const Attr = new Proxy((attr, val) => {
       const result = domfn.attr(node, attr, val)
       return result === node ? proxy : result
     }, {
       get (fn, key) {
-        if (key === 'has') return attr => node.hasAttribute(attr)
-        if (key === 'remove' || key === 'rm') return domfn.removeAttribute.bind(UNDEF, node)
-        return node.getAttribute(key)
+        if (key === 'has') return hasAttr
+        if (key === 'remove' || key === 'rm') return rmAttr
+        return getAttr(key)
       },
       set (fn, key, val) {
-        if (key === 'remove') {
-          domfn.removeAttribute(node, val)
-        } else {
-          fn(key, val)
-        }
+        key === 'remove' ? rmAttr(val) : fn(key, val)
         return true
       },
       deleteProperty: (_, key) => domfn.removeAttribute(node, key)
@@ -525,10 +534,8 @@
         else if (key === 'html') return node[innerHTML]
         else if (key === 'on') return on
         else if (key === 'once') return once
-        else if (key === 'emit') {
-          emit.bind(node, node)
-          return proxy
-        } else if (key === 'mounted') return isMounted(node)
+        else if (key === 'emit') return emit.bind(UNDEF, node)
+        else if (key === 'mounted') return isMounted(node)
         else if (key === 'render') return render.bind(node, node)
         else if (key === 'children') return Array.from(node.children)
         else if (key === '$children') return Array.from(node.children).map($)
@@ -625,15 +632,21 @@
     return dom(new Text(txt), options)
   }
 
-  const ns = 'http://www.w3.org/2000/svg'
-  const svg = new Proxy((...args) => dom(
-    document.createElementNS(ns, 'svg'),
-    ...args
-  ), {
-    get: (_, tag) => (...args) => dom(
-      document.createElementNS(ns, tag),
-      ...args
-    )
+  const reserved = ['$', 'render', 'children', 'html', 'class', 'className']
+  const svgEL = (tag, opts, ...children) => {
+    const el = document.createElementNS(ns, tag)
+    if (isObj(opts)) {
+      for (const key in opts) {
+        if (isPrimitive(opts[key]) && !reserved.includes(key) && !(key in domfn)) {
+          el.setAttribute(key, opts[key])
+          delete opts[key]
+        }
+      }
+    }
+    return dom(el, opts, ...children)
+  }
+  const svg = new Proxy(svgEL.bind(UNDEF, 'svg'), {
+    get: (_, tag) => svgEL.bind(UNDEF, tag)
   })
 
   const fastdom = infinify(function (tag, opts) {
@@ -1137,6 +1150,7 @@
     isInput,
     isEmpty,
     isEl,
+    isSvg,
     attributeObserver,
     flatten,
     curry,

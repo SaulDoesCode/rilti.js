@@ -13,7 +13,7 @@ Feel free to fork or raise issues. Constructive criticism is always welcome
 
 ## features
 * elm-like ideas about architecture
-* mostly declarative programming style
+* flexible declarative programming style
 * node lifecycle hooks
 * observe attributes
 * models with data binding, validation, events & sync/async accessors
@@ -26,7 +26,7 @@ Feel free to fork or raise issues. Constructive criticism is always welcome
 * powerful emitter system (pub/sub with proxy magic)
 * no classes, no this, no extra fuzz, functional positive
 * no old javascript, we use modern features like Proxy
-* a gziped rilti.min.js weighs > 6kb
+* a gziped rilti.min.js weighs > 7kb
 
 
 To use rilti just download **/dist/rilti.min.js** and pop it in a script tag. **If you have any issues just tell me, I'm on it.**
