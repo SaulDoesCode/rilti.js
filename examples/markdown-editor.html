@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>rilti.js markdown-editor</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="/src/rilti.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/0.3.17/marked.min.js"></script>
+<script>
+  const {dom: {div, h3, label, textarea, section, p}, model} = rilti
+
+  // Model
+  const state = model({md: '** type some markdown... **'})
+
+  state.compute.md = () => marked(state.md || ' ')
+  state.on['set:md'](() => state.compute('md'))
+
+  // View
+  section({render: 'body', class: 'markdown-editor'},
+    div(
+      h3('input:'),
+      p({contentEditable: true}, state.sync.md)
+    ),
+    div(
+      h3('output:'),
+      div(state.sync['compute:md'])
+    )
+  )
+</script>
+  </head>
+  <body>
+<style>
+* {
+  position: relative;
+  box-sizing: border-box;
+}
+body {
+  font-family: Nunito, Verduna, Helvetica, Roboto, sans-serif;
+  color: hsl(0,0%,30%);
+  background: hsl(0,0%,25%);
+}
+.markdown-editor {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-content: center;
+  align-items: flex-start;
+  flex-flow: row wrap;
+  overflow: visible;
+  height: calc(100vh - 50px);
+  padding: 20px;
+}
+.markdown-editor > div {
+  flex: 1 1 auto;
+  min-height: 100%;
+  margin: 0 15px;
+  padding: 5px 10px;
+  border-radius: 0 0 4px 4px;
+  overflow: hidden;
+  background: #fff;
+  border-top: 2px solid hsl(349, 90%, 70%);
+  box-shadow: 0 2px 4px rgba(0,0,0,.1);
+}
+.markdown-editor > div > h3 {
+  color: hsl(349, 90%, 70%);
+  text-shadow: 0 1px 3px rgba(0,0,0,.1);
+  margin: 0 auto 5px auto;
+}
+.markdown-editor [contenteditable] {
+  outline: 0;
+}
+</style>
+  </body>
+</html>
