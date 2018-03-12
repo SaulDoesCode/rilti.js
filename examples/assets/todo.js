@@ -55,7 +55,7 @@
       },
       cycle: {
         create (el) {
-          if (!store.has(val)) store(val, done)
+          store(val, done)
           el.attrToggle('done', done)
         },
         unmount: el => store.del(val)
@@ -74,7 +74,7 @@
           accessors: {
             checked (el, checked) {
               if (!isDef(checked)) return el.class.checked
-              el.class({checked})
+              else el.class({checked})
             }
           }
         },
@@ -85,9 +85,9 @@
       render: 'body',
       class: 'maker',
       methods: {
-        make ({$children: [{clear, value}]}) {
-          if ((value = value.trim()).length && !store.has(value)) {
-            todo.new(value, false)
+        make ({$children: [{clear, txt}]}) {
+          if ((txt = txt.trim()).length && !store.has(txt)) {
+            todo.new(txt, false)
             clear().blur()
           }
         }
