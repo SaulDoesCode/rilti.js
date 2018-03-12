@@ -112,7 +112,7 @@
     if (!isFunc(handle)) return EventManager.bind(UNDEF, once, target, type)
 
     handle = handle.bind(target)
-    const proxiedTarget = isNode(target) ? $(target) : target
+    const proxiedTarget = isEl(target) ? $(target) : target
 
     const handler = evt => {
       handle(evt, proxiedTarget)
@@ -622,33 +622,6 @@
     return el
   }
 
-  const body = (...args) => {
-    render(args = prime(args))
-    return args.length > 1 ? args : args[0]
-  }
-
-  const text = (options, txt = '') => {
-    if (isPrimitive(options)) [txt, options] = [options, UNDEF]
-    return dom(new Text(txt), options)
-  }
-
-  const reserved = ['$', 'render', 'children', 'html', 'class', 'className']
-  const svgEL = (tag, opts, ...children) => {
-    const el = document.createElementNS(ns, tag)
-    if (isObj(opts)) {
-      for (const key in opts) {
-        if (isPrimitive(opts[key]) && !reserved.includes(key) && !(key in domfn)) {
-          el.setAttribute(key, opts[key])
-          delete opts[key]
-        }
-      }
-    }
-    return dom(el, opts, ...children)
-  }
-  const svg = new Proxy(svgEL.bind(UNDEF, 'svg'), {
-    get: (_, tag) => svgEL.bind(UNDEF, tag)
-  })
-
   const fastdom = infinify(function (tag, opts) {
     const el = typeof tag === 'string' ? document.createElement(tag) : tag
     let children = Array.prototype.slice.call(arguments, 2)
@@ -688,6 +661,33 @@
       el.appendChild(dfrag)
     }
     return el
+  })
+
+  const body = (...args) => {
+    render(args = prime(args))
+    return args.length > 1 ? args : args[0]
+  }
+
+  const text = (options, txt = '') => {
+    if (isPrimitive(options)) [txt, options] = [options, UNDEF]
+    return dom(new Text(txt), options)
+  }
+
+  const reserved = ['$', 'render', 'children', 'html', 'class', 'className']
+  const svgEL = (tag, opts, ...children) => {
+    const el = document.createElementNS(ns, tag)
+    if (isObj(opts)) {
+      for (const key in opts) {
+        if (isPrimitive(opts[key]) && !reserved.includes(key) && !(key in domfn)) {
+          el.setAttribute(key, opts[key])
+          delete opts[key]
+        }
+      }
+    }
+    return dom(el, opts, ...children)
+  }
+  const svg = new Proxy(svgEL.bind(UNDEF, 'svg'), {
+    get: (_, tag) => svgEL.bind(UNDEF, tag)
   })
 
   const dom = infinify(Object.assign((tag, opts, ...children) => {
