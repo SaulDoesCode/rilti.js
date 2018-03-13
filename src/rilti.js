@@ -160,15 +160,29 @@
   const emitter = (host = {}, listeners = new Map()) => Object.assign(host, {
     listeners,
     emit: infinify((event, ...data) => {
-      listeners.has(event) && listeners.get(event).forEach(h => h(...data))
+      if (listeners.has(event)) {
+        for (const h of listeners.get(event)) h.apply(undefined, data)
+      }
     }),
     emitAsync: infinify((event, ...data) => runAsync(() => {
-      listeners.has(event) && listeners.get(event).forEach(h => runAsync(h, ...data))
+      if (listeners.has(event)) {
+        for (const h of listeners.get(event)) runAsync(h, ...data)
+      }
     })),
     on: infinify((event, handler) => {
       if (!listeners.has(event)) listeners.set(event, new Set())
       listeners.get(event).add(handler)
-      return () => host.off(event, handler)
+      const manager = () => host.off(event, handler)
+      manager.off = manager
+      manager.on = () => {
+        manager()
+        return host.on(event, handler)
+      }
+      manager.once = () => {
+        manager()
+        return host.once(event, handler)
+      }
+      return manager
     }),
     once: infinify((event, handler) => host.on(event, function h () {
       handler(...arguments)
