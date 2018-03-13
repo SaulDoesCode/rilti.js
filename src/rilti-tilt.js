@@ -10,7 +10,7 @@
 {
   /* global rilti cancelAnimationFrame requestAnimationFrame */
   const NULL = null
-  const {isNode, isNodeList, isStr, domfn: {css}, fastdom: {div}, queryAll, each, on} = rilti
+  const {isNode, isNodeList, isStr, isFunc, domfn: {css}, fastdom: {div}, queryAll, each, on} = rilti
 
   const isSettingTrue = setting => setting === '' || setting === true || setting === 1
 
@@ -28,11 +28,12 @@
     reset: true
   }
 
-  var Tilt = (element, settings = defaultSettings) => {
+  var Tilt = (element, settings = {}) => {
     if (isStr(element)) element = queryAll(element)
 
-    if (settings !== defaultSettings) Object.assign(settings, defaultSettings)
+    settings = Object.assign(Object.create(defaultSettings), settings)
 
+    if (isFunc(element)) element = element()
     if (!isNode(element)) {
       if (isNodeList(element)) return each(element, el => Tilt(el, settings))
       throw new TypeError(`Tilt init error: ${element} isn't a Node.`)
@@ -48,7 +49,7 @@
     let event
     let updateCall
 
-    const reverse = settings.reverse ? -1 : 1
+    const reverse = !settings.reverse ? -1 : 1
     const glare = isSettingTrue(settings.glare)
 
     if (glare) {
@@ -180,10 +181,10 @@
   }
 
   const settingDecoder = (val, settings = {}) => {
-    if (isStr(val)) {
-      each(val.split(';'), setting => {
+    if (isStr(val) && val.length) {
+      val.split(';').filter(str => str.length).forEach(setting => {
         setting = setting.split(':')
-        settings[setting[0]] = setting[1] === 'true' ? true : setting[1] === 'false' ? false : setting[1]
+        settings[setting[0]] = setting[1].includes('true') ? true : setting[1].includes('false') ? false : setting[1]
       })
     }
     return settings
