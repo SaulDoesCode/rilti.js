@@ -410,23 +410,24 @@
       }
       return node
     },
-    class (node, c, state = !node.classList.contains(c)) {
+    class (node, c, state) {
       if (isArr(node)) {
         for (let i = 0; i < node.length; i++) domfn.class(node[i], c, state)
+        return node
       }
       if (isObj(c)) {
         for (const className in c) {
           domfn.class(
             node,
             className,
-            isBool(c[className]) ? c[className] : !node.classList.contains(className)
+            isBool(c[className]) ? c[className] : UNDEF
           )
         }
       } else {
         if (isStr(c)) c = c.split(' ')
         if (isArr(c)) {
           for (var i = 0; i < c.length; i++) {
-            node.classList[(isBool(state) ? state : !node.classList.contains(c[i])) ? 'add' : 'remove'](c[i])
+            node.classList[isBool(state) ? state ? 'add' : 'remove' : 'toggle'](c[i])
           }
         }
       }
@@ -694,7 +695,7 @@
       for (const key in opts) {
         if (isPrimitive(opts[key]) && !reserved.includes(key) && !(key in domfn)) {
           el.setAttribute(key, opts[key])
-          delete opts[key]
+          opts[key] = undefined
         }
       }
     }
@@ -704,7 +705,7 @@
     get: (_, tag) => svgEL.bind(UNDEF, tag)
   })
 
-  const dom = infinify(Object.assign((tag, opts, ...children) => {
+  const dom = new Proxy(Object.assign((tag, opts, ...children) => {
     const el = typeof tag === 'string' ? document.createElement(tag) : tag
 
     const iscomponent = components.has(el.tagName)
@@ -779,9 +780,17 @@
     return pure ? el : proxied
   }, {
     text, body, svg, frag, prime, html
-  }),
-    true
-  )
+  }), {
+    get: (dom, tag) => new Proxy(dom.bind(UNDEF, tag), {
+      get (el, className) {
+        return (...args) => {
+          el = el(...args)
+          el.class(className)
+          return el
+        }
+      }
+    })
+  })
 
   const Initiated = new Map()
   const beenInitiated = (attrName, el) => Initiated.has(attrName) && Initiated.get(attrName)(el)
