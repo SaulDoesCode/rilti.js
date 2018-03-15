@@ -783,11 +783,17 @@
   }), {
     get: (dom, tag) => new Proxy(dom.bind(UNDEF, tag), {
       get (el, className) {
-        return (...args) => {
+        const classes = [className.replace('_', '-')]
+        return new Proxy((...args) => {
           el = el(...args)
-          el.class(className)
+          domfn.class(el, classes)
           return el
-        }
+        }, {
+          get (_, anotherClass, proxy) {
+            classes.push(anotherClass.replace('_', '-'))
+            return proxy
+          }
+        })
       }
     })
   })
