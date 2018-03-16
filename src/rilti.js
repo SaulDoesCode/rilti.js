@@ -347,7 +347,7 @@
     if (host && !noHostAppend) {
       host[connector](dfrag)
       for (let i = 0; i < children.length; i++) {
-        children[i].dispatchEvent && MNT(children[i])
+        children[i] && children[i].dispatchEvent && MNT(children[i])
       }
     }
     return children
@@ -807,14 +807,14 @@
   }), {
     get: (dom, tag) => (tag in dom && Reflect.get(dom, tag)) || new Proxy(dom.bind(UNDEF, tag), {
       get (el, className) {
-        const classes = [className.replace('_', '-')]
+        const classes = [className.replace(/_/, '-')]
         return new Proxy((...args) => {
           el = el(...args)
           domfn.class(el(), classes)
           return el
         }, {
           get (_, anotherClass, proxy) {
-            classes.push(anotherClass.replace('_', '-'))
+            classes.push(anotherClass.replace(/_/, '-'))
             return proxy
           }
         })
