@@ -25,7 +25,7 @@
   }
   const isPromise = o => typeof o === 'object' && isFunc(o.then)
   const isRegExp = o => o instanceof RegExp
-  const isEl = o => o instanceof Element
+  const isEl = o => o instanceof Element || (isFunc(o) && o() instanceof Element)
   const isInput = o => {
     if (ProxyNodes(o)) o = o()
     return o instanceof HTMLInputElement || o instanceof HTMLTextAreaElement
@@ -299,7 +299,7 @@
 
   // vpend - virtual append, add nodes and get them as a document fragment
   const vpend = (children, host, connector = 'appendChild', dfrag = frag(), noHostAppend) => {
-    for (var i = 0; i < children.length; i++) {
+    for (let i = 0; i < children.length; i++) {
       let child = children[i]
       if (child instanceof Function) {
         if ((child = child(host)) === host) continue
@@ -322,14 +322,14 @@
       }
       if (child instanceof Node) {
         dfrag.appendChild(child)
-        MNT(child)
+        children[i] = child
       }
     }
     if (host && !noHostAppend) {
       host[connector](dfrag)
-    } else {
-      return dfrag
+      for (let i = 0; i < children.length; i++) MNT(children[i])
     }
+    return children
   }
 
   const prime = (...nodes) => {
@@ -411,6 +411,7 @@
       return node
     },
     class (node, c, state) {
+      if (!node.classList) return node
       if (isArr(node)) {
         for (let i = 0; i < node.length; i++) domfn.class(node[i], c, state)
         return node
@@ -426,8 +427,9 @@
       } else {
         if (isStr(c)) c = c.split(' ')
         if (isArr(c)) {
+          const booleanState = isBool(state)
           for (var i = 0; i < c.length; i++) {
-            node.classList[isBool(state) ? state ? 'add' : 'remove' : 'toggle'](c[i])
+            node.classList[booleanState ? state ? 'add' : 'remove' : 'toggle'](c[i])
           }
         }
       }
@@ -512,25 +514,26 @@
       deleteProperty: (_, key) => !!node.classList.remove(key)
     })
 
-    const getAttr = node.getAttribute.bind(node)
-    const hasAttr = node.hasAttribute.bind(node)
-    const rmAttr = domfn.removeAttribute.bind(UNDEF, node)
-
-    const Attr = new Proxy((attr, val) => {
-      const result = domfn.attr(node, attr, val)
-      return result === node ? proxy : result
-    }, {
-      get (fn, key) {
-        if (key === 'has') return hasAttr
-        if (key === 'remove' || key === 'rm') return rmAttr
-        return getAttr(key)
-      },
-      set (fn, key, val) {
-        key === 'remove' ? rmAttr(val) : fn(key, val)
-        return true
-      },
-      deleteProperty: (_, key) => domfn.removeAttribute(node, key)
-    })
+    if (isEl(node)) {
+      var getAttr = node.getAttribute.bind(node)
+      var hasAttr = node.hasAttribute.bind(node)
+      var rmAttr = domfn.removeAttribute.bind(UNDEF, node)
+      var Attr = new Proxy((attr, val) => {
+        const result = domfn.attr(node, attr, val)
+        return result === node ? proxy : result
+      }, {
+        get (fn, key) {
+          if (key === 'has') return hasAttr
+          if (key === 'remove' || key === 'rm') return rmAttr
+          return getAttr(key)
+        },
+        set (fn, key, val) {
+          key === 'remove' ? rmAttr(val) : fn(key, val)
+          return true
+        },
+        deleteProperty: (_, key) => domfn.removeAttribute(node, key)
+      })
+    }
 
     const textContent = isInput(node) ? 'value' : 'textContent'
     const innerHTML = isInput(node) ? 'value' : node.nodeType === 3 ? textContent : 'innerHTML'
@@ -679,7 +682,7 @@
   })
 
   const body = (...args) => {
-    render(args = prime(args))
+    attach(document.body || 'body', 'appendChild', ...args)
     return args.length > 1 ? args : args[0]
   }
 
@@ -781,12 +784,12 @@
   }, {
     text, body, svg, frag, prime, html
   }), {
-    get: (dom, tag) => new Proxy(dom.bind(UNDEF, tag), {
+    get: (dom, tag) => (tag in dom && Reflect.get(dom, tag)) || new Proxy(dom.bind(UNDEF, tag), {
       get (el, className) {
         const classes = [className.replace('_', '-')]
         return new Proxy((...args) => {
           el = el(...args)
-          domfn.class(el, classes)
+          domfn.class(el(), classes)
           return el
         }, {
           get (_, anotherClass, proxy) {
