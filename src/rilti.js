@@ -794,9 +794,7 @@
         const result = opts.call(el, proxied)
         opts = result !== el && result !== proxied ? result : UNDEF
       }
-      if (isRenderable(opts)) {
-        children.unshift(opts)
-      }
+      if (isRenderable(opts)) children.unshift(opts)
       if (children.length) attach(el, 'appendChild', ...children)
     }
 
@@ -807,14 +805,14 @@
   }), {
     get: (dom, tag) => (tag in dom && Reflect.get(dom, tag)) || new Proxy(dom.bind(UNDEF, tag), {
       get (el, className) {
-        const classes = [className.replace(/_/, '-')]
+        const classes = [className.replace(/_/g, '-')]
         return new Proxy((...args) => {
           el = el(...args)
           domfn.class(el(), classes)
           return el
         }, {
           get (_, anotherClass, proxy) {
-            classes.push(anotherClass.replace(/_/, '-'))
+            classes.push(anotherClass.replace(/_/g, '-'))
             return proxy
           }
         })
