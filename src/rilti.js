@@ -1,4 +1,23 @@
-{ /* global Node NodeList Element SVGElement Text CustomEvent MutationObserver HTMLInputElement HTMLTextAreaElement define */
+{ /* global Node NodeList Element Document DocumentFragment SVGElement Text CustomEvent MutationObserver HTMLInputElement HTMLTextAreaElement define */
+  (arr => {
+    arr.forEach(item => {
+      if (item.hasOwnProperty('prepend')) return
+      Object.defineProperty(item, 'prepend', {
+        configurable: true,
+        enumerable: true,
+        writable: true,
+        value () {
+          const frag = document.createDocumentFragment()
+          Array.prototype.call().forEach(arg => {
+            var isNode = arg instanceof Node
+            frag.appendChild(isNode ? arg : new Text(String(arg)))
+          })
+          this.insertBefore(frag, this.firstChild)
+        }
+      })
+    })
+  })([Element.prototype, Document.prototype, DocumentFragment.prototype])
+
   const UNDEF = void 0
   const ns = 'http://www.w3.org/2000/svg'
 
@@ -327,7 +346,9 @@
     }
     if (host && !noHostAppend) {
       host[connector](dfrag)
-      for (let i = 0; i < children.length; i++) MNT(children[i])
+      for (let i = 0; i < children.length; i++) {
+        children[i].dispatchEvent && MNT(children[i])
+      }
     }
     return children
   }
@@ -466,7 +487,7 @@
     },
     emit,
     append (node, ...children) {
-      attach(node, 'append', ...children)
+      attach(node, 'appendChild', ...children)
       return node
     },
     prepend (node, ...children) {
@@ -474,7 +495,7 @@
       return node
     },
     appendTo (node, host) {
-      attach(host, 'append', node)
+      attach(host, 'appendChild', node)
       return node
     },
     prependTo (node, host) {
@@ -1064,9 +1085,7 @@
         validator = val => isStr(val) && regexp.test(val)
       }
       if (isFunc(validator)) {
-        if (!isBool(validator())) {
-          throw new Error(`".${key}": validator invalid`)
-        }
+        if (!isBool(validator())) throw new Error(`".${key}": bad validator`)
         validators.set(key, validator)
       }
     }, {
