@@ -1196,6 +1196,7 @@
     isPromise,
     isRenderable,
     isRegExp,
+    isInt,
     isInput,
     isEmpty,
     isEl,
