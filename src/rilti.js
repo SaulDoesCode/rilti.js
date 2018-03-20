@@ -1,25 +1,19 @@
 { /* global Node NodeList Element Document DocumentFragment SVGElement Text CustomEvent MutationObserver HTMLInputElement HTMLTextAreaElement define */
-  (arr => {
-    arr.forEach(item => {
-      if (item.hasOwnProperty('prepend')) return
-      Object.defineProperty(item, 'prepend', {
-        configurable: true,
-        enumerable: true,
-        writable: true,
-        value () {
-          const frag = document.createDocumentFragment()
-          Array.prototype.call().forEach(arg => {
-            var isNode = arg instanceof Node
-            frag.appendChild(isNode ? arg : new Text(String(arg)))
-          })
-          this.insertBefore(frag, this.firstChild)
+  [Element.prototype, Document.prototype, DocumentFragment.prototype]
+  .forEach(item => {
+    if (!item.prepend) {
+      item.prepend = function () {
+        const frag = document.createDocumentFragment()
+        for (let i = 0; i < arguments.length; i++) {
+          const isNode = arguments[i] instanceof Node
+          frag.appendChild(isNode ? arguments[i] : new Text(String(arguments[i])))
         }
-      })
-    })
-  })([Element.prototype, Document.prototype, DocumentFragment.prototype])
+        this.insertBefore(frag, this.firstChild)
+      }
+    }
+  })
 
   const UNDEF = void 0
-  const ns = 'http://www.w3.org/2000/svg'
 
   // isThis(that) -> bool
   const isArr = Array.isArray
@@ -713,6 +707,7 @@
   }
 
   const reserved = ['$', 'render', 'children', 'html', 'class', 'className']
+  const ns = 'http://www.w3.org/2000/svg'
   const svgEL = (tag, opts, ...children) => {
     const el = document.createElementNS(ns, tag)
     if (isObj(opts)) {
@@ -933,7 +928,9 @@
       return mut
     }
 
-    const has = key => store.has(key)
+    const has = new Proxy(key => store.has(key), {
+      get: (_, prop) => store.has(prop)
+    })
 
     const mut = (key, val, silent) => {
       if (typeof key === 'string') {
