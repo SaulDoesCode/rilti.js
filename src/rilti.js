@@ -103,9 +103,17 @@
   const query = (selector, host = document) => (
     isNode(selector) ? selector : query(host).querySelector(selector)
   )
-  const queryAsync = (selector, fn, host) => {
-    document.body ? fn(query(selector, host)) : run(() => fn(query(selector, host)))
-  }
+  const queryAsync = (selector, host) => new Promise((resolve, reject) => {
+    const find = () => {
+      const result = query(selector, host)
+      if (isNil(result)) {
+        reject(new Error(`queryAsync: couldn't find ${selector}`))
+      } else {
+        resolve(result)
+      }
+    }
+    document.body ? find() : run(find)
+  })
   const queryAll = (selector, host = document) => (
     Array.from(query(host).querySelectorAll(selector))
   )
@@ -399,7 +407,7 @@
         vpend(renderables, host, connector)
       }
     } else if (isStr(host)) {
-      return queryAsync(host, h => attach(h, connector, ...renderables))
+      return queryAsync(host).then(h => attach(h, connector, ...renderables))
     } if (isArr(host)) {
       host.push(...renderables)
     }
@@ -609,7 +617,7 @@
 
   const components = new Map()
   const component = (tagName, config) => {
-    if (!tagName.includes('-')) {
+    if (tagName.indexOf('-') !== -1) {
       throw new Error(`component: ${tagName} tagName is un-hyphenated`)
     }
     components.set(tagName.toUpperCase(), config)
@@ -712,7 +720,7 @@
     const el = document.createElementNS(ns, tag)
     if (isObj(opts)) {
       for (const key in opts) {
-        if (isPrimitive(opts[key]) && !reserved.includes(key) && !(key in domfn)) {
+        if (isPrimitive(opts[key]) && reserved.indexOf(key) === -1 && !(key in domfn)) {
           el.setAttribute(key, opts[key])
           opts[key] = undefined
         }
@@ -971,7 +979,7 @@
       if (!syncs.has(obj)) syncs.set(obj, new Map())
 
       let action = 'set'
-      if (prop.includes(':')) {
+      if (prop.indexOf(':') !== -1) {
         [action, prop] = prop.split(':')
         var valid = action === 'valid'
         var iscomputed = action === 'compute'
