@@ -35,7 +35,7 @@
 
   const stats = div({class: 'stats'}, statFilters)
 
-  var todo = {
+  const todo = {
     new: (val, done) => article({
       render: todo.list,
       class: 'todo-item',
@@ -61,7 +61,7 @@
         unmount: el => store.del(val)
       }
     },
-      el => button({onclick: e => el.remove()}, '❌'),
+      el => button({onclick: e => el.remove()}, '❌✕'),
       el => span({
         attr: {contenteditable: true},
         oninput (e, {txt}) { el.val = txt.trim() }

@@ -74,13 +74,12 @@ body {
   left: 0;
   height: 100%;
   width: auto;
-  padding: 0 4px;
-  text-align: center;
-  border: none;
+  padding: 4px 5px 0 5px;
+  border: 0;
+  outline: 0;
   background: #fff;
   color: hsl(0, 78%, 58%);
   font-size: 1.2em;
-  outline: 0;
   cursor: pointer;
   transition: all 120ms ease-in;
 }
