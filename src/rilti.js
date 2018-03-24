@@ -85,16 +85,22 @@
   const each = (iterable, fn) => {
     if (isDef(iterable)) {
       if (isObj(iterable)) {
-        for (const key in iterable) fn(iterable[key], key, iterable)
+        for (const key in iterable) {
+          fn(iterable[key], key, iterable)
+        }
       } else if (iterable.length) {
         const len = iterable.length
         let i = 0
-        while (i !== len) fn(iterable[i], i++, iterable)
+        while (i !== len) {
+          fn(iterable[i], i++, iterable)
+        }
       } else if (iterable.forEach) {
         iterable.forEach(fn)
       } else if (isInt(iterable)) {
         let i = 0
-        while (i <= iterable) fn(i++, iterable)
+        while (i <= iterable) {
+          fn(i++, iterable)
+        }
       }
     }
     return iterable
@@ -174,20 +180,25 @@
   }
 
   const infinify = (fn, reflect = false) => new Proxy(fn, {
-    get: (fn, key) =>
-      (reflect && key in fn && Reflect.get(fn, key)) || fn.bind(UNDEF, key)
+    get (fn, key) {
+      return reflect && key in fn ? Reflect.get(fn, key) : fn.bind(UNDEF, key)
+    }
   })
 
   const emitter = (host = {}, listeners = new Map()) => Object.assign(host, {
     listeners,
     emit: infinify((event, ...data) => {
       if (listeners.has(event)) {
-        for (const h of listeners.get(event)) h.apply(undefined, data)
+        for (const h of listeners.get(event)) {
+          h.apply(undefined, data)
+        }
       }
     }),
     emitAsync: infinify((event, ...data) => runAsync(() => {
       if (listeners.has(event)) {
-        for (const h of listeners.get(event)) runAsync(h, ...data)
+        for (const h of listeners.get(event)) {
+          runAsync(h, ...data)
+        }
       }
     })),
     on: infinify((event, handler) => {
@@ -223,13 +234,18 @@
     const proxied = $(el)
     for (const prop in props) {
       let val = props[prop]
-      if (prop in el) el[prop] = val
-      else if (prop === 'accessors') {
+      if (prop in el) {
+        el[prop] = val
+      } else if (prop === 'accessors') {
         for (const key in val) {
           const {set = val[key], get = val[key]} = val[key]
           const accessors = {}
-          if (isFunc(set)) accessors.set = set.bind(el, proxied)
-          if (isFunc(get)) accessors.get = get.bind(el, proxied)
+          if (isFunc(set)) {
+            accessors.set = set.bind(el, proxied)
+          }
+          if (isFunc(get)) {
+            accessors.get = get.bind(el, proxied)
+          }
           Object.defineProperty(el, key, accessors)
         }
       } else if (isFunc(val) && !ProxyNodes(val) && !Models(val)) {
@@ -291,11 +307,16 @@
   }
 
   const html = (input, host) => {
-    if (input instanceof Function) input = input(host)
+    if (input instanceof Function) {
+      input = input(host)
+    }
     if (typeof input === 'string') {
       return Array.from(document.createRange().createContextualFragment(input).childNodes)
-    } else if (input instanceof Node) return input
-    else if (isArr(input)) return input.map(i => html(i))
+    } else if (input instanceof Node) {
+      return input
+    } else if (isArr(input)) {
+      return input.map(i => html(i))
+    }
   }
 
   const frag = inner => inner !== UNDEF ? html(inner) : document.createDocumentFragment()
@@ -305,8 +326,9 @@
     for (let i = 0; i < children.length; i++) {
       let child = children[i]
       if (child instanceof Function) {
-        if ((child = child(host)) === host) continue
-        else if (child instanceof Function) {
+        if ((child = child(host)) === host) {
+          continue
+        } else if (child instanceof Function) {
           let lvl = 0
           let ishost = false
           while (child instanceof Function && lvl < 25) {
@@ -340,8 +362,9 @@
   const prime = (...nodes) => {
     for (let i = 0; i < nodes.length; i++) {
       let n = nodes[i]
-      if (n instanceof Node || n instanceof Function) continue
-      else if (isPrimitive(n)) {
+      if (n instanceof Node || n instanceof Function) {
+        continue
+      } else if (isPrimitive(n)) {
         nodes[i] = new Text(n)
         continue
         // n = document.createRange().createContextualFragment(n).childNodes
@@ -418,7 +441,9 @@
     class (node, c, state) {
       if (!node.classList) return node
       if (isArr(node)) {
-        for (let i = 0; i < node.length; i++) domfn.class(node[i], c, state)
+        for (let i = 0; i < node.length; i++) {
+          domfn.class(node[i], c, state)
+        }
         return node
       }
       if (isObj(c)) {
@@ -785,34 +810,42 @@
 
     iscomponent ? !componentHandled && updateComponent(el, UNDEF) : CR(el, true, iscomponent)
     return pure ? el : proxied
-  }, {
-    text, body, svg, frag, prime, html
-  }), {
-    get: (dom, tag) => (tag in dom && Reflect.get(dom, tag)) || new Proxy(dom.bind(UNDEF, tag), {
-      get (el, className) {
-        const classes = [className.replace(/_/g, '-')]
-        return new Proxy((...args) => {
-          el = el(...args)
-          domfn.class(el(), classes)
-          return el
-        }, {
-          get (_, anotherClass, proxy) {
-            classes.push(anotherClass.replace(/_/g, '-'))
-            return proxy
-          }
-        })
+  },
+    {text, body, svg, frag, prime, html}
+  ), {
+    get: (dom, tag) => tag in dom ? Reflect.get(dom, tag) : new Proxy(
+      dom.bind(UNDEF, tag),
+      {
+        get (el, className) {
+          const classes = [className.replace(/_/g, '-')]
+          return new Proxy((...args) => {
+            el = el(...args)
+            domfn.class(el(), classes)
+            return el
+          }, {
+            get (_, anotherClass, proxy) {
+              classes.push(anotherClass.replace(/_/g, '-'))
+              return proxy
+            }
+          })
+        }
       }
-    })
+    )
   })
 
   const Initiated = new Map()
-  const beenInitiated = (attrName, el) => Initiated.has(attrName) && Initiated.get(attrName)(el)
+  const beenInitiated = (attrName, el) => (
+    Initiated.has(attrName) && Initiated.get(attrName)(el)
+  )
+
   const attributeObserver = (el, attrName, opts) => {
     el = $(el)
     const {init, update, remove} = opts
     const intialize = (present, value) => {
       if (present && !beenInitiated(attrName, el)) {
-        init && init(el, value)
+        if (init) {
+          init(el, value)
+        }
         if (!Initiated.has(attrName)) {
           Initiated.set(attrName, mutateSet(new WeakSet()))
         }
@@ -825,12 +858,21 @@
     let old = el.getAttribute(attrName)
     intialize(el.hasAttribute(attrName), old)
     const stop = el.on.attr(({detail: {name, value, oldvalue, present}}) => {
-      if (attrName === name && old !== value && value !== oldvalue && intialize(present, value)) {
+      if (
+        attrName === name &&
+        old !== value &&
+        value !== oldvalue &&
+        intialize(present, value)
+      ) {
         if (present) {
-          update && update(el, value, old)
+          if (update) {
+            update(el, value, old)
+          }
           removedBefore = false
         } else if (!removedBefore) {
-          remove && remove(el, value, old)
+          if (remove) {
+            remove(el, value, old)
+          }
           removedBefore = true
         }
         old = value
@@ -838,7 +880,9 @@
     }).off
     return () => {
       stop()
-      Initiated.has(attrName) && Initiated.get(attrName)(el, false)
+      if (Initiated.has(attrName)) {
+        Initiated.get(attrName)(el, false)
+      }
     }
   }
 
@@ -854,16 +898,22 @@
       }
     }
     directive.stop = el => {
-      if (directive.has(el)) directive.get(el)()
+      if (directive.has(el)) {
+        directive.get(el)()
+      }
     }
     directives.set(name, directive)
-    run(
-      () => queryEach('[' + name + ']', n => attributeChange(n, name))
-    )
+    run(() => {
+      queryEach('[' + name + ']', n => {
+        attributeChange(n, name)
+      })
+    })
   }
 
   const attributeChange = (el, name, oldvalue, value = el.getAttribute(name), present = el.hasAttribute(name)) => {
-    if (directives.has(name)) directives.get(name).init($(el))
+    if (directives.has(name)) {
+      directives.get(name).init($(el))
+    }
     emit(el, 'attr', {name, value, oldvalue, present})
   }
 
@@ -943,7 +993,9 @@
           isNil(key[k]) ? del(k, val) : mut(k, key[k], val)
         }
       } else if (isArr(key)) {
-        for (var i = 0; i < key.length; i++) mut(key[i][0], key[i][1], val)
+        for (var i = 0; i < key.length; i++) {
+          mut(key[i][0], key[i][1], val)
+        }
       }
       return Model
     }
@@ -952,20 +1004,28 @@
     const sync = new Proxy(function (obj, key, prop = key) {
       if (isArr(obj)) {
         const args = Array.from(arguments).slice(1)
-        if (args.every(isStr)) return sync.template(obj, ...args)
-      } else if (ProxyNodes(obj) && key !== 'html') obj = obj()
+        if (args.every(isStr)) {
+          return sync.template(obj, ...args)
+        }
+      } else if (ProxyNodes(obj) && key !== 'html') {
+        obj = obj()
+      }
       let isinput = isInput(obj) || obj.isContentEditable
       if (isinput && prop === key) {
         [prop, key] = [key, obj.isContentEditable ? 'innerText' : 'value']
       }
-      if (!syncs.has(obj)) syncs.set(obj, new Map())
+      if (!syncs.has(obj)) {
+        syncs.set(obj, new Map())
+      }
 
       let action = 'set'
       if (prop.indexOf(':') !== -1) {
         [action, prop] = prop.split(':')
         var valid = action === 'valid'
         var iscomputed = action === 'compute'
-        if (valid) action = 'validate'
+        if (valid) {
+          action = 'validate'
+        }
       }
 
       syncs
@@ -975,7 +1035,9 @@
         on(
           action + ':' + prop,
           val => {
-            if (!isinput || obj[key].trim() !== val) obj[key] = val
+            if (!isinput || obj[key].trim() !== val) {
+              obj[key] = val
+            }
           }
         )
       )
@@ -983,7 +1045,9 @@
       if (!valid && isinput) {
         var stop = $(obj).on.input(e => {
           mut(prop, obj[key].trim())
-          if (validators.has(prop)) validateProp(prop)
+          if (validators.has(prop)) {
+            validateProp(prop)
+          }
         })
       }
 
@@ -995,7 +1059,9 @@
         obj[key] = mut(prop)
       }
       once('delete:' + prop, () => {
-        if (stop) stop()
+        if (stop) {
+          stop()
+        }
         sync.stop(obj, prop)
       })
       return obj
@@ -1005,7 +1071,9 @@
           return Reflect.get(fn, prop)
         } else {
           return (obj, key) => {
-            if (isNil(obj)) return sync.text(prop)
+            if (isNil(obj)) {
+              return sync.text(prop)
+            }
             if (isNil(key)) {
               if (
                 (isNode(obj) || ProxyNodes(obj)) &&
