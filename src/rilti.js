@@ -290,24 +290,6 @@
     emit(n, 'unmount')
   }
 
-  /*
-  const flattenChildren = children => {
-    for (var i = 0; i < children.length;) {
-      var child = children[i]
-      if (Array.isArray(child)) {
-        var childLength = child.length
-        child.unshift(i, 1)
-        children.splice.apply(children, child)
-        child.slice(2, 0)
-        i += childLength
-      } else {
-        i++
-      }
-    }
-    return children
-  }
-  */
-
   const html = (input, host) => {
     if (input instanceof Function) input = input(host)
     if (typeof input === 'string') {
@@ -617,7 +599,7 @@
 
   const components = new Map()
   const component = (tagName, config) => {
-    if (tagName.indexOf('-') !== -1) {
+    if (tagName.indexOf('-') === -1) {
       throw new Error(`component: ${tagName} tagName is un-hyphenated`)
     }
     components.set(tagName.toUpperCase(), config)
@@ -973,7 +955,7 @@
         if (args.every(isStr)) return sync.template(obj, ...args)
       } else if (ProxyNodes(obj) && key !== 'html') obj = obj()
       let isinput = isInput(obj) || obj.isContentEditable
-      if (isinput) {
+      if (isinput && prop === key) {
         [prop, key] = [key, obj.isContentEditable ? 'innerText' : 'value']
       }
       if (!syncs.has(obj)) syncs.set(obj, new Map())
@@ -1013,7 +995,7 @@
         obj[key] = mut(prop)
       }
       once('delete:' + prop, () => {
-        stop && stop()
+        if (stop) stop()
         sync.stop(obj, prop)
       })
       return obj
@@ -1025,9 +1007,11 @@
           return (obj, key) => {
             if (isNil(obj)) return sync.text(prop)
             if (isNil(key)) {
-              if (!isInput(obj) && !obj.isContentEditable) {
-                if (isNode(obj)) obj = $(obj)
-                if (ProxyNodes(obj)) key = 'html'
+              if (
+                (isNode(obj) || ProxyNodes(obj)) &&
+                !isInput(obj) && !obj.isContentEditable
+              ) {
+                return sync.text(prop)
               } else {
                 key = prop
               }
