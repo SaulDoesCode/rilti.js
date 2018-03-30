@@ -522,6 +522,11 @@
       else if (isMounted(node)) node.remove()
       else if (isNodeList(node)) Array.from(node).forEach(n => domfn.remove(n))
       return node
+    },
+    replace (node, newnode) {
+      if (isFunc(newnode)) newnode = newnode()
+      node.replaceWith(newnode)
+      return newnode
     }
   }
   domfn.empty = domfn.clear
