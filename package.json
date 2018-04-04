@@ -1,6 +1,6 @@
 {
   "name": "rilti.js",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "small opinionated furture forward frontend framework",
   "main": "init.js",
   "repository": {
@@ -21,7 +21,8 @@
     "url": "https://github.com/sauldoescode/rilti.js/issues"
   },
   "scripts": {
-    "standard": "standard"
+    "standard": "standard",
+    "test": "karma start karma.conf.js"
   },
   "standard": {
     "ignore": [
@@ -44,6 +45,12 @@
     "babel-preset-minify": "^0.2.0",
     "chokidar": "^2.0.2",
     "express": "^4.16.2",
+    "jasmine": "^3.1.0",
+    "karma": "^2.0.0",
+    "karma-chrome-launcher": "^2.2.0",
+    "karma-firefox-launcher": "^1.1.0",
+    "karma-jasmine": "^1.1.1",
+    "puppeteer": "^1.2.0",
     "standard": "^10.0.3"
   }
 }
