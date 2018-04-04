@@ -1,13 +1,9 @@
-process.env.CHROME_BIN = require('puppeteer').executablePath()
-
 module.exports = config => {
   config.set({
     frameworks: ['jasmine'],
     files: [
       'src/rilti.js',
-      {
-        pattern: 'test/**/*.js'
-      }
+      {pattern: 'test/**/*.js'}
     ],
     reporters: ['progress'],
     port: 9876,
@@ -16,7 +12,7 @@ module.exports = config => {
     autoWatch: true,
     singleRun: false,
     concurrency: Infinity,
-    browsers: ['ChromeHeadless', 'FirefoxHeadless'],
+    browsers: ['FirefoxHeadless'],
     customLaunchers: {
       FirefoxHeadless: {
         base: 'Firefox',
@@ -24,7 +20,7 @@ module.exports = config => {
       },
       ChromeNoHead: {
         base: 'ChromeHeadless',
-        flags: ['--no-sandbox']
+        flags: ['--no-sandbox', '--disable-translate', '--disable-web-security', '--disable-extensions', '--remote-debugging-port=9223']
       }
     }
   })
