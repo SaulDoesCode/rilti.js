@@ -1,17 +1,17 @@
-{ /* global Node NodeList Element Document DocumentFragment SVGElement Text CustomEvent MutationObserver HTMLInputElement HTMLTextAreaElement define */
-  [Element.prototype, Document.prototype, DocumentFragment.prototype]
-  .forEach(item => {
-    if (!item.prepend) {
-      item.prepend = function () {
-        const frag = document.createDocumentFragment()
-        for (let i = 0; i < arguments.length; i++) {
-          const isNode = arguments[i] instanceof Node
-          frag.appendChild(isNode ? arguments[i] : new Text(String(arguments[i])))
-        }
-        this.insertBefore(frag, this.firstChild)
-      }
-    }
-  })
+{
+  const root = this
+  const {
+    document,
+    NodeList,
+    Node,
+    Text,
+    Element,
+    SVGElement,
+    HTMLInputElement,
+    HTMLTextAreaElement,
+    CustomEvent,
+    MutationObserver
+  } = root
 
   const UNDEF = void 0
 
@@ -1297,5 +1297,5 @@
     $
   }
 
-  typeof define === 'function' && define.amd ? define([], () => rilti) : typeof module === 'object' && module.exports ? module.exports = rilti : this.rilti = rilti
+  root.define && root.define.amd ? root.define([], () => rilti) : typeof module === 'object' && module.exports ? module.exports = rilti : root.rilti = rilti
 }
