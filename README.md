@@ -4,6 +4,8 @@ a small flavorful and unapologetic library built for the modern web
 
 [![JavaScript Style Guide](https://cdn.rawgit.com/standard/standard/master/badge.svg)](https://github.com/standard/standard)
 
+[![Build Status](https://travis-ci.org/SaulDoesCode/rilti.js.svg?branch=master)](https://travis-ci.org/SaulDoesCode/rilti.js)
+
 ##### currently in beta phase and potentially subject to breaking changes
 Feel free to fork or raise issues. Constructive criticism is always welcome
 
