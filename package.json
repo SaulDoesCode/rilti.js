@@ -21,9 +21,8 @@
     "url": "https://github.com/sauldoescode/rilti.js/issues"
   },
   "scripts": {
-    "standard": "standard",
-    "test": "karma start karma.conf.js",
-    "test": "./node_modules/.bin/karma start karma.conf.js"
+    "test": "./node_modules/.bin/karma start karma.conf.js",
+    "build": "./node_modules/.bin/minify ./src/rilti.js --outFile ./dist/rilti.min.js"
   },
   "standard": {
     "ignore": [
@@ -51,7 +50,6 @@
     "karma-chrome-launcher": "^2.2.0",
     "karma-firefox-launcher": "^1.1.0",
     "karma-jasmine": "^1.1.1",
-    "puppeteer": "^1.2.0",
-    "standard": "^10.0.3"
+    "puppeteer": "^1.2.0"
   }
 }
