@@ -33,22 +33,24 @@ To use rilti just download **/dist/rilti.min.js** and pop it in a script tag. **
 
 ## The Dao of Rilti
 
-1. Nominalism Good | Obscuritanism, Idealism & Universalism Bad
-   * Things are little more than their names
+1. Nominalism Good | Explicit Paradigms, Patterns & Universalism Bad
    * More than one way of doing things, what is right/best is always contextual.
-   * No Object Oriented anything (no classes, no this)
+   * No Explicit Object Orientation anything (no classes or this)
+   * simple functions and objects before imposing rigid structures
    * Reserve identities only for things that would be otherwise obscure
-   * Don't hide things let things be what they are
+   * Don't hide things, let them be what they are
    * Nothing for the sake of itself, no postmodern sollutions.
    * Logic is just data (with potential) so pass it around too
    * [Factory-Functions always](https://gist.github.com/mpj/17d8d73275bca303e8d2)
-2. No HTML, Text & Elements are Objects too!
-   * Selectors & Templates? I can't even...
-   * Writing plain HTML adds extra complexity to javascript driven sites
-   * Webpages should be alive, don't fear the DOM mess with it
+2. Mess With the DOM, it's alive
+   * Selectors & Templates? No, treat HTML as Mutable Object Holons
+   * Plain HTML is for simple websites, where state is not as complex
+   * DOM generation and components are for Apps and the modern interactive Web.
 3. MASA: Minimal API Surface Area.
    * Polymorphic functions/functions-as-class-like-objects
-   * Infer data, good structure or Proxies instead of 12 parameter long functions
+   * Infer Info with Good API Design before creating 12 parameter long functions.
+   * Use configurable Objects create dynamic APIs
+   * Some APIs can often be reduced to a fn e.g. Get: fn(key), Set: fn(key, val), Del: fn(key, nil)
    * As Functional As Possible
    * Perspectivism vs Pragmatism, people won't always use an API the same way.
    * Leave some internals or lower level API features accessible for extendibility
