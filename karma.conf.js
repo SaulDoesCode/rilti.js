@@ -1,3 +1,5 @@
+const isTravis = process.env.CI === 'true'
+
 module.exports = config => {
   config.set({
     frameworks: ['jasmine'],
@@ -9,8 +11,8 @@ module.exports = config => {
     port: 9876,
     colors: true,
     logLevel: config.LOG_INFO,
-    autoWatch: true,
-    singleRun: false,
+    autoWatch: !isTravis,
+    singleRun: isTravis,
     concurrency: Infinity,
     browsers: ['FirefoxHeadless'],
     customLaunchers: {

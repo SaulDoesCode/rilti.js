@@ -13,7 +13,9 @@
     "view",
     "library",
     "front-end",
-    "framework"
+    "framework",
+    "proxy",
+    "dom"
   ],
   "author": "Saul van der Walt",
   "license": "MIT",
