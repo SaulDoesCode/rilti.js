@@ -16,7 +16,7 @@ module.exports = config => {
     autoWatch: true,
     singleRun: false,
     concurrency: Infinity,
-    browsers: ['ChromeNoHead', 'FirefoxHeadless'],
+    browsers: ['FirefoxHeadless'],
     customLaunchers: {
       FirefoxHeadless: {
         base: 'Firefox',

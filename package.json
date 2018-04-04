@@ -22,7 +22,8 @@
   },
   "scripts": {
     "standard": "standard",
-    "test": "karma start karma.conf.js"
+    "test": "karma start karma.conf.js",
+    "test": "./node_modules/.bin/karma start karma.conf.js"
   },
   "standard": {
     "ignore": [
