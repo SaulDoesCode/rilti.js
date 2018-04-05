@@ -816,7 +816,7 @@
     iscomponent ? !componentHandled && updateComponent(el, UNDEF) : CR(el, true, iscomponent)
     return pure ? el : proxied
   },
-    {text, body, svg, frag, prime, html}
+  {text, body, svg, frag, prime, html}
   ), {
     get: (dom, tag) => tag in dom ? Reflect.get(dom, tag) : new Proxy(
       dom.bind(UNDEF, tag),
@@ -1034,18 +1034,18 @@
       }
 
       syncs
-      .get(obj)
-      .set(
-        prop,
-        on(
-          action + ':' + prop,
-          val => {
-            if (!isinput || obj[key].trim() !== val) {
-              obj[key] = val
+        .get(obj)
+        .set(
+          prop,
+          on(
+            action + ':' + prop,
+            val => {
+              if (!isinput || obj[key].trim() !== val) {
+                obj[key] = val
+              }
             }
-          }
+          )
         )
-      )
 
       if (!valid && isinput) {
         var stop = $(obj).on.input(e => {
@@ -1116,8 +1116,8 @@
 
     sync.template = (strings, ...keys) => flatten(
       keys.reduce(
-          (prev, cur, i) => [prev, sync.text(cur), strings[i + 1]],
-          strings[0]
+        (prev, cur, i) => [prev, sync.text(cur), strings[i + 1]],
+        strings[0]
       ).filter(
         s => !isStr(s) || s.length
       )
