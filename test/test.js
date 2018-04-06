@@ -50,69 +50,6 @@ const {
   $
 } = rilti
 
-
-describe('event-emitter', () => {
-  const mitter = emitter()
-  const msg = 'do you hear me?'
-
-  it('should receive an event twice', () => {
-    let count = 0
-    const ln = mitter.on.test123(m => {
-      expect(m === msg).toBeTruthy()
-      if (count === 2) {
-        ln.off()
-        expect(count === 2).toBeTruthy()
-      }
-      count++
-    })
-  })
-
-  it('should receive an event once', () => {
-    let hit = false
-    mitter.once.test123(m => {
-      expect(m === msg && !hit).toBeTruthy()
-      hit = true
-    })
-  })
-
-  it('should emit an event', () => {
-    mitter.emit.test123(msg)
-    mitter.emit.test123(msg)
-  })
-})
-
-describe('$', () => {
-  describe('proxify node', () => {
-    const el = document.createElement('div')
-    el.className = 'card'
-
-    it('should proxify a div element', () => {
-      const $el = $(el)
-      expect($el()).toBe(el)
-    })
-
-    it('should have rilti.domfn properties', () => {
-      expect($(el).class.card).toBeTruthy()
-      $(el).attr({foo: 'bar'})
-      expect(el.hasAttribute('foo')).toBeTruthy()
-      expect(el.getAttribute('foo')).toBe('bar')
-    })
-  })
-})
-
-describe('dom', () => {
-  describe('create', () => {
-    const txt = 'Hello World'
-    const el = dom.div(el => txt)
-    it('should create a <div>Hello World</div>', () => {
-      expect(el() instanceof window.Node).toBeTruthy()
-    })
-    it('should have a Text Node with "Hello World" inside', () => {
-      expect(el.childNodes[0].textContent).toEqual(txt)
-    })
-  })
-})
-
 describe('isX', () => {
   it('should test whether a value is a Function', () => {
     expect(
@@ -321,6 +258,80 @@ describe('run/runAsync', () => {
       expect(x).toBe(x1)
     })
     x++
+  })
+})
+
+describe('event-emitter', () => {
+  const mitter = emitter()
+  const msg = 'do you hear me?'
+
+  it('should receive an event twice', () => {
+    let count = 0
+    const ln = mitter.on.test123(m => {
+      expect(m === msg).toBeTruthy()
+      if (count === 2) {
+        ln.off()
+        expect(count === 2).toBeTruthy()
+      }
+      count++
+    })
+  })
+
+  it('should receive an event once', () => {
+    let hit = false
+    mitter.once.test123(m => {
+      expect(m === msg && !hit).toBeTruthy()
+      hit = true
+    })
+  })
+
+  it('should emit an event', () => {
+    mitter.emit.test123(msg)
+    mitter.emit.test123(msg)
+  })
+})
+
+describe('$', () => {
+  describe('proxify node', () => {
+    const el = document.createElement('div')
+    el.className = 'card'
+
+    it('should proxify a div element', () => {
+      const $el = $(el)
+      expect($el()).toBe(el)
+    })
+
+    it('should have rilti.domfn properties', () => {
+      expect($(el).class.card).toBeTruthy()
+      $(el).attr({foo: 'bar'})
+      expect(el.hasAttribute('foo')).toBeTruthy()
+      expect(el.getAttribute('foo')).toBe('bar')
+    })
+  })
+})
+
+describe('dom', () => {
+  describe('create', () => {
+    const txt = 'Hello World'
+    const el = dom.div(el => txt)
+    it('should create a <div>Hello World</div>', () => {
+      expect(el() instanceof window.Node).toBeTruthy()
+    })
+    it('should have a Text Node with "Hello World" inside', () => {
+      expect(el.childNodes[0].textContent).toEqual(txt)
+    })
+  })
+
+  describe('create element with classes shorthand', () => {
+    const txt = 'Hello World'
+    const el = dom.div.card.board.box(el => txt)()
+    it('should certain classes', () => {
+      expect(
+        el.classList.contains('card') &&
+        el.classList.contains('board') &&
+        el.classList.contains('box')
+      ).toBeTruthy()
+    })
   })
 })
 
