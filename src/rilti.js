@@ -675,6 +675,25 @@
     return el
   }
 
+  const infinifyDOM = (domgen, tag) => tag in domgen ? Reflect.get(domgen, tag) : new Proxy(
+    domgen.bind(UNDEF, tag),
+    {
+      get (el, className) {
+        const classes = [className.replace(/_/g, '-')]
+        return new Proxy((...args) => {
+          el = el(...args)
+          domfn.class(el(), classes)
+          return el
+        }, {
+          get (_, anotherClass, proxy) {
+            classes.push(anotherClass.replace(/_/g, '-'))
+            return proxy
+          }
+        })
+      }
+    }
+  )
+
   const fastdom = infinify(function (tag, opts) {
     const el = typeof tag === 'string' ? document.createElement(tag) : tag
     let children = Array.prototype.slice.call(arguments, 2)
@@ -726,7 +745,7 @@
     return dom(new Text(txt), options)
   }
 
-  const reserved = ['$', 'render', 'children', 'html', 'class', 'className']
+  const reserved = ['$', 'id', 'render', 'children', 'html', 'class', 'className']
   const ns = 'http://www.w3.org/2000/svg'
   const svgEL = (tag, opts, ...children) => {
     const el = document.createElementNS(ns, tag)
@@ -741,7 +760,7 @@
     return dom(el, opts, ...children)
   }
   const svg = new Proxy(svgEL.bind(UNDEF, 'svg'), {
-    get: (_, tag) => svgEL.bind(UNDEF, tag)
+    get: (_, tag) => infinifyDOM(svgEL, tag)
   })
 
   const dom = new Proxy(Object.assign((tag, opts, ...children) => {
@@ -818,24 +837,7 @@
   },
   {text, body, svg, frag, prime, html}
   ), {
-    get: (dom, tag) => tag in dom ? Reflect.get(dom, tag) : new Proxy(
-      dom.bind(UNDEF, tag),
-      {
-        get (el, className) {
-          const classes = [className.replace(/_/g, '-')]
-          return new Proxy((...args) => {
-            el = el(...args)
-            domfn.class(el(), classes)
-            return el
-          }, {
-            get (_, anotherClass, proxy) {
-              classes.push(anotherClass.replace(/_/g, '-'))
-              return proxy
-            }
-          })
-        }
-      }
-    )
+    get: infinifyDOM
   })
 
   const Initiated = new Map()
