@@ -393,19 +393,88 @@ describe('prime html to be renderable (repeatably not just as a one use fragment
   })
 })
 
+
+describe('each', () => {
+  it('should loop over an array', () => {
+    const arr = [55, 44, 5412]
+    const sum = arr[0] + arr[1] + arr[2]
+    let result = 0
+    each(arr, v => { result += v })
+    expect(result).toBe(sum)
+  })
+
+  it('should loop over an object', () => {
+    const obj = {a: 1, b: 2, c: 3}
+    const result = [1, 2, 3]
+    const arr = []
+    each(obj, v => arr.push(v))
+    expect(arr.every((v, i) => v === result[i])).toBeTruthy()
+  })
+
+  it('should loop over Set', () => {
+    const setResult = new Set([1, 2, 3, 4])
+    const set = new Set()
+    each(setResult, v => set.add(v))
+    let setsMatch = true
+    set.forEach(v => {
+      if (!setResult.has(v)) setsMatch = false
+    })
+    expect(setsMatch).toBeTruthy()
+  })
+
+  it('should loop over a Map', () => {
+    const mapResult = new Map([['a', 1], ['b', 2], ['c', 3]])
+    const map = new Map()
+    each(mapResult, (v, k) => map.set(k, v))
+    let mapsMatch = true
+    map.forEach((v, k) => {
+      if (!mapResult.has(k)) mapsMatch = false
+    })
+    expect(mapsMatch).toBeTruthy()
+  })
+
+  it('should loop n times', () => {
+    const count = 100
+    let result = 0
+    each(count, i => ++result)
+    expect(result).toBe(100)
+  })
+})
+
+describe('map2json', () => {
+  it('should convert a map to json', () => {
+    const expectation = `{"key":"value"}`
+    expect(
+      map2json(new Map([['key', 'value']]))
+    ).toBe(expectation)
+  })
+})
+
+describe('compose', () => {
+  it('should compose functions', () => {
+    const nums = [123, 332, 1453]
+    const sum = nums[0] + nums[1] + nums[2]
+    const stateCombiner = ({n = 0, state = 0}) => ({
+      state: nums[n] + state,
+      n: n + 1
+    })
+    const composition = compose(stateCombiner, stateCombiner, stateCombiner)
+    expect(
+      composition({n: 0, state: 0}).state
+    ).toBe(sum)
+  })
+})
+
 // TODO: These
 /*
 attributeObserver,
-compose,
 components,
 component,
-each,
 svg,
 fastdom,
 domfn,
 directive,
 directives,
 prime,
-map2json,
 model
 */
