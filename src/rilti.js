@@ -98,7 +98,7 @@
         iterable.forEach(fn)
       } else if (isInt(iterable)) {
         let i = 0
-        while (i <= iterable) {
+        while (i < iterable) {
           fn(i++, iterable)
         }
       }
