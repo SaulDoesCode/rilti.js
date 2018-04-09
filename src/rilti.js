@@ -180,9 +180,9 @@
   }
 
   const infinify = (fn, reflect = false) => new Proxy(fn, {
-    get (fn, key) {
-      return reflect && key in fn ? Reflect.get(fn, key) : fn.bind(UNDEF, key)
-    }
+    get: (fn, key) => (
+      reflect && key in fn ? Reflect.get(fn, key) : fn.bind(UNDEF, key)
+    )
   })
 
   const emitter = (host = {}, listeners = new Map()) => Object.assign(host, {
@@ -514,6 +514,13 @@
     clear (node) {
       node[isInput(node) ? 'value' : 'textContent'] = ''
       return node
+    },
+    refurbish (node) {
+      Array.from(node.attributes).forEach(({name}) => {
+        node.removeAttribute(name)
+      })
+      node.removeAttribute('class')
+      return domfn.clear(node)
     },
     remove (node, after) {
       if (isFunc(node)) node = node()
