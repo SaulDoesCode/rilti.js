@@ -4,7 +4,7 @@ module.exports = config => {
   config.set({
     frameworks: ['jasmine'],
     files: [
-      'src/rilti.js',
+      'dist/rilti.js',
       {pattern: 'test/**/*.js'}
     ],
     reporters: ['progress'],
