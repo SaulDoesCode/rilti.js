@@ -96,3 +96,4 @@ $RECYCLE.BIN/
 lock
 LOCK
 *.out
+.cache
