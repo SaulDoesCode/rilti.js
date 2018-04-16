@@ -22,11 +22,8 @@ const {
   isSvg,
   flatten,
   emitter,
-  attributeObserver,
   curry,
   compose,
-  components,
-  component,
   run,
   render,
   runAsync,
@@ -34,20 +31,23 @@ const {
   queryAsync,
   queryAll,
   queryEach,
+  each,
+  dom,
+  html,
+  $,
+  map2json
+  /* ,components,
+  component,
+  attributeObserver,
   on,
   once,
-  each,
   svg,
   fastdom,
-  dom,
   domfn,
-  html,
   directive,
   directives,
   prime,
-  map2json,
-  model,
-  $
+  model */
 } = rilti
 
 describe('isX', () => {
@@ -303,7 +303,9 @@ describe('$', () => {
 
     it('should have rilti.domfn properties', () => {
       expect($(el).class.card).toBeTruthy()
+
       $(el).attr({foo: 'bar'})
+
       expect(el.hasAttribute('foo')).toBeTruthy()
       expect(el.getAttribute('foo')).toBe('bar')
     })
@@ -403,7 +405,6 @@ describe('prime html to be renderable (repeatably not just as a one use fragment
     expect(primedHTML[3].textContent).toBe('4')
   })
 })
-
 
 describe('each', () => {
   it('should loop over an array', () => {
