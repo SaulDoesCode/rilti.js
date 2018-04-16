@@ -1,4 +1,4 @@
-const {dom, domfn: {remove}, each, render} = rilti
+const {dom, domfn: {remove}, each, render} = window.rilti
 const {div, section, header, h1, hr, text} = dom
 
 const timeout = (fn, ms = 1000, current) => Object.assign(fn, {

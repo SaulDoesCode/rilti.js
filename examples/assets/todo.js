@@ -61,25 +61,25 @@
         unmount: el => store.del(val)
       }
     },
-      el => button({onclick: e => el.remove()}, '❌✕'),
-      el => span({
-        attr: {contenteditable: true},
-        oninput (e, {txt}) { el.val = txt.trim() }
-      },
-        val
-      ),
-      el => (el.toggle = span({
-        class: {toggle: true, checked: done},
-        props: {
-          accessors: {
-            checked (el, checked) {
-              if (!isDef(checked)) return el.class.checked
-              else el.class({checked})
-            }
+    el => button({onclick: e => el.remove()}, '❌'),
+    el => span({
+      attr: {contenteditable: true},
+      oninput (e, {txt}) { el.val = txt.trim() }
+    },
+    val
+    ),
+    el => (el.toggle = span({
+      class: {toggle: true, checked: done},
+      props: {
+        accessors: {
+          checked (el, checked) {
+            if (!isDef(checked)) return el.class.checked
+            else el.class({checked})
           }
-        },
-        onclick (e, toggle) { el.done = toggle.checked = !toggle.checked }
-      })
+        }
+      },
+      onclick (e, toggle) { el.done = toggle.checked = !toggle.checked }
+    })
     )),
     maker: nav({
       render: 'body',
@@ -93,10 +93,10 @@
         }
       }
     },
-      input({
-        onkeydown: ({keyCode}) => keyCode === 13 && todo.maker.make()
-      }),
-      button({onclick: () => todo.maker.make()}, 'add')
+    input({
+      onkeydown: ({keyCode}) => keyCode === 13 && todo.maker.make()
+    }),
+    button({onclick: () => todo.maker.make()}, 'add')
     ),
     list: section({render: 'body', class: 'list'}, stats)
   }
