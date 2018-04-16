@@ -24,32 +24,33 @@
   },
   "scripts": {
     "test": "./node_modules/.bin/karma start karma.conf.js",
-    "build": "./node_modules/.bin/minify ./src/rilti.js --outFile ./dist/rilti.min.js"
+    "build": "./node_modules/.bin/rollup -c && ./node_modules/.bin/standard --fix ./dist/rilti.js && ./node_modules/.bin/minify ./dist/rilti.js --outFile ./dist/rilti.min.js"
   },
   "standard": {
     "ignore": [
       "./dist/",
-      "./docs/",
-      "./docs/*.js",
       "./examples/",
       "./examples/assets/",
       "*.min.js",
-      "init.js",
-      "prism.js"
+      "init.js"
     ]
   },
   "homepage": "https://github.com/sauldoescode/rilti.js#readme",
   "devDependencies": {
-    "babel-cli": "^6.26.0",
-    "babel-core": "^6.26.0",
-    "babel-eslint": "^8.0.3",
-    "babel-minify": "^0.2.0",
-    "babel-preset-minify": "^0.2.0",
+    "babel-cli": "^7.0.0-beta.3",
+    "babel-core": "^7.0.0-beta.3",
+    "babel-eslint": "^8.2.3",
+    "babel-minify": "^0.5.0-alpha.72092d20",
+    "babel-preset-minify": "^0.5.0-alpha.72092d20",
     "chokidar": "^2.0.2",
+    "compression": "^1.7.2",
     "express": "^4.16.2",
     "jasmine": "^3.1.0",
+    "jasmine-core": "^3.1.0",
     "karma": "^2.0.0",
     "karma-firefox-launcher": "^1.1.0",
-    "karma-jasmine": "^1.1.1"
+    "karma-jasmine": "^1.1.1",
+    "rollup": "^0.57.1",
+    "standard": "^11.0.1"
   }
 }
