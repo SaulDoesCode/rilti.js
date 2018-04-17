@@ -44,7 +44,7 @@ import {domfn, render, prime} from './dom-functions.js'
 import {dom, fastdom, svg, html} from './dom-generation.js'
 import {Mounted, Unmounted, Created} from './lifecycles.js'
 import {on, once} from './event-manager.js'
-import {model, map2json} from './model.js'
+import {state} from './state.js'
 import $ from './proxy-node.js'
 
 export {
@@ -98,8 +98,7 @@ export {
   directive,
   directives,
   prime,
-  map2json,
-  model,
+  state,
   Mounted,
   Unmounted,
   Created,
