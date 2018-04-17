@@ -1078,31 +1078,56 @@
       },
       update () {
         binder.bound.forEach(bind => bind())
+      },
+      clear () {
+        binder.bound.forEach(bind => bind.revoke())
+        binder.bound.clear()
+        binder.binds.forEach(hostmap => hostmap.clear())
+        binder.clear()
       }
     }
     return binder
   }
 
-  const state = ({val, pre, prescreen, type, screen, pass, fail, views, binds}) => {
+  const state = ({val, pre, prescreen, type, screen, pass, fail, views, binds, revoked}) => {
     const Binds = binder()
+    let isRevoked = false
 
-    const bind = (host, key, viewName) => {
+    const bind = (host, key, viewName, revoke) => {
       const viewBound = isStr(viewName)
       if (viewBound && !(viewName in view)) {
         throw new Error('state.bind: cannot create bind to undefined view')
       }
       let bind
       if (isFunc(key)) {
-        bind = viewBound ? () => key(host, view[viewName]) : () => key(host, view())
+        bind = viewBound ? () => key(host, view[viewName]) : () => key(host, val)
       } else {
-        bind = viewBound ? () => { host[key] = view[viewName] } : () => { host[key] = view() }
+        bind = viewBound ? () => { host[key] = view[viewName] } : () => { host[key] = val }
+      }
+      bind.revoke = () => {
+        Binds.delete(host, key)
       }
       Binds.set(host, key, bind)
-      return {
-        revoke () {
-          Binds.delete(host, key)
-        }
+      return bind
+    }
+
+    bind.input = input => {
+      const bind = () => { input.value = val }
+      const onchange = e => {
+        mutate(input.value.trim())
       }
+      input.addEventListener('input', onchange)
+      bind.revoke = () => {
+        input.removeEventListener('input', onchange)
+        Binds.delete(input, 'value')
+      }
+      bind.reinstate = () => {
+        bind.revoke()
+        Binds.set(input, 'value', bind)
+        input.addEventListener('input', onchange)
+      }
+      Binds.set(input, 'value', bind)
+      return bind
     }
 
     const view = () => val
@@ -1128,6 +1153,8 @@
     }
 
     const mutate = newval => {
+      if (isRevoked || newval === val) return
+
       if (isFunc(newval)) {
         newval = newval(val)
       }
@@ -1160,7 +1187,13 @@
     const manager = {
       bind,
       mutate,
-      view: Object.freeze(view)
+      binds: Binds,
+      view: Object.freeze(view),
+      revoke () {
+        Binds.clear()
+        isRevoked = true
+        revoked()
+      }
     }
 
     return Object.freeze(manager)
