@@ -21,7 +21,7 @@ const counter = state({
     json: val => `{"count": ${val}}`
   },
   binds: [
-    [clicker, 'textContent', 'named']
+    {host: clicker, prop: 'textContent', viewName: 'named'}
   ]
 })
 
