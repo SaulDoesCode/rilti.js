@@ -1089,7 +1089,7 @@
     return binder
   }
 
-  const state = ({val, pre, prescreen, type, screen, pass, fail, views, binds, revoked}) => {
+  const state = ({val, pre, prescreen, screen, pass, fail, views, binds, revoked}) => {
     const Binds = binder()
     let isRevoked = false
 
@@ -1106,6 +1106,7 @@
       }
       bind.revoke = () => {
         Binds.delete(host, key)
+        revoke()
       }
       Binds.set(host, key, bind)
       return bind
@@ -1113,9 +1114,7 @@
 
     bind.input = input => {
       const bind = () => { input.value = val }
-      const onchange = e => {
-        mutate(input.value.trim())
-      }
+      const onchange = e => { mutate(input.value.trim()) }
       input.addEventListener('input', onchange)
       bind.revoke = () => {
         input.removeEventListener('input', onchange)
@@ -1131,18 +1130,18 @@
     }
 
     const view = () => val
+    const createView = (key, fn) => {
+      if (!isFunc(fn)) throw new TypeError('a view should be a function')
+      Object.defineProperty(view, key, { get: () => fn(val) })
+    }
 
     if (isObj(views)) {
-      for (let key in views) {
-        if (isFunc(views[key])) {
-          Object.defineProperty(view, key, {get: () => views[key](val)})
-        }
-      }
+      for (const key in views) createView(key, views[key])
     }
 
     if (isArr(binds)) {
-      binds.forEach(([host, key, viewName]) => {
-        bind(host, key, viewName)
+      binds.forEach(b => {
+        isArr(b) ? bind(...b) : isObj(b) && bind(b.host, b.prop, b.viewName)
       })
       Binds.update()
     }
@@ -1154,13 +1153,12 @@
 
     const mutate = newval => {
       if (isRevoked || newval === val) return
-
-      if (isFunc(newval)) {
-        newval = newval(val)
-      }
+      if (isFunc(newval)) newval = newval(val)
 
       if (newval === undefined) {
         throw new Error('state.mutate: cannot create mutation from undefined')
+      } else if (isFunc(newval)) {
+        throw new TypeError('state: cannot accept function values')
       }
 
       if (isPromise(newval)) {
@@ -1186,9 +1184,10 @@
 
     const manager = {
       bind,
+      view,
+      createView,
       mutate,
       binds: Binds,
-      view: Object.freeze(view),
       revoke () {
         Binds.clear()
         isRevoked = true
