@@ -19,7 +19,7 @@ Feel free to fork or raise issues. Constructive criticism is always welcome
 * node lifecycle hooks
 * observe attributes
 * models with data binding, validation, events & sync/async accessors
-* generate all your elements in js don't write clunky html
+* generate all your dynamic/interactive/transient elements
 * program without concern for page load state
 * components aka. custom-elements. No polyfill needed!
 * vue-like directives aka custom attributes
@@ -424,7 +424,7 @@ dom['random-tag']({
     // or rust struct methods
     warn (el, ...args) {
       el.oldtxt = el.txt
-      el.contents = '  Sure you want to remove random-tag?  '
+      el.contents = 'Sure you want to remove random-tag?'
     },
     reset (el) { el.contents = el.oldtxt }
   },
@@ -509,62 +509,6 @@ rilti.component('tick-box', {
     }
   }
 })
-```
-
-## Performance
-rilti is about getting things done fast on your terms,
-this means maximum expresivity minimal code,
-but of course there's always a compromise
-between nice to have features and raw performance,
-therefore rilti has two element generation systems
-which are the same in many aspects.
-``rilti.dom(tag, =opts, ...children) -> Proxy(Function -> Node)`` and
-``rilti.fastdom(tag, =opts, ...children) -> Node``
-
-both can do ``const {div, span, anytag} = rilti.fastdom || rilti.dom``
-
-``rilti.fastdom`` is a reduced version of ``rilti.dom`` it focusses purely
-on Node generation with minimal niceties like proxy magic,
-it also throws out deliberate lifecycle hooks.
-
-If you're building a todo app or anything that needs high interactivity use ``rilti.dom``,
-but **if you want 10000 table elements quick and dirty use ``rilti.fastdom``**
-
-**NOTE**: *the performance after rendering is unaffected in either case*
-
-#### see how fast rilti.js renders your elements
-
-```html
-<script src="/rilti/dist/rilti.min.js"></script>
-<script>
-  const riltiGoFast = (fast = true, count = 10000) => {
-    const {span} = rilti[fast ? 'fastdom' : 'dom']
-    const start = performance.now()
-    while(count != 0) span({
-      $: document.body,
-      css: {
-        background:'#fff',
-        width:'110px',
-        height:'110px',
-        color: 'dimgrey',
-        textAlign: 'center',
-        margin:'5px',
-        padding:'4px',
-        float:'left',
-        boxShadow:'0 1px 4px hsla(0,0%,0%,.3)'
-      }
-    },
-      "damn daniel, back at it again with those white spans ",
-      count--
-    )
-
-    console.log(`That took ${performance.now() - start}ms`)
-  }
-
-  riltiGoFast(); // -> this usually takes ~720ms on my i5 machine
-  document.body.textContent = ''
-  riltiGoFast(false); // -> this usually takes ~ 1364ms on my i5 machine
-</script>
 ```
 
 #### weight
