@@ -21,7 +21,6 @@ const {
   isEl,
   isSvg,
   flatten,
-  emitter,
   curry,
   compose,
   run,
@@ -34,15 +33,13 @@ const {
   each,
   dom,
   html,
-  $,
-  map2json
+  $
   /* ,components,
   component,
   attributeObserver,
   on,
   once,
   svg,
-  fastdom,
   domfn,
   directive,
   directives,
@@ -261,36 +258,6 @@ describe('run/runAsync', () => {
   })
 })
 
-describe('event-emitter', () => {
-  const mitter = emitter()
-  const msg = 'do you hear me?'
-
-  it('should receive an event twice', () => {
-    let count = 0
-    const ln = mitter.on.test123(m => {
-      expect(m === msg).toBeTruthy()
-      if (count === 2) {
-        ln.off()
-        expect(count === 2).toBeTruthy()
-      }
-      count++
-    })
-  })
-
-  it('should receive an event once', () => {
-    let hit = false
-    mitter.once.test123(m => {
-      expect(m === msg && !hit).toBeTruthy()
-      hit = true
-    })
-  })
-
-  it('should emit an event', () => {
-    mitter.emit.test123(msg)
-    mitter.emit.test123(msg)
-  })
-})
-
 describe('$', () => {
   describe('proxify node', () => {
     const el = document.createElement('div')
@@ -453,6 +420,7 @@ describe('each', () => {
   })
 })
 
+/*
 describe('map2json', () => {
   it('should convert a map to json', () => {
     const expectation = `{"key":"value"}`
@@ -461,6 +429,7 @@ describe('map2json', () => {
     ).toBe(expectation)
   })
 })
+*/
 
 describe('compose', () => {
   it('should compose functions', () => {
