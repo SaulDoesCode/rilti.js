@@ -10,6 +10,6 @@ addons:
 before_install:
   - export MOZ_HEADLESS=1
 before_script:
-  - npm install
+  - yarn install
 script:
-  - npm run test
+  - yarn test
