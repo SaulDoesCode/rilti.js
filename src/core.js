@@ -24,7 +24,6 @@ import {
   isArrlike,
   isNodeList,
   isNode,
-  isModel,
   isMounted,
   isPrimitive,
   isPromise,
@@ -37,14 +36,12 @@ import {
   isEl,
   isSvg
 } from './common.js'
-import emitter from './emitter.js'
 import {component, components} from './components.js'
 import {attributeObserver, directive, directives} from './directives.js'
 import {domfn, render, prime} from './dom-functions.js'
-import {dom, fastdom, svg, html} from './dom-generation.js'
+import {dom, svg, html} from './dom-generation.js'
 import {Mounted, Unmounted, Created} from './lifecycles.js'
 import {on, once} from './event-manager.js'
-import {state} from './state.js'
 import $ from './proxy-node.js'
 
 export {
@@ -60,7 +57,6 @@ export {
   isArrlike,
   isNodeList,
   isNode,
-  isModel,
   isMounted,
   isPrimitive,
   isPromise,
@@ -88,17 +84,14 @@ export {
   queryEach,
   on,
   once,
-  emitter,
   each,
   svg,
-  fastdom,
   dom,
   domfn,
   html,
   directive,
   directives,
   prime,
-  state,
   Mounted,
   Unmounted,
   Created,

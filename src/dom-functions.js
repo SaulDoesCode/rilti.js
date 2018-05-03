@@ -1,6 +1,7 @@
 import {
   curry,
   flatten,
+  run,
   queryAsync,
   isArr,
   isBool,
@@ -56,10 +57,12 @@ export const vpend = (children, host, connector = 'appendChild', dfrag = frag(),
     }
   }
   if (host && !noHostAppend) {
-    host[connector](dfrag)
-    for (let i = 0; i < children.length; i++) {
-      children[i] && children[i].dispatchEvent && MNT(children[i])
-    }
+    run(() => {
+      host[connector](dfrag)
+      for (let i = 0; i < children.length; i++) {
+        children[i] && children[i].dispatchEvent && MNT(children[i])
+      }
+    })
   }
   return children
 }
@@ -245,13 +248,16 @@ export const domfn = {
     if (isFunc(node)) node = node()
     if (isArr(node)) return node.forEach(n => domfn.remove(n, after))
     if (isNum(after)) setTimeout(() => domfn.remove(node), after)
-    else if (isMounted(node)) node.remove()
-    else if (isNodeList(node)) Array.from(node).forEach(n => domfn.remove(n))
+    else if (isMounted(node)) {
+      run(() => node.remove())
+    } else if (isNodeList(node)) {
+      Array.from(node).forEach(n => domfn.remove(n))
+    }
     return node
   },
   replace (node, newnode) {
     if (isFunc(newnode)) newnode = newnode()
-    node.replaceWith(newnode)
+    run(() => node.replaceWith(newnode))
     return newnode
   }
 }

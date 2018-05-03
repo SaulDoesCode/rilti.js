@@ -1,7 +1,7 @@
-import {infinify, isArr, isFunc, isObj, isModel, isProxyNode, isPrimitive, isRenderable} from './common.js'
+import {isArr, isFunc, isObj, isProxyNode, isPrimitive, isRenderable} from './common.js'
 import {updateComponent, components} from './components.js'
 import {CR} from './lifecycles.js'
-import {attach, domfn, vpend} from './dom-functions.js'
+import {attach, domfn} from './dom-functions.js'
 import {once, on, EventManager} from './event-manager.js'
 import $ from './proxy-node.js'
 
@@ -18,7 +18,8 @@ export const html = (input, host) => {
   }
 }
 
-export const frag = inner => inner !== undefined ? html(inner) : document.createDocumentFragment()
+export const frag = inner =>
+  inner !== undefined ? html(inner) : document.createDocumentFragment()
 
 export const assimilate = {
   props (el, props) {
@@ -39,7 +40,7 @@ export const assimilate = {
           }
           Object.defineProperty(el, key, accessors)
         }
-      } else if (isFunc(val) && !isProxyNode(val) && !isModel(val)) {
+      } else if (isFunc(val) && !isProxyNode(val)) {
         el[prop] = val.call(el, proxied)
       } else {
         Object.defineProperty(el, prop, Object.getOwnPropertyDescriptor(props, prop))
@@ -72,47 +73,6 @@ const infinifyDOM = (domgen, tag) => tag in domgen ? Reflect.get(domgen, tag) : 
     }
   }
 )
-
-export const fastdom = infinify(function (tag, opts) {
-  const el = typeof tag === 'string' ? document.createElement(tag) : tag
-  let children = Array.prototype.slice.call(arguments, 2)
-
-  if (isObj(opts)) {
-    for (const key in opts) {
-      if (key in el) el[key] = opts[key]
-      else if (key === '$' || key === 'render') {
-        opts[key].nodeType ? opts[key].appendChild(el) : attach(opts[key], 'appendChild', el)
-      } else if (domfn.hasOwnProperty(key)) domfn[key](el, opts[key])
-      else if (key.indexOf('on') === 0) on(el, opts[key])
-      else if (key.indexOf('once') === 0) once(el, opts[key])
-      else el.setAttribute(key, opts[key])
-    }
-  } else if (typeof opts === 'string') el.appendChild(new window.Text(opts))
-  else if (opts instanceof window.Node) {
-    el.appendChild(opts)
-  } else if (opts instanceof Function) {
-    children.unshift(opts(el))
-  } else if (isArr(opts) || opts instanceof window.NodeList) {
-    children = Array.prototype.concat.call(opts, children)
-  }
-
-  if (children.length) {
-    const dfrag = frag()
-    for (let i = 0; i < children.length; i++) {
-      let child = children[i]
-      if (child instanceof Function) child = child(el)
-      if (child instanceof window.Node) {
-        dfrag.appendChild(child)
-      } else if (isArr(child)) {
-        vpend(child, el, 'appendChild', dfrag, true)
-      } else if (child !== undefined) {
-        dfrag.appendChild(new window.Text(child))
-      }
-    }
-    el.appendChild(dfrag)
-  }
-  return el
-})
 
 export const body = (...args) => {
   attach(document.body || 'body', 'appendChild', ...args)

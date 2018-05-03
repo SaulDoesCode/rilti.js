@@ -1,8 +1,5 @@
-export const ModelSymbol = Symbol('Model')
 export const ProxyNodeSymbol = Symbol('Proxy Node')
 export const ComponentSymbol = Symbol('Component')
-
-export const isModel = o => isDef(o) && o[ModelSymbol] === true
 
 export const isProxyNode = o => isFunc(o) && o[ProxyNodeSymbol] === true
 
@@ -114,24 +111,33 @@ export const flatten = (arr, result = [], encaptulate = true) => {
 * runAsync runs a function asynchronously
 */
 
-export const runAsync = (fn, ...args) => setTimeout(fn, 0, ...args)
+export const runAsync = (fn, ...args) => {
+  if (window.requestIdleCallback) {
+    window.requestIdleCallback(fn.bind(undefined, ...args))
+  } else {
+    setTimeout(fn, 0, ...args)
+  }
+}
 
 /*
 * run runs a function on DOMContentLoaded or asynchronously
 * if document.body is present and loaded
 */
 
-export const run = fn => {
+export const run = (...args) => {
   if (document.body || document.readyState === 'complete') {
-    setTimeout(fn, 0)
+    runAsync.apply(undefined, args)
   } else {
-    window.addEventListener('DOMContentLoaded', fn)
+    window.addEventListener(
+      'DOMContentLoaded',
+      e => runAsync.apply(undefined, args)
+    )
   }
 }
 
 /*
 *
-* DOM Query Functions
+* DOM Query Selector Functions
 *
 */
 

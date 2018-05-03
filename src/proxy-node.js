@@ -1,4 +1,4 @@
-import {query, infinify, isEl, isFunc, isInput, isNode, isMounted, isModel, isProxyNode, isStr, ProxyNodeSymbol} from './common.js'
+import {query, infinify, isEl, isFunc, isInput, isNode, isMounted, isProxyNode, isStr, ProxyNodeSymbol} from './common.js'
 import {domfn, emit, render, vpend, prime} from './dom-functions.js'
 import {EventManager} from './event-manager.js'
 
@@ -69,7 +69,7 @@ export const $ = node => {
           return result === node || result === proxy ? proxy : result
         }
       }
-      return key === ProxyNodeSymbol || (isFunc(node[key]) && !isProxyNode(node[key]) && !isModel(node[key]) ? node[key].bind(node) : node[key])
+      return key === ProxyNodeSymbol || (isFunc(node[key]) && !isProxyNode(node[key]) ? node[key].bind(node) : node[key])
     },
     set (_, key, val) {
       if (key === 'class') Class(node, val)
