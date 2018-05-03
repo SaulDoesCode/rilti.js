@@ -12,11 +12,8 @@
 }(this, function (exports) {
   'use strict'
 
-  const ModelSymbol = Symbol('Model')
   const ProxyNodeSymbol = Symbol('Proxy Node')
   const ComponentSymbol = Symbol('Component')
-
-  const isModel = o => isDef(o) && o[ModelSymbol] === true
 
   const isProxyNode = o => isFunc(o) && o[ProxyNodeSymbol] === true
 
@@ -128,24 +125,33 @@
   * runAsync runs a function asynchronously
   */
 
-  const runAsync = (fn, ...args) => setTimeout(fn, 0, ...args)
+  const runAsync = (fn, ...args) => {
+    if (window.requestIdleCallback) {
+      window.requestIdleCallback(fn.bind(undefined, ...args))
+    } else {
+      setTimeout(fn, 0, ...args)
+    }
+  }
 
   /*
   * run runs a function on DOMContentLoaded or asynchronously
   * if document.body is present and loaded
   */
 
-  const run = fn => {
+  const run = (...args) => {
     if (document.body || document.readyState === 'complete') {
-      setTimeout(fn, 0)
+      runAsync.apply(undefined, args)
     } else {
-      window.addEventListener('DOMContentLoaded', fn)
+      window.addEventListener(
+        'DOMContentLoaded',
+        e => runAsync.apply(undefined, args)
+      )
     }
   }
 
   /*
   *
-  * DOM Query Functions
+  * DOM Query Selector Functions
   *
   */
 
@@ -223,51 +229,6 @@
   const mutateSet = set => (n, state) =>
     set[state === undefined ? 'has' : state ? 'add' : 'delete'](n)
 
-  var emitter = (host = {}, listeners = new Map()) => Object.assign(host, {
-    listeners,
-    emit: infinify((event, ...data) => {
-      if (listeners.has(event)) {
-        for (const h of listeners.get(event)) {
-          h.apply(undefined, data)
-        }
-      }
-    }),
-    emitAsync: infinify((event, ...data) => setTimeout(() => {
-      if (listeners.has(event)) {
-        for (const h of listeners.get(event)) {
-          setTimeout(h, 0, ...data)
-        }
-      }
-    }, 0), false),
-    on: infinify((event, handler) => {
-      if (!listeners.has(event)) listeners.set(event, new Set())
-      listeners.get(event).add(handler)
-      const manager = () => host.off(event, handler)
-      manager.off = manager
-      manager.on = () => {
-        manager()
-        return host.on(event, handler)
-      }
-      manager.once = () => {
-        manager()
-        return host.once(event, handler)
-      }
-      return manager
-    }),
-    once: infinify((event, handler) => host.on(event, function h () {
-      handler(...arguments)
-      host.off(event, h)
-    })),
-    off: infinify((event, handler) => {
-      if (listeners.has(event)) {
-        // ls = listener Set
-        const ls = listeners.get(event)
-        ls.delete(handler)
-        if (!ls.size) listeners.delete(event)
-      }
-    })
-  })
-
   const ProxiedNodes = new Map()
 
   const $ = node => {
@@ -335,7 +296,7 @@
             return result === node || result === proxy ? proxy : result
           }
         }
-        return key === ProxyNodeSymbol || (isFunc(node[key]) && !isProxyNode(node[key]) && !isModel(node[key]) ? node[key].bind(node) : node[key])
+        return key === ProxyNodeSymbol || (isFunc(node[key]) && !isProxyNode(node[key]) ? node[key].bind(node) : node[key])
       },
       set (_, key, val) {
         if (key === 'class') Class(node, val)
@@ -423,7 +384,8 @@
     }
   }
 
-  const frag = inner => inner !== undefined ? html(inner) : document.createDocumentFragment()
+  const frag = inner =>
+    inner !== undefined ? html(inner) : document.createDocumentFragment()
 
   const assimilate = {
     props (el, props) {
@@ -444,7 +406,7 @@
             }
             Object.defineProperty(el, key, accessors)
           }
-        } else if (isFunc(val) && !isProxyNode(val) && !isModel(val)) {
+        } else if (isFunc(val) && !isProxyNode(val)) {
           el[prop] = val.call(el, proxied)
         } else {
           Object.defineProperty(el, prop, Object.getOwnPropertyDescriptor(props, prop))
@@ -477,47 +439,6 @@
       }
     }
   )
-
-  const fastdom = infinify(function (tag, opts) {
-    const el = typeof tag === 'string' ? document.createElement(tag) : tag
-    let children = Array.prototype.slice.call(arguments, 2)
-
-    if (isObj(opts)) {
-      for (const key in opts) {
-        if (key in el) el[key] = opts[key]
-        else if (key === '$' || key === 'render') {
-          opts[key].nodeType ? opts[key].appendChild(el) : attach(opts[key], 'appendChild', el)
-        } else if (domfn.hasOwnProperty(key)) domfn[key](el, opts[key])
-        else if (key.indexOf('on') === 0) on(el, opts[key])
-        else if (key.indexOf('once') === 0) once(el, opts[key])
-        else el.setAttribute(key, opts[key])
-      }
-    } else if (typeof opts === 'string') el.appendChild(new window.Text(opts))
-    else if (opts instanceof window.Node) {
-      el.appendChild(opts)
-    } else if (opts instanceof Function) {
-      children.unshift(opts(el))
-    } else if (isArr(opts) || opts instanceof window.NodeList) {
-      children = Array.prototype.concat.call(opts, children)
-    }
-
-    if (children.length) {
-      const dfrag = frag()
-      for (let i = 0; i < children.length; i++) {
-        let child = children[i]
-        if (child instanceof Function) child = child(el)
-        if (child instanceof window.Node) {
-          dfrag.appendChild(child)
-        } else if (isArr(child)) {
-          vpend(child, el, 'appendChild', dfrag, true)
-        } else if (child !== undefined) {
-          dfrag.appendChild(new window.Text(child))
-        }
-      }
-      el.appendChild(dfrag)
-    }
-    return el
-  })
 
   const body = (...args) => {
     attach(document.body || 'body', 'appendChild', ...args)
@@ -743,10 +664,12 @@
       }
     }
     if (host && !noHostAppend) {
-      host[connector](dfrag)
-      for (let i = 0; i < children.length; i++) {
-        children[i] && children[i].dispatchEvent && MNT(children[i])
-      }
+      run(() => {
+        host[connector](dfrag)
+        for (let i = 0; i < children.length; i++) {
+          children[i] && children[i].dispatchEvent && MNT(children[i])
+        }
+      })
     }
     return children
   }
@@ -932,13 +855,16 @@
       if (isFunc(node)) node = node()
       if (isArr(node)) return node.forEach(n => domfn.remove(n, after))
       if (isNum(after)) setTimeout(() => domfn.remove(node), after)
-      else if (isMounted(node)) node.remove()
-      else if (isNodeList(node)) Array.from(node).forEach(n => domfn.remove(n))
+      else if (isMounted(node)) {
+        run(() => node.remove())
+      } else if (isNodeList(node)) {
+        Array.from(node).forEach(n => domfn.remove(n))
+      }
       return node
     },
     replace (node, newnode) {
       if (isFunc(newnode)) newnode = newnode()
-      node.replaceWith(newnode)
+      run(() => node.replaceWith(newnode))
       return newnode
     }
   }
@@ -1006,7 +932,7 @@
       throw new Error(`component: ${tagName} tagName is un-hyphenated`)
     }
     components.set(tagName.toUpperCase(), config)
-    run(() => queryEach(tagName, updateComponent))
+    run(queryEach, tagName, updateComponent)
     return dom[tagName]
   }
 
@@ -1049,172 +975,6 @@
     return el
   }
 
-  // import emitter from './emitter.js'
-
-  const binder = () => {
-    const binder = {
-      binds: new Map(),
-      bound: new Set(),
-      get (host, key) {
-        if (binder.binds.has(host)) {
-          return binder.binds.get(host).get(key)
-        }
-      },
-      set (host, key, bind) {
-        if (!binder.binds.has(host)) {
-          binder.binds.set(host, new Map())
-        }
-        binder.bound.add(bind)
-        binder.binds.get(host).set(key, bind)
-      },
-      delete (host, key) {
-        if (binder.binds.has(host)) {
-          binder.bound.delete(binder.binds.get(host).get(key))
-          binder.binds.get(host).delete(key)
-          if (!binder.binds.get(host).size) {
-            binder.binds.delete(host)
-          }
-        }
-      },
-      update () {
-        binder.bound.forEach(bind => bind())
-      },
-      clear () {
-        binder.bound.forEach(bind => bind.revoke())
-        binder.bound.clear()
-        binder.binds.forEach(hostmap => hostmap.clear())
-        binder.clear()
-      }
-    }
-    return binder
-  }
-
-  const state = ({val, pre, prescreen, screen, pass, fail, views, binds, revoked}) => {
-    const Binds = binder()
-    let isRevoked = false
-
-    const bind = (host, key, viewName, revoke) => {
-      const viewBound = isStr(viewName)
-      if (viewBound && !(viewName in view)) {
-        throw new Error('state.bind: cannot create bind to undefined view')
-      }
-      let bind
-      if (isFunc(key)) {
-        bind = viewBound ? () => key(host, view[viewName]) : () => key(host, val)
-      } else {
-        bind = viewBound ? () => { host[key] = view[viewName] } : () => { host[key] = val }
-      }
-      bind.revoke = () => {
-        Binds.delete(host, key)
-        revoke()
-      }
-      Binds.set(host, key, bind)
-      return bind
-    }
-
-    bind.input = input => {
-      const bind = () => { input.value = val }
-      const onchange = e => { mutate(input.value.trim()) }
-      input.addEventListener('input', onchange)
-      bind.revoke = () => {
-        input.removeEventListener('input', onchange)
-        Binds.delete(input, 'value')
-      }
-      bind.reinstate = () => {
-        bind.revoke()
-        Binds.set(input, 'value', bind)
-        input.addEventListener('input', onchange)
-      }
-      Binds.set(input, 'value', bind)
-      return bind
-    }
-
-    const view = () => val
-    const createView = (key, fn) => {
-      if (!isFunc(fn)) throw new TypeError('a view should be a function')
-      Object.defineProperty(view, key, { get: () => fn(val) })
-    }
-
-    if (isObj(views)) {
-      for (const key in views) createView(key, views[key])
-    }
-
-    if (isArr(binds)) {
-      binds.forEach(b => {
-        isArr(b) ? bind(...b) : isObj(b) && bind(b.host, b.prop, b.viewName)
-      })
-      Binds.update()
-    }
-
-    if (screen !== undefined && isRegExp(screen)) {
-      const regexp = screen
-      screen = val => isStr(val) && regexp.test(val)
-    }
-
-    const mutate = newval => {
-      if (isRevoked || newval === val) return
-      if (isFunc(newval)) newval = newval(val)
-
-      if (newval === undefined) {
-        throw new Error('state.mutate: cannot create mutation from undefined')
-      } else if (isFunc(newval)) {
-        throw new TypeError('state: cannot accept function values')
-      }
-
-      if (isPromise(newval)) {
-        return newval.then(nv => mutate(nv), err => fail(newval, err))
-      }
-
-      if (pre) {
-        if (prescreen || !prescreen(newval, val)) {
-          fail(newval, new Error('failed prescreen'))
-        } else {
-          newval = pre(newval, val)
-        }
-      }
-
-      if (screen && !screen(newval, val)) {
-        if (fail) fail(newval, new Error('failed screening'))
-      } else {
-        val = newval
-        Binds.update()
-        if (pass) pass(val)
-      }
-    }
-
-    const manager = {
-      bind,
-      view,
-      createView,
-      mutate,
-      binds: Binds,
-      revoke () {
-        Binds.clear()
-        isRevoked = true
-        revoked()
-      }
-    }
-
-    return Object.freeze(manager)
-  }
-  /*
-
-  export const stateCollection = model => {
-    if (!isObj(model)) {
-      throw new Error('stateCollection needs a model object')
-    }
-
-    for (let key in model) {
-      if (isObj(model[key])) {
-        model[key] = state(model[key])
-      }
-    }
-
-    return model
-  }
-
-  */
-
   exports.isArr = isArr
   exports.isComponent = isComponent
   exports.isNil = isNil
@@ -1227,7 +987,6 @@
   exports.isArrlike = isArrlike
   exports.isNodeList = isNodeList
   exports.isNode = isNode
-  exports.isModel = isModel
   exports.isMounted = isMounted
   exports.isPrimitive = isPrimitive
   exports.isPromise = isPromise
@@ -1255,17 +1014,14 @@
   exports.queryEach = queryEach
   exports.on = on
   exports.once = once
-  exports.emitter = emitter
   exports.each = each
   exports.svg = svg
-  exports.fastdom = fastdom
   exports.dom = dom
   exports.domfn = domfn
   exports.html = html
   exports.directive = directive
   exports.directives = directives
   exports.prime = prime
-  exports.state = state
   exports.Mounted = Mounted
   exports.Unmounted = Unmounted
   exports.Created = Created
