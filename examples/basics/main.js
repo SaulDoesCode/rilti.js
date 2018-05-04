@@ -2,21 +2,24 @@ const {dom, component, isFunc, isNode, isRenderable, isProxyNode} = rilti
 const {div, button} = rilti.dom
 
 component('card-component', {
-
+  state: {name: 'Saul'},
+  create (el) {
+    el.html = el.state`Hello ${'name'}!`
+  }
 })
 
-
-var cc = dom['card-component']({
-  $: 'body',
-  state: {name: 'Saul'}
-},
-  ({state}) => state`Hello ${'name'}!`
-)
-
-button({
-  $: 'body',
+component('counter-button', {
   state: {count: 0},
-  onclick: (e, {state}) => ++state.count
-},
-  ({state}) => state`clicks: ${'count'}`
-)
+  on: {
+    click: (e, {state}) => ++state.count
+  },
+  create (el) {
+    el.css = {
+      position: 'relative',
+      display: 'block',
+      margin: '5px',
+      padding: '5px 10px'
+    }
+    el.html = el.state`clicks: ${'count'}`
+  }
+})
