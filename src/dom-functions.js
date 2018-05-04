@@ -15,6 +15,7 @@ import {
   isNum,
   isObj,
   isStr,
+  isProxyNode,
   isPrimitive
 } from './common.js'
 import {once} from './event-manager.js'
@@ -120,8 +121,8 @@ export const prime = (...nodes) => {
 * independant of load state
 */
 export const attach = (host, connector, ...renderables) => {
-  if (host instanceof Function) host = host()
-  const nodeHost = host instanceof window.Node
+  if (host instanceof Function && !isProxyNode(host)) host = host()
+  const nodeHost = host instanceof window.Node || isProxyNode(host)
   renderables = prime(renderables)
   if (nodeHost) {
     if ((connector === 'after' || connector === 'before') && !isMounted(host)) {
