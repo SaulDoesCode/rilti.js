@@ -114,7 +114,7 @@ export const dom = new Proxy(Object.assign((tag, opts, ...children) => {
     var pure = opts.pure
     if (!iscomponent && opts.props) assimilate.props(el, opts.props)
     opts.methods && assimilate.methods(el, opts.methods)
-    if (opts.sync) opts.sync = opts.sync(el)
+    if (isObj(opts.state)) proxied.state = opts.state
     for (const key in opts) {
       let val = opts[key]
       const isOnce = key.indexOf('once') === 0
@@ -168,7 +168,7 @@ export const dom = new Proxy(Object.assign((tag, opts, ...children) => {
       opts = result !== el && result !== proxied ? result : undefined
     }
     if (isRenderable(opts)) children.unshift(opts)
-    if (children.length) attach(el, 'appendChild', ...children)
+    if (children.length) attach(proxied, 'appendChild', ...children)
   }
 
   iscomponent ? !componentHandled && updateComponent(el, undefined) : CR(el, true, iscomponent)
