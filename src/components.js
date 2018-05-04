@@ -12,7 +12,7 @@ export const component = (tagName, config) => {
     throw new Error(`component: ${tagName} tagName is un-hyphenated`)
   }
   components.set(tagName.toUpperCase(), config)
-  run(queryEach, tagName, updateComponent)
+  run(() => queryEach(tagName, updateComponent))
   return dom[tagName]
 }
 
