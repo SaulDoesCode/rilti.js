@@ -4,27 +4,28 @@
     <meta charset="utf-8">
     <title>rilti.js markdown-editor</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <script src="/dist/rilti.js"></script>
+    <script src="../dist/rilti.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/0.3.17/marked.min.js"></script>
 <script>
-  const {dom: {div, h3, label, textarea, section, p}, model} = rilti
+  const {div, h3, label, textarea, section, p} = rilti.dom
+  const state = {
+    processed: div(),
+    md (md) {
+      state.markdown = md
+      state.processed.html = marked(state.markdown)
+    }
+  }
+  state.md('** type some markdown... **')
 
-  // Model
-  const state = model({md: '** type some markdown... **'})
-
-  state.compute.md = () => marked(state.md || ' ')
-  state.on['set:md'](() => state.compute('md'))
-
-  // View
-  section({render: 'body', class: 'markdown-editor'},
+  section.markdown_editor({$: 'body'},
     div(
       h3('input:'),
-      p({contentEditable: true}, state.sync.md)
+      p({
+        contentEditable: true,
+        oninput (e, el) { state.md(el.innerText) }
+      }, state.markdown)
     ),
-    div(
-      h3('output:'),
-      div(state.sync['compute:md'])
-    )
+    div(h3('output:'), state.processed)
   )
 </script>
   </head>

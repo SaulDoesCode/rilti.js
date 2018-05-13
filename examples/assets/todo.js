@@ -1,17 +1,18 @@
 { /* global rilti localStorage location */
   const {dom: {article, div, span, section, nav, button, input}, isDef} = rilti
 
-  const store = rilti.model(localStorage.getItem('todos'))
-  const Stats = () => {
+  const store = new Map(JSON.parse(localStorage.getItem('todos') || '[]'))
+  const stats = () => {
     let done = 0
-    store.each((d, val) => d && done++)
+    store.forEach(d => d && done++)
     return {all: store.size, done, undone: (store.size - done) || 0}
   }
+  stats.populators = new Set()
   const save = () => {
-    localStorage.setItem('todos', store.toJSON())
-    store.emit.stats(Stats())
+    localStorage.setItem('todos', JSON.stringify(Array.from(store.entries())))
+    const currentStats = stats()
+    stats.populators.forEach(populate => populate(currentStats))
   }
-  store.on.set(save); store.on.delete(save)
 
   const filters = ['all', 'done', 'undone']
   const statFilters = filters.map(filter => {
@@ -20,8 +21,8 @@
       attr: {filter},
       onclick (e) { location.hash = filter }
     })
-    populate(Stats())
-    store.on.stats(populate)
+    populate(stats())
+    stats.populators.add(populate)
     return display
   })
   const setFilter = () => {
@@ -33,32 +34,35 @@
   window.onhashchange = setFilter
   rilti.run(setFilter)
 
-  const stats = div({class: 'stats'}, statFilters)
-
   const todo = {
-    new: (val, done) => article({
+    new: (val, done) => article.todo_item({
       render: todo.list,
-      class: 'todo-item',
       props: {
         accessors: {
           val (el, v) {
             if (val === v || !isDef(v)) return val
-            store.del(val)
-            store(val = v, done)
+            store.delete(val)
+            store.set(val = v, done)
+            save()
           },
           done (el, d) {
             if (done === d || !isDef(d)) return done
-            store(val, el.toggle.checked = done = d)
+            store.set(val, el.toggle.checked = done = d)
+            save()
             el.attrToggle('done', done)
           }
         }
       },
       cycle: {
         create (el) {
-          store(val, done)
+          store.set(val, done)
+          save()
           el.attrToggle('done', done)
         },
-        unmount: el => store.del(val)
+        unmount (el) {
+          store.delete(val)
+          save()
+        }
       }
     },
     el => button({onclick: e => el.remove()}, '❌'),
@@ -68,8 +72,8 @@
     },
     val
     ),
-    el => (el.toggle = span({
-      class: {toggle: true, checked: done},
+    el => (el.toggle = span.toggle({
+      class: {checked: done},
       props: {
         accessors: {
           checked (el, checked) {
@@ -81,9 +85,8 @@
       onclick (e, toggle) { el.done = toggle.checked = !toggle.checked }
     })
     )),
-    maker: nav({
+    maker: nav.maker({
       render: 'body',
-      class: 'maker',
       methods: {
         make ({$children: [{clear, txt}]}) {
           if ((txt = txt.trim()).length && !store.has(txt)) {
@@ -98,8 +101,8 @@
     }),
     button({onclick: () => todo.maker.make()}, 'add')
     ),
-    list: section({render: 'body', class: 'list'}, stats)
+    list: section.list({render: 'body'}, div.stats(statFilters))
   }
 
-  store.each((done, val) => todo.new(val, done))
+  store.forEach((done, val) => todo.new(val, done))
 }
