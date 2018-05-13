@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>rilti.js state management example</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="./assets/defaults.css">
+    <script src="../dist/rilti.js"></script>
+    <script src="../plugins/router.js"></script>
+    <script src="./assets/router.js"></script>
+  </head>
+  <body>
+    <template route>
+        <h1>Home</h1>
+    </template>
+    <template route="vision">
+        <h1>Vision</h1>
+    </template>
+    <template route="state">
+        <h1>state</h1>
+    </template>
+
+    <nav>
+      <a href="#">Home</a>
+      <a href="#vision">Vision</a>
+      <a href="#state">State</a>
+    </nav>
+    <main route-active></main>
+  </body>
+</html>
