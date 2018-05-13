@@ -18,7 +18,6 @@ Feel free to fork or raise issues. Constructive criticism is always welcome
 * flexible declarative programming style
 * node lifecycle hooks
 * observe attributes
-* models with data binding, validation, events & sync/async accessors
 * generate all your dynamic/interactive/transient elements
 * program without concern for page load state
 * components aka. custom-elements. No polyfill needed!
@@ -71,9 +70,6 @@ and also ``on(node, { click: e => {} }, =options)``.
 * [grimstack.io blog site](https://grimstack.io)     
 * [grimstack.io/portfolio WIP Portfolio don't look](https://grimstack.io/portfolio)     
 
-#### Plugins:
-* rilti-tilt.js - compact mouse motion based element tilting effect, based on vanilla-tilt.js
-
 #### future plans
 * offer collection of useful optional plugins
 * stabalize features and release
@@ -106,99 +102,40 @@ and also ``on(node, { click: e => {} }, =options)``.
 ### Click Counting Button
 
 ```js
-const {dom: {button}, model} = rilti
-const state = model({clicks: 0})
-
-button({
+rilti.dom.button({
   render: 'body',
-  onclick: e => ++state.clicks
+  state: {clicks: 0},
+  onclick: (e, {state}) => ++state.clicks
 },
-  'clicks: ', state.sync.clicks()
+  ({state}) => state`You clicked me ${'clicks'} times.`
 )
-```
-``state.sync.text.clicks`` <- Creates a Text node,     
-with a value bound to the model's property ``clicks``.
-
-```js
-state.sync[prop] -> fn(=obj, key = prop) -> obj ? sync.text[prop]() : obj
-```
-so in this case
-```js
-state.sync.clicks() -> new Text(state.clicks)
-```
-but this is also possible
-```js
-state.sync(new Text(), 'textContent', 'clicks') -> new Text(state.clicks)
-```
-or
-```js
-state.sync.clicks(new Text(), 'textContent') -> new Text(state.clicks)
-```
-or this at a lower level
-```js
-const textNode = new Text(state.clicks)
-state.on['set:clicks'](clicks => {
-  textNode.textContent = clicks
-})
-```
-
-you could also avoid ``.sync`` and go
-```js
-const {dom: {button}, model} = rilti
-const state = model({clicks: 0})
-
-const clicks = new Text(state.clicks)
-state.on('set:clicks', count => {
-  clicks.textContent = count
-})
-
-button({
-  render: 'body',
-  onclick: e => ++state.clicks
-},
-  'clicks: ', clicks
-)
-```
-
-Either way the above will produce this html
-```html
-<button>clicks: 0</button>
-<!-- Which is Technically -->
-<button>
-  "clicks:" <!-- text node -->
-  "0" <!-- text node bound to state.clicks -->
-</button>
 ```
 
 ### Two Button Counter
 
 ```js
-const {dom: {button, div, h1}, model} = rilti
-const state = model({count: 0})
+const {button, div, h1} = rilti.dom
 
-div(
-  {render: 'body'},// append to <body> on load
-  h1(state.sync.count),
-  // ^- state.count -> $(h1).children = count
-  button({onclick: e => ++state.count}, '+'),
-  button({onclick: e => --state.count}, '-')
+div({
+  render: 'body', // <- apend to <body> on load
+  state: {count: 0}
+},
+  ({state}) => [
+    h1(state`${'count'}`),
+    button({onclick: e => ++state.count}, '+'),
+    button({onclick: e => --state.count}, '-')
+  ]
 )
 ```
 
-### Mouse tracker using model.sync.template
+### Mouse tracker
 ```js
-const {model, render, on} = rilti
-
-const state = model()
-
-on.mousemove(document, ({clientX, clientY}) => {
-  state({clientX, clientY})
-})
-
-render(
-  state.sync.template`
-    pointer is at (${'clientX'}x, ${'clientY'}y)
-  `
+rilti.dom.div({
+  $: 'body',
+  css: {width: '300px', height: '300px'},
+  onmousemove ({clientX, clientY}, {state}) { state({clientX, clientY}) },
+},
+  ({state}) => state`The Pointer is at (${'clientX'}x, ${'clientY'}y)`
 )
 ```
 
@@ -209,18 +146,13 @@ Just generate everything, it's so simple.
 ```js
 const {a, button, h1, header, nav, section} = rilti.fastdom
 
-section(
-  {$: 'body', id: 'navbar'},
-// ^- $ is shorthand for render: 'Node/Selector'
-  header(
-    h1('My Wicked Website')
-  ),
+section.navbar({$: 'body'}, // <- $ is shorthand for render: 'Node/Selector'
+  header(h1('My Wicked Website')),
   nav(
     ['Home','Blog','About','Contact'].map(
-      name => a({class: 'nv-btn', href: '#/' + name.toLowerCase()}, name)
+      name => a['nav-bn']({href: '#/' + name.toLowerCase()}, name)
     ),
-    a({
-      class: 'nv-btn',
+    a['nav-bn']({
       css: {backgroundColor: 'white', color: 'dimgrey'},
       href: 'https://github.com/SaulDoesCode',
       target: '_blank'
@@ -274,8 +206,6 @@ The above produces this html
 | ``.each(iterable, func)`` | loop through objects, numbers, array(like)s, sets, maps... |
 | ``.extend(hostObj, obj, =safeMode)`` | extends host object with all props of other object, won't overwrite if safe is true |
 | ``.flatten(arraylike)`` | flattens multidimensional arraylike objects |
-| ``.emitter(=obj)`` | extendable event system /pub sub pattern |
-| ``.model(=obj)`` | Backbone like model with validation |
 | ``.render(AlmostAnything, Selector/Node, =connector = 'appendChild')`` | renders things, independent of ready state |
 | ``.run(func)`` | asynchronously executes a given function when the DOM is loaded |
 | ``.runAsync(func, ...args)`` | run a function asynchronously |
@@ -320,7 +250,6 @@ const {
   emit, // (node, {type string/Event/CustomEvent}) dispatchEvents on node
   append, prepend, appendTo, prependTo, // (node, selectorOrNode)
   remove, // (node, =afterMS) // remove node or remove after timeout
-  mutate // multitool i.e. (node, {class: 'card', css: {'--higlight-color': 'crimson'}}) -> options obj
 } = rilti.domfn
 ```
 
@@ -351,37 +280,19 @@ const contentCard = async (src, hidden = false) => {
 }
 ```
 
-#### Async Property accessors with ``.model().async`` and Async/Await
-
-```js
-  // view.js
-  import Feed from 'news-feed.js'
-  const NewsApp = rilti.model()
-
-  NewsApp.async.latest.then(Feed.render)
-
-  export default NewsApp
-
-  // news.js
-  import NewsApp from 'view.js'
-
-  fetch('/news/latest').then(res => {
-    // Promises are automagically handled
-    NewsApp.latest = res.json()
-  })
-```
-
 #### Create Elements with Any Tag
 ``dom['any-arbitrary-tag'](=options, ...children) -> Node/Element``
 
 ```javascript
-dom['random-tag']({
+dom['random-tag']
+.with
+.random
+['chainable']
+.classes({
   // render to dom using selectors or nodes
   render: '.main > header',
   // add attributes
-  attr: {
-    contenteditable: 'true',
-  },
+  attr: {contenteditable: true},
   // set classes
   class: 'card active',
   // or
