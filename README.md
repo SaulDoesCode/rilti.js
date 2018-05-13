@@ -77,28 +77,6 @@ and also ``on(node, { click: e => {} }, =options)``.
 
 ## Example time!
 
-#### Simple Persistent Markdown Scratch-Pad
-
-```javascript
-  const {dom: {article, body, textarea}, model} = rilti
-  const m = model()
-
-  const editor = textarea(m.sync.note)
-// automagic data binding -^
-  const display = article()
-
-  body(editor, display)
-// ^- render to document.body
-
-  m.on('set:note', note => {
-    localStorage.setItem('note', note)
-    display.html = Markdown.parse(note)
-// plugin your favorite md lib -^
-  })
-
-  m.note = localStorage.getItem('note') || 'Write something...'
-```
-
 ### Click Counting Button
 
 ```js
