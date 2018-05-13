@@ -10,16 +10,15 @@ a small flavorful and unapologetic library built for the modern web
 Feel free to fork or raise issues. Constructive criticism is always welcome
 
 * 🐫 Loadbearing Spirit - Expressive DOM generation and custom-element components sans polyfill
-* 🐱 Lion - Fearless Almost Magical *State Solution* with data-binding so simple you could cry
-* 👶 Child - Proxy based DOM manipulation and Powerful all accepting Rendering System
+* 🐱 Lion - Fearless element/component local *State Solution* with simple data-binding
+* 👶 Child - Proxy based DOM manipulation and Powerful all accepting async Rendering System
 
 ## features
 * elm-like ideas about architecture
 * flexible declarative programming style
 * node lifecycle hooks
 * observe attributes
-* models with data binding, validation, events & sync/async accessors
-* generate all your elements in js don't write clunky html
+* generate all your dynamic/interactive/transient elements
 * program without concern for page load state
 * components aka. custom-elements. No polyfill needed!
 * vue-like directives aka custom attributes
@@ -71,9 +70,6 @@ and also ``on(node, { click: e => {} }, =options)``.
 * [grimstack.io blog site](https://grimstack.io)     
 * [grimstack.io/portfolio WIP Portfolio don't look](https://grimstack.io/portfolio)     
 
-#### Plugins:
-* rilti-tilt.js - compact mouse motion based element tilting effect, based on vanilla-tilt.js
-
 #### future plans
 * offer collection of useful optional plugins
 * stabalize features and release
@@ -81,124 +77,43 @@ and also ``on(node, { click: e => {} }, =options)``.
 
 ## Example time!
 
-#### Simple Persistent Markdown Scratch-Pad
-
-```javascript
-  const {dom: {article, body, textarea}, model} = rilti
-  const m = model()
-
-  const editor = textarea(m.sync.note)
-// automagic data binding -^
-  const display = article()
-
-  body(editor, display)
-// ^- render to document.body
-
-  m.on('set:note', note => {
-    localStorage.setItem('note', note)
-    display.html = Markdown.parse(note)
-// plugin your favorite md lib -^
-  })
-
-  m.note = localStorage.getItem('note') || 'Write something...'
-```
-
 ### Click Counting Button
 
 ```js
-const {dom: {button}, model} = rilti
-const state = model({clicks: 0})
-
-button({
+rilti.dom.button({
   render: 'body',
-  onclick: e => ++state.clicks
+  state: {clicks: 0},
+  onclick: (e, {state}) => ++state.clicks
 },
-  'clicks: ', state.sync.clicks()
+  ({state}) => state`You clicked me ${'clicks'} times.`
 )
-```
-``state.sync.text.clicks`` <- Creates a Text node,     
-with a value bound to the model's property ``clicks``.
-
-```js
-state.sync[prop] -> fn(=obj, key = prop) -> obj ? sync.text[prop]() : obj
-```
-so in this case
-```js
-state.sync.clicks() -> new Text(state.clicks)
-```
-but this is also possible
-```js
-state.sync(new Text(), 'textContent', 'clicks') -> new Text(state.clicks)
-```
-or
-```js
-state.sync.clicks(new Text(), 'textContent') -> new Text(state.clicks)
-```
-or this at a lower level
-```js
-const textNode = new Text(state.clicks)
-state.on['set:clicks'](clicks => {
-  textNode.textContent = clicks
-})
-```
-
-you could also avoid ``.sync`` and go
-```js
-const {dom: {button}, model} = rilti
-const state = model({clicks: 0})
-
-const clicks = new Text(state.clicks)
-state.on('set:clicks', count => {
-  clicks.textContent = count
-})
-
-button({
-  render: 'body',
-  onclick: e => ++state.clicks
-},
-  'clicks: ', clicks
-)
-```
-
-Either way the above will produce this html
-```html
-<button>clicks: 0</button>
-<!-- Which is Technically -->
-<button>
-  "clicks:" <!-- text node -->
-  "0" <!-- text node bound to state.clicks -->
-</button>
 ```
 
 ### Two Button Counter
 
 ```js
-const {dom: {button, div, h1}, model} = rilti
-const state = model({count: 0})
+const {button, div, h1} = rilti.dom
 
-div(
-  {render: 'body'},// append to <body> on load
-  h1(state.sync.count),
-  // ^- state.count -> $(h1).children = count
-  button({onclick: e => ++state.count}, '+'),
-  button({onclick: e => --state.count}, '-')
+div({
+  render: 'body', // <- apend to <body> on load
+  state: {count: 0}
+},
+  ({state}) => [
+    h1(state`${'count'}`),
+    button({onclick: e => ++state.count}, '+'),
+    button({onclick: e => --state.count}, '-')
+  ]
 )
 ```
 
-### Mouse tracker using model.sync.template
+### Mouse tracker
 ```js
-const {model, render, on} = rilti
-
-const state = model()
-
-on.mousemove(document, ({clientX, clientY}) => {
-  state({clientX, clientY})
-})
-
-render(
-  state.sync.template`
-    pointer is at (${'clientX'}x, ${'clientY'}y)
-  `
+rilti.dom.div({
+  $: 'body',
+  css: {width: '300px', height: '300px'},
+  onmousemove ({clientX, clientY}, {state}) { state({clientX, clientY}) },
+},
+  ({state}) => state`The Pointer is at (${'clientX'}x, ${'clientY'}y)`
 )
 ```
 
@@ -209,18 +124,13 @@ Just generate everything, it's so simple.
 ```js
 const {a, button, h1, header, nav, section} = rilti.fastdom
 
-section(
-  {$: 'body', id: 'navbar'},
-// ^- $ is shorthand for render: 'Node/Selector'
-  header(
-    h1('My Wicked Website')
-  ),
+section.navbar({$: 'body'}, // <- $ is shorthand for render: 'Node/Selector'
+  header(h1('My Wicked Website')),
   nav(
     ['Home','Blog','About','Contact'].map(
-      name => a({class: 'nv-btn', href: '#/' + name.toLowerCase()}, name)
+      name => a['nav-bn']({href: '#/' + name.toLowerCase()}, name)
     ),
-    a({
-      class: 'nv-btn',
+    a['nav-bn']({
       css: {backgroundColor: 'white', color: 'dimgrey'},
       href: 'https://github.com/SaulDoesCode',
       target: '_blank'
@@ -274,8 +184,6 @@ The above produces this html
 | ``.each(iterable, func)`` | loop through objects, numbers, array(like)s, sets, maps... |
 | ``.extend(hostObj, obj, =safeMode)`` | extends host object with all props of other object, won't overwrite if safe is true |
 | ``.flatten(arraylike)`` | flattens multidimensional arraylike objects |
-| ``.emitter(=obj)`` | extendable event system /pub sub pattern |
-| ``.model(=obj)`` | Backbone like model with validation |
 | ``.render(AlmostAnything, Selector/Node, =connector = 'appendChild')`` | renders things, independent of ready state |
 | ``.run(func)`` | asynchronously executes a given function when the DOM is loaded |
 | ``.runAsync(func, ...args)`` | run a function asynchronously |
@@ -320,7 +228,6 @@ const {
   emit, // (node, {type string/Event/CustomEvent}) dispatchEvents on node
   append, prepend, appendTo, prependTo, // (node, selectorOrNode)
   remove, // (node, =afterMS) // remove node or remove after timeout
-  mutate // multitool i.e. (node, {class: 'card', css: {'--higlight-color': 'crimson'}}) -> options obj
 } = rilti.domfn
 ```
 
@@ -351,37 +258,19 @@ const contentCard = async (src, hidden = false) => {
 }
 ```
 
-#### Async Property accessors with ``.model().async`` and Async/Await
-
-```js
-  // view.js
-  import Feed from 'news-feed.js'
-  const NewsApp = rilti.model()
-
-  NewsApp.async.latest.then(Feed.render)
-
-  export default NewsApp
-
-  // news.js
-  import NewsApp from 'view.js'
-
-  fetch('/news/latest').then(res => {
-    // Promises are automagically handled
-    NewsApp.latest = res.json()
-  })
-```
-
 #### Create Elements with Any Tag
 ``dom['any-arbitrary-tag'](=options, ...children) -> Node/Element``
 
 ```javascript
-dom['random-tag']({
+dom['random-tag']
+.with
+.random
+['chainable']
+.classes({
   // render to dom using selectors or nodes
   render: '.main > header',
   // add attributes
-  attr: {
-    contenteditable: 'true',
-  },
+  attr: {contenteditable: true},
   // set classes
   class: 'card active',
   // or
@@ -424,7 +313,7 @@ dom['random-tag']({
     // or rust struct methods
     warn (el, ...args) {
       el.oldtxt = el.txt
-      el.contents = '  Sure you want to remove random-tag?  '
+      el.contents = 'Sure you want to remove random-tag?'
     },
     reset (el) { el.contents = el.oldtxt }
   },
@@ -509,62 +398,6 @@ rilti.component('tick-box', {
     }
   }
 })
-```
-
-## Performance
-rilti is about getting things done fast on your terms,
-this means maximum expresivity minimal code,
-but of course there's always a compromise
-between nice to have features and raw performance,
-therefore rilti has two element generation systems
-which are the same in many aspects.
-``rilti.dom(tag, =opts, ...children) -> Proxy(Function -> Node)`` and
-``rilti.fastdom(tag, =opts, ...children) -> Node``
-
-both can do ``const {div, span, anytag} = rilti.fastdom || rilti.dom``
-
-``rilti.fastdom`` is a reduced version of ``rilti.dom`` it focusses purely
-on Node generation with minimal niceties like proxy magic,
-it also throws out deliberate lifecycle hooks.
-
-If you're building a todo app or anything that needs high interactivity use ``rilti.dom``,
-but **if you want 10000 table elements quick and dirty use ``rilti.fastdom``**
-
-**NOTE**: *the performance after rendering is unaffected in either case*
-
-#### see how fast rilti.js renders your elements
-
-```html
-<script src="/rilti/dist/rilti.min.js"></script>
-<script>
-  const riltiGoFast = (fast = true, count = 10000) => {
-    const {span} = rilti[fast ? 'fastdom' : 'dom']
-    const start = performance.now()
-    while(count != 0) span({
-      $: document.body,
-      css: {
-        background:'#fff',
-        width:'110px',
-        height:'110px',
-        color: 'dimgrey',
-        textAlign: 'center',
-        margin:'5px',
-        padding:'4px',
-        float:'left',
-        boxShadow:'0 1px 4px hsla(0,0%,0%,.3)'
-      }
-    },
-      "damn daniel, back at it again with those white spans ",
-      count--
-    )
-
-    console.log(`That took ${performance.now() - start}ms`)
-  }
-
-  riltiGoFast(); // -> this usually takes ~720ms on my i5 machine
-  document.body.textContent = ''
-  riltiGoFast(false); // -> this usually takes ~ 1364ms on my i5 machine
-</script>
 ```
 
 #### weight
