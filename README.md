@@ -10,8 +10,8 @@ a small flavorful and unapologetic library built for the modern web
 Feel free to fork or raise issues. Constructive criticism is always welcome
 
 * 🐫 Loadbearing Spirit - Expressive DOM generation and custom-element components sans polyfill
-* 🐱 Lion - Fearless Almost Magical *State Solution* with data-binding so simple you could cry
-* 👶 Child - Proxy based DOM manipulation and Powerful all accepting Rendering System
+* 🐱 Lion - Fearless element/component local *State Solution* with simple data-binding
+* 👶 Child - Proxy based DOM manipulation and Powerful all accepting async Rendering System
 
 ## features
 * elm-like ideas about architecture
