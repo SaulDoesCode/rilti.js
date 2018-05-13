@@ -3,30 +3,30 @@ import {emit} from './dom-functions.js'
 import $ from './proxy-node.js'
 
 const Initiated = new Map()
-const beenInitiated = (attrName, el) => (
-  Initiated.has(attrName) && Initiated.get(attrName)(el)
+const beenInitiated = (name, el) => (
+  Initiated.has(name) && Initiated.get(name)(el)
 )
 
-export const attributeObserver = (el, attrName, opts) => {
+export const attributeObserver = (el, name, opts) => {
   el = $(el)
   const {init, update, remove} = opts
   const intialize = (present, value) => {
-    if (present && !beenInitiated(attrName, el)) {
+    if (present && !beenInitiated(name, el)) {
       if (init) {
         init(el, value)
       }
-      if (!Initiated.has(attrName)) {
-        Initiated.set(attrName, mutateSet(new WeakSet()))
+      if (!Initiated.has(name)) {
+        Initiated.set(name, mutateSet(new WeakSet()))
       }
-      Initiated.get(attrName)(el, true)
+      Initiated.get(name)(el, true)
       return true
     }
-    return beenInitiated(attrName, el)
+    return beenInitiated(name, el)
   }
   let removedBefore = false
-  let old = el.getAttribute(attrName)
-  intialize(el.hasAttribute(attrName), old)
-  const stop = el.on.attr(({detail: {name, value, oldvalue, present}}) => {
+  let old = el.getAttribute(name)
+  intialize(el.hasAttribute(name), old)
+  const stop = el.on.attr(({detail: {name: attrName, value, oldvalue, present}}) => {
     if (
       attrName === name &&
       old !== value &&
@@ -49,14 +49,14 @@ export const attributeObserver = (el, attrName, opts) => {
   }).off
   return () => {
     stop()
-    if (Initiated.has(attrName)) {
-      Initiated.get(attrName)(el, false)
+    if (Initiated.has(name)) {
+      Initiated.get(name)(el, false)
     }
   }
 }
 
 export const directives = new Map()
-export const directive = (name, {init, update, remove, accessors, toggle}) => {
+export const directive = (name, {init, update, remove}) => {
   const directive = new Map()
   directive.init = el => {
     if (!beenInitiated(name, el)) {
@@ -72,14 +72,17 @@ export const directive = (name, {init, update, remove, accessors, toggle}) => {
     }
   }
   directives.set(name, directive)
-  run(() => {
-    queryEach('[' + name + ']', n => {
-      attributeChange(n, name)
-    })
-  })
+  run(() => queryEach('[' + name + ']', n => attributeChange(n, name)))
+  return directive
 }
 
-export const attributeChange = (el, name, oldvalue, value = el.getAttribute(name), present = el.hasAttribute(name)) => {
+export const attributeChange = (
+  el,
+  name,
+  oldvalue,
+  value = el.getAttribute(name),
+  present = el.hasAttribute(name)
+) => {
   if (directives.has(name)) {
     directives.get(name).init($(el))
   }

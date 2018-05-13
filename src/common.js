@@ -56,7 +56,11 @@ export const isInput = o => {
   return o instanceof window.HTMLInputElement || o instanceof window.HTMLTextAreaElement
 }
 
-export const isRenderable = o => o instanceof window.Node || isProxyNode(o) || isPrimitive(o) || allare(o, isRenderable)
+export const isRenderable = o =>
+  o instanceof window.Node ||
+  isProxyNode(o) ||
+  isPrimitive(o) ||
+  allare(o, isRenderable)
 
 /*
 * allare checks whether all items in an array are like a given param

@@ -1,4 +1,4 @@
-import {query, flatten, infinify, isNil, isArr, isEl, isFunc, isObj, isInput, isNode, isMounted, isProxyNode, isStr, ProxyNodeSymbol} from './common.js'
+import {query, flatten, infinify, isNil, isArr, isEl, isFunc, isObj, isInput, isNode, isMounted, isProxyNode, isPrimitive, isStr, ProxyNodeSymbol} from './common.js'
 import {domfn, emit, render, vpend, prime} from './dom-functions.js'
 import {EventManager} from './event-manager.js'
 
@@ -96,6 +96,9 @@ const state = (data = {}) => {
         deleteProperty(key)
       }
       const old = data[key]
+      if (isPrimitive(val) && val === old) {
+        return true
+      }
       data[key] = val
       binds.each(key, bind => {
         bind(val, old, proxy)
@@ -162,8 +165,7 @@ export const $ = node => {
       on,
       once,
       emit: emit.bind(undefined, node),
-      render: render.bind(undefined, node),
-      state: state()
+      render: render.bind(undefined, node)
     }),
     {
       get (fn, key) {
@@ -174,6 +176,7 @@ export const $ = node => {
         else if (key === 'children') return Array.from(node.children)
         else if (key === '$children') return Array.prototype.map.call(node.children, $)
         else if (key === 'parent' && node.parentNode) return $(node.parentNode)
+        else if (key === 'state') return fn[key] || (fn[key] = state())
         else if (key in domfn) {
           return (...args) => {
             const result = domfn[key](node, ...args)
@@ -186,7 +189,7 @@ export const $ = node => {
         if (key === 'class') Class(node, val)
         else if (key === 'attr') Attr(node, val)
         else if (key === 'css') domfn.css(node, val)
-        else if (key === 'state') fn[key](val)
+        else if (key === 'state') (fn[key] || proxy[key])(val)
         else if (key === 'txt') node[textContent] = val
         else if (key === 'html' || key === 'children') {
           if (isStr(val)) {

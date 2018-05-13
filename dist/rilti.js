@@ -70,7 +70,11 @@
     return o instanceof window.HTMLInputElement || o instanceof window.HTMLTextAreaElement
   }
 
-  const isRenderable = o => o instanceof window.Node || isProxyNode(o) || isPrimitive(o) || allare(o, isRenderable)
+  const isRenderable = o =>
+    o instanceof window.Node ||
+    isProxyNode(o) ||
+    isPrimitive(o) ||
+    allare(o, isRenderable)
 
   /*
   * allare checks whether all items in an array are like a given param
@@ -323,6 +327,9 @@
           deleteProperty(key)
         }
         const old = data[key]
+        if (isPrimitive(val) && val === old) {
+          return true
+        }
         data[key] = val
         binds.each(key, bind => {
           bind(val, old, proxy)
@@ -389,8 +396,7 @@
         on: on$$1,
         once: once$$1,
         emit: emit.bind(undefined, node),
-        render: render.bind(undefined, node),
-        state: state()
+        render: render.bind(undefined, node)
       }),
       {
         get (fn, key) {
@@ -401,6 +407,7 @@
           else if (key === 'children') return Array.from(node.children)
           else if (key === '$children') return Array.prototype.map.call(node.children, $)
           else if (key === 'parent' && node.parentNode) return $(node.parentNode)
+          else if (key === 'state') return fn[key] || (fn[key] = state())
           else if (key in domfn) {
             return (...args) => {
               const result = domfn[key](node, ...args)
@@ -413,7 +420,7 @@
           if (key === 'class') Class(node, val)
           else if (key === 'attr') Attr(node, val)
           else if (key === 'css') domfn.css(node, val)
-          else if (key === 'state') fn[key](val)
+          else if (key === 'state') (fn[key] || proxy[key])(val)
           else if (key === 'txt') node[textContent] = val
           else if (key === 'html' || key === 'children') {
             if (isStr(val)) {
@@ -659,30 +666,30 @@
   )
 
   const Initiated = new Map()
-  const beenInitiated = (attrName, el) => (
-    Initiated.has(attrName) && Initiated.get(attrName)(el)
+  const beenInitiated = (name, el) => (
+    Initiated.has(name) && Initiated.get(name)(el)
   )
 
-  const attributeObserver = (el, attrName, opts) => {
+  const attributeObserver = (el, name, opts) => {
     el = $(el)
     const {init, update, remove} = opts
     const intialize = (present, value) => {
-      if (present && !beenInitiated(attrName, el)) {
+      if (present && !beenInitiated(name, el)) {
         if (init) {
           init(el, value)
         }
-        if (!Initiated.has(attrName)) {
-          Initiated.set(attrName, mutateSet(new WeakSet()))
+        if (!Initiated.has(name)) {
+          Initiated.set(name, mutateSet(new WeakSet()))
         }
-        Initiated.get(attrName)(el, true)
+        Initiated.get(name)(el, true)
         return true
       }
-      return beenInitiated(attrName, el)
+      return beenInitiated(name, el)
     }
     let removedBefore = false
-    let old = el.getAttribute(attrName)
-    intialize(el.hasAttribute(attrName), old)
-    const stop = el.on.attr(({detail: {name, value, oldvalue, present}}) => {
+    let old = el.getAttribute(name)
+    intialize(el.hasAttribute(name), old)
+    const stop = el.on.attr(({detail: {name: attrName, value, oldvalue, present}}) => {
       if (
         attrName === name &&
         old !== value &&
@@ -705,14 +712,14 @@
     }).off
     return () => {
       stop()
-      if (Initiated.has(attrName)) {
-        Initiated.get(attrName)(el, false)
+      if (Initiated.has(name)) {
+        Initiated.get(name)(el, false)
       }
     }
   }
 
   const directives = new Map()
-  const directive = (name, {init, update, remove, accessors, toggle}) => {
+  const directive = (name, {init, update, remove}) => {
     const directive = new Map()
     directive.init = el => {
       if (!beenInitiated(name, el)) {
@@ -728,14 +735,17 @@
       }
     }
     directives.set(name, directive)
-    run(() => {
-      queryEach('[' + name + ']', n => {
-        attributeChange(n, name)
-      })
-    })
+    run(() => queryEach('[' + name + ']', n => attributeChange(n, name)))
+    return directive
   }
 
-  const attributeChange = (el, name, oldvalue, value = el.getAttribute(name), present = el.hasAttribute(name)) => {
+  const attributeChange = (
+    el,
+    name,
+    oldvalue,
+    value = el.getAttribute(name),
+    present = el.hasAttribute(name)
+  ) => {
     if (directives.has(name)) {
       directives.get(name).init($(el))
     }
