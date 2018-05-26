@@ -1,6 +1,5 @@
 import {mutateSet, isComponent} from './common.js'
 import {updateComponent} from './components.js'
-import {emit} from './dom-functions.js'
 import {attributeChange} from './directives.js'
 
 export const Created = mutateSet(new WeakSet())
@@ -10,22 +9,21 @@ export const Unmounted = mutateSet(new WeakSet())
 export const CR = (n, undone = !Created(n), component = isComponent(n)) => {
   if (undone && !component) {
     Created(n, true)
-    emit(n, 'create')
+    n.dispatchEvent(new window.CustomEvent('create'))
   }
 }
 
-export const MNT = n => {
-  const iscomponent = isComponent(n)
+export const MNT = (n, iscomponent = isComponent(n)) => {
   CR(n, !Created(n), iscomponent)
   if (!Mounted(n)) {
     if (Unmounted(n)) {
       Unmounted(n, false)
-      emit(n, 'remount')
+      n.dispatchEvent(new window.CustomEvent('remount'))
     } else if (iscomponent) {
-      updateComponent(n, 'mount')
+      n.dispatchEvent(new window.CustomEvent('mount'))
     } else {
       Mounted(n, true)
-      emit(n, 'mount')
+      n.dispatchEvent(new window.CustomEvent('mount'))
     }
   }
 }
@@ -33,7 +31,7 @@ export const MNT = n => {
 export const UNMNT = n => {
   Mounted(n, false)
   Unmounted(n, true)
-  emit(n, 'unmount')
+  n.dispatchEvent(new window.CustomEvent('unmount'))
 }
 
 export const MountNodes = n => updateComponent(n, 'mount') || MNT(n)
@@ -52,9 +50,11 @@ new window.MutationObserver(muts => {
         UnmountNodes(removedNodes[x])
       }
     }
-    typeof attributeName === 'string' && attributeChange(muts[i].target, attributeName, muts[i].oldValue)
+    if (typeof attributeName === 'string') {
+      attributeChange(muts[i].target, attributeName, muts[i].oldValue)
+    }
   }
-}).observe(
-  document,
-  {attributes: true, attributeOldValue: true, childList: true, subtree: true}
-)
+})
+  .observe(document,
+    {attributes: true, attributeOldValue: true, childList: true, subtree: true}
+  )

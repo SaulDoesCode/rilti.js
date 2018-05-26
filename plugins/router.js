@@ -1,5 +1,5 @@
-{
-  const {directive, runAsync, $, isRenderable, isProxyNode, isFunc, isStr, on, render} = window.rilti
+{ /* global rilti */
+  const {directive, runAsync, $, isRenderable, isProxyNode, isFunc, isStr, on, render} = rilti
 
   const routes = new Map()
   routes.viewBinds = new Map()
@@ -26,16 +26,12 @@
     runAsync(() => route.activate())
   }
   route.viewbind = (name, host) => {
-    if (!isStr(name) && !host) {
-      [host, name] = [name, false]
-    }
+    if (!isStr(name) && !host) [host, name] = [name, false]
     if (host.tagName === 'TEMPLATE') return
     if (!isProxyNode(host)) host = $(host)
     const viewbind = (route, active) => {
       host.textContent = ''
-      if ('view' in route && active) {
-        render(route.view, host)
-      }
+      if ('view' in route && active) render(route.view, host)
     }
     viewbind.revoke = () => {
       if (name) {
@@ -59,9 +55,7 @@
     if (route) {
       if (route.consumers && route.consumers.size) {
         route.consumers.forEach(consumer => {
-          if (consumer.revoke) {
-            consumer.revoke()
-          }
+          if (consumer.revoke) consumer.revoke()
         })
         route.consumers.clear()
       }
@@ -75,9 +69,7 @@
   route.activate = (name = window.location.hash || '#') => {
     if (name[0] !== '#') name = '#' + name
     if (!routes.has(name) || name === routes.active) return
-    if (name !== window.location.hash || '#') {
-      window.location.hash = name
-    }
+    if (name !== window.location.hash || '#') window.location.hash = name
     const route = routes.get(name)
     if (route && route.consumers && route.consumers.size) {
       route.consumers.forEach(consume => consume(route, true, name))
@@ -98,18 +90,12 @@
 
   const removeVbindRoute = el => {
     const vbind = routes.viewBinds.get(el)
-    if (vbind) {
-      vbind.revoke()
-    }
+    if (vbind) vbind.revoke()
   }
 
   directive('route', {
     init (el, val) {
-      if (el.tagName === 'TEMPLATE') {
-        route(val, el)
-      } else {
-        route.viewbind(val, el)
-      }
+      el.tagName === 'TEMPLATE' ? route(val, el) : route.viewbind(val, el)
     },
     update (el, val) {
       removeVbindRoute(el)
@@ -119,7 +105,7 @@
   })
 
   directive('route-active', {
-    init (el) { route.viewbind(el) },
+    init: el => route.viewbind(el),
     remove: removeVbindRoute
   })
 

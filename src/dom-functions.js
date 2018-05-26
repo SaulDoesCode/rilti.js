@@ -1,22 +1,15 @@
 import {
   curry,
-  flatten,
   run,
   queryAsync,
   isArr,
-  isBool,
   isDef,
   isFunc,
   isInput,
   isMounted,
-  // isNode,
   isNodeList,
-  isNil,
   isNum,
-  isObj,
-  isStr,
-  isProxyNode,
-  isPrimitive
+  isProxyNode
 } from './common.js'
 import {once} from './event-manager.js'
 import {frag} from './dom-generation.js'
@@ -29,7 +22,13 @@ export const emit = (node, type, detail) => {
 }
 
 // vpend - virtual append, add nodes and get them as a document fragment
-export const vpend = (children, host, connector = 'appendChild', dfrag = frag(), noHostAppend) => {
+export const vpend = (
+  children,
+  host,
+  connector = 'appendChild',
+  dfrag = frag(),
+  noHostAppend
+) => {
   for (let i = 0; i < children.length; i++) {
     let child = children[i]
     if (child instanceof Function) {
@@ -76,12 +75,25 @@ export const vpend = (children, host, connector = 'appendChild', dfrag = frag(),
 export const prime = (...nodes) => {
   for (let i = 0; i < nodes.length; i++) {
     let n = nodes[i]
+    if (n == null || typeof n === 'boolean') {
+      nodes.splice(i, 1)
+      continue
+    }
     if (n instanceof window.Node || n instanceof Function) {
       continue
-    } else if (isPrimitive(n)) {
-      nodes[i] = new window.Text(n)
+    } else if (typeof n === 'string' || typeof n === 'number') {
+      const nextI = i + 1
+      if (nextI < nodes.length) {
+        const next = nodes[nextI]
+        if (typeof next === 'string' || typeof next === 'number') {
+          nodes[i] = new window.Text(String(n) + String(next))
+          nodes.splice(nextI, 1)
+          i--
+        } else {
+          nodes[i] = new window.Text(String(n))
+        }
+      }
       continue
-      // n = document.createRange().createContextualFragment(n).childNodes
     }
 
     const isnl = n instanceof window.NodeList
@@ -91,7 +103,7 @@ export const prime = (...nodes) => {
         continue
       }
       n = Array.from(n)
-    } else if (isObj(n)) {
+    } else if (n.constructor === Object) {
       n = Object.values(n)
     }
 
@@ -100,14 +112,12 @@ export const prime = (...nodes) => {
         n = prime.apply(undefined, n)
         if (n.length < 2) {
           nodes[i] = n[0]
+          i--
           continue
         }
       }
-      const nlen = n.length
-      n.unshift(i, 1)
-      nodes.splice.apply(nodes, n)
-      n.slice(2, 0)
-      i += nlen
+      nodes.splice(i, 1, ...n)
+      i--
     } else if (isDef(n)) {
       throw new Error(`illegal renderable: ${n}`)
     }
@@ -130,7 +140,7 @@ export const attach = (host, connector, ...renderables) => {
     } else {
       vpend(renderables, host, connector)
     }
-  } else if (isStr(host)) {
+  } else if (typeof host === 'string') {
     return queryAsync(host).then(h => attach(h, connector, ...renderables))
   } if (isArr(host)) {
     host.push(...renderables)
@@ -143,17 +153,15 @@ export const attach = (host, connector, ...renderables) => {
 *
 */
 export const render = (
-  node,
-  host = document.body || 'body',
-  connector = 'appendChild'
+  node, host = document.body || 'body', connector = 'appendChild'
 ) => attach(host, connector, node)
 
 export const domfn = {
   css (node, styles, prop) {
-    if (isObj(styles)) {
+    if (styles.constructor === Object) {
       for (const key in styles) domfn.css(node, key, styles[key])
-    } else if (isStr(styles)) {
-      if (styles.indexOf('--') === 0) {
+    } else if (typeof styles === 'string') {
+      if (styles[0] === '-') {
         node.style.setProperty(styles, prop)
       } else {
         node.style[styles] = prop
@@ -162,27 +170,23 @@ export const domfn = {
     return node
   },
   class (node, c, state) {
-    if (!node.classList) return node
+    if (!node || c == null || !node.classList) return node
+
     if (isArr(node)) {
       for (let i = 0; i < node.length; i++) {
         domfn.class(node[i], c, state)
       }
       return node
     }
-    if (isObj(c)) {
-      for (const className in c) {
-        domfn.class(
-          node,
-          className,
-          isBool(c[className]) ? c[className] : undefined
-        )
-      }
+
+    if (c.constructor === Object) {
+      for (const name in c) domfn.class(node, name, c[name])
     } else {
-      if (isStr(c)) c = c.split(' ')
+      if (typeof c === 'string') c = c.split(' ')
       if (isArr(c)) {
-        const booleanState = isBool(state)
-        for (var i = 0; i < c.length; i++) {
-          node.classList[booleanState ? state ? 'add' : 'remove' : 'toggle'](c[i])
+        const boolState = typeof state === 'boolean'
+        for (let i = 0; i < c.length; i++) {
+          node.classList[boolState ? state ? 'add' : 'remove' : 'toggle'](c[i])
         }
       }
     }
@@ -190,29 +194,42 @@ export const domfn = {
   },
   hasClass: curry((node, name) => node.classList.contains(name)),
   attr (node, attr, val) {
-    if (isObj(attr)) {
+    if (attr.constructor === Object) {
       for (const a in attr) {
-        const present = isNil(attr[a])
+        const present = attr[a] == null
         node[present ? 'removeAttribute' : 'setAttribute'](a, attr[a])
         attributeChange(node, a, undefined, attr[a], !present)
       }
-    } else if (isStr(attr)) {
+    } else if (typeof attr === 'string') {
       const old = node.getAttribute(attr)
-      if (isNil(val)) return old
+      if (val == null) return old
       node.setAttribute(attr, val)
       attributeChange(node, attr, old, val)
     }
     return node
   },
   removeAttribute (node, ...attrs) {
-    attrs = flatten(attrs)
-    for (var i = 0; i < attrs.length; i++) {
-      node.removeAttribute(attrs[i])
-      attributeChange(node, attrs[i], undefined, undefined, false)
+    if (attrs.length === 1) {
+      node.removeAttribute(attrs[0])
+      attributeChange(node, attrs[0], undefined, undefined, false)
+    } else {
+      for (let i = 0; i < attrs.length; i++) {
+        if (isArr(attrs[i])) {
+          attrs.splice(i, 1, ...attrs[i])
+          i--
+        }
+        node.removeAttribute(attrs[i])
+        attributeChange(node, attrs[i], undefined, undefined, false)
+      }
     }
     return node
   },
-  attrToggle (node, name, state = !node.hasAttribute(name), val = node.getAttribute(name) || '') {
+  attrToggle (
+    node,
+    name,
+    state = !node.hasAttribute(name),
+    val = node.getAttribute(name) || ''
+  ) {
     node[state ? 'setAttribute' : 'removeAttribute'](name, val)
     attributeChange(node, name, state ? val : null, state ? null : val, state)
     return node
@@ -239,20 +256,22 @@ export const domfn = {
     return node
   },
   refurbish (node) {
-    Array.from(node.attributes).forEach(({name}) => {
-      node.removeAttribute(name)
-    })
+    for (let i = 0; i < node.attributes.length; i++) {
+      node.removeAttribute(node.attributes[i].name)
+    }
     node.removeAttribute('class')
     return domfn.clear(node)
   },
   remove (node, after) {
-    if (isFunc(node)) node = node()
-    if (isArr(node)) return node.forEach(n => domfn.remove(n, after))
-    if (isNum(after)) setTimeout(() => domfn.remove(node), after)
-    else if (isMounted(node)) {
+    if (node instanceof Function) node = node()
+    if (isArr(node)) {
+      for (let i = 0; i < node.length; i++) domfn.remove(node[i], after)
+    } else if (isNum(after)) {
+      setTimeout(() => domfn.remove(node), after)
+    } else if (isMounted(node)) {
       run(() => node.remove())
     } else if (isNodeList(node)) {
-      Array.from(node).forEach(n => domfn.remove(n))
+      for (let i = 0; i < node.length; i++) domfn.remove(node[i])
     }
     return node
   },

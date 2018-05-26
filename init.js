@@ -5,17 +5,16 @@ const fs = require('fs')
 const chokidar = require('chokidar')
 const zlib = require('zlib')
 
+const PORT = 2018
+
 const childProc = require('child_process')
-const exec = cmd => new Promise((resolve, reject) =>
-  childProc.exec(cmd, (err, stdout) =>
-    err ? reject(err) : resolve(stdout)
-  )
-)
+const exec = cmd => new Promise((resolve, reject) => childProc.exec(cmd,
+  (err, stdout) => err ? reject(err) : resolve(stdout)
+))
 
 const buildLibrary = () => exec('npm run build')
 
 const app = express()
-
 app.use(compression())
 
 app.get('/', (req, res) => {
@@ -33,14 +32,10 @@ app.use(express.static('./', {
   }
 }))
 
-const PORT = 2018
 app.listen(PORT, () => console.log(`Server Started on at localhost:${PORT}/`))
 
 const watcher = chokidar.watch('../rilti/', {
-  ignored: [
-    '../rilti/node_modules',
-    '../rilti/.git'
-  ]
+  ignored: ['../rilti/node_modules', '../rilti/.git']
 })
 
 const fileMutation = async location => {
@@ -81,13 +76,13 @@ watcher.on('ready', () => {
     })
 })
 
-console.log(`
-  Listening for file changes...
-`)
+console.log('\nListening for file changes...\n')
 
 const formatBytes = (bytes, decimals = 2) => {
   if (bytes === 0) return '0 Bytes'
   const k = 1000
   const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return (bytes / Math.pow(k, i)).toPrecision(decimals + 1) + ' ' + 'Bytes,KB,MB,GB,TB,PB,EB,ZB,YB'.split(',')[i]
+  return (bytes / Math.pow(k, i))
+    .toPrecision(decimals + 1) +
+    ' ' + 'Bytes,KB,MB,GB,TB,PB,EB,ZB,YB'.split(',')[i]
 }

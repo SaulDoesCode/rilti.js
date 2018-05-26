@@ -14,7 +14,7 @@ module.exports = config => {
     autoWatch: !isTravis,
     singleRun: isTravis,
     concurrency: Infinity,
-    browsers: ['FirefoxHeadless'],
+    browsers: [isTravis ? 'FirefoxHeadless' : 'ChromeNoHead'],
     customLaunchers: {
       FirefoxHeadless: {
         base: 'Firefox',

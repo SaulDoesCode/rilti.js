@@ -12,9 +12,7 @@ export const attributeObserver = (el, name, opts) => {
   const {init, update, remove} = opts
   const intialize = (present, value) => {
     if (present && !beenInitiated(name, el)) {
-      if (init) {
-        init(el, value)
-      }
+      if (init) init(el, value)
       if (!Initiated.has(name)) {
         Initiated.set(name, mutateSet(new WeakSet()))
       }
@@ -26,7 +24,9 @@ export const attributeObserver = (el, name, opts) => {
   let removedBefore = false
   let old = el.getAttribute(name)
   intialize(el.hasAttribute(name), old)
-  const stop = el.on.attr(({detail: {name: attrName, value, oldvalue, present}}) => {
+  const stop = el.on.attr(({
+    detail: {name: attrName, value, oldvalue, present}
+  }) => {
     if (
       attrName === name &&
       old !== value &&
@@ -34,14 +34,10 @@ export const attributeObserver = (el, name, opts) => {
       intialize(present, value)
     ) {
       if (present) {
-        if (update) {
-          update(el, value, old)
-        }
+        if (update) update(el, value, old)
         removedBefore = false
       } else if (!removedBefore) {
-        if (remove) {
-          remove(el, value, old)
-        }
+        if (remove) remove(el, value, old)
         removedBefore = true
       }
       old = value
@@ -49,9 +45,7 @@ export const attributeObserver = (el, name, opts) => {
   }).off
   return () => {
     stop()
-    if (Initiated.has(name)) {
-      Initiated.get(name)(el, false)
-    }
+    if (Initiated.has(name)) Initiated.get(name)(el, false)
   }
 }
 
@@ -60,16 +54,11 @@ export const directive = (name, {init, update, remove}) => {
   const directive = new Map()
   directive.init = el => {
     if (!beenInitiated(name, el)) {
-      directive.set(
-        el,
-        attributeObserver(el, name, {init, update, remove})
-      )
+      directive.set(el, attributeObserver(el, name, {init, update, remove}))
     }
   }
   directive.stop = el => {
-    if (directive.has(el)) {
-      directive.get(el)()
-    }
+    if (directive.has(el)) directive.get(el)()
   }
   directives.set(name, directive)
   run(() => queryEach('[' + name + ']', n => attributeChange(n, name)))
@@ -83,8 +72,6 @@ export const attributeChange = (
   value = el.getAttribute(name),
   present = el.hasAttribute(name)
 ) => {
-  if (directives.has(name)) {
-    directives.get(name).init($(el))
-  }
+  if (directives.has(name)) directives.get(name).init($(el))
   emit(el, 'attr', {name, value, oldvalue, present})
 }

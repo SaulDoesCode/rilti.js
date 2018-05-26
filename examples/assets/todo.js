@@ -1,5 +1,5 @@
 { /* global rilti localStorage location */
-  const {dom: {article, div, span, section, nav, button, input}, isDef} = rilti
+  const {article, div, span, section, nav, button, input} = rilti.dom
 
   const store = new Map(JSON.parse(localStorage.getItem('todos') || '[]'))
   const stats = () => {
@@ -14,11 +14,10 @@
     stats.populators.forEach(populate => populate(currentStats))
   }
 
-  const filters = ['all', 'done', 'undone']
+  const filters = 'all done undone'.split(' ')
   const statFilters = filters.map(filter => {
     const populate = stats => { display.txt = `${filter}: ${stats[filter]} ` }
-    const display = span({
-      attr: {filter},
+    const display = span({attr: {filter},
       onclick (e) { location.hash = filter }
     })
     populate(stats())
@@ -40,13 +39,13 @@
       props: {
         accessors: {
           val (el, v) {
-            if (val === v || !isDef(v)) return val
+            if (val === v || v == null) return val
             store.delete(val)
             store.set(val = v, done)
             save()
           },
           done (el, d) {
-            if (done === d || !isDef(d)) return done
+            if (done === d || d == null) return done
             store.set(val, el.toggle.checked = done = d)
             save()
             el.attrToggle('done', done)
@@ -65,26 +64,23 @@
         }
       }
     },
-    el => button({onclick: e => el.remove()}, '❌'),
-    el => span({
-      attr: {contenteditable: true},
-      oninput (e, {txt}) { el.val = txt.trim() }
-    },
-    val
-    ),
-    el => (el.toggle = span.toggle({
-      class: {checked: done},
-      props: {
-        accessors: {
-          checked (el, checked) {
-            if (!isDef(checked)) return el.class.checked
-            else el.class({checked})
+    el => [
+      button({onclick: e => el.remove()}, 'X'),
+      span({attr: {contenteditable: true},
+        oninput (e, {txt}) { el.val = txt.trim() }
+      }, val),
+      (el.toggle = span.toggle({
+        class: {checked: done},
+        props: {
+          accessors: {
+            checked: (el, checked) => checked == null
+              ? el.class.checked : el.class({checked})
           }
-        }
-      },
-      onclick (e, toggle) { el.done = toggle.checked = !toggle.checked }
-    })
-    )),
+        },
+        onclick (e, toggle) { el.done = toggle.checked = !toggle.checked }
+      }))
+    ]
+    ),
     maker: nav.maker({
       render: 'body',
       methods: {
@@ -96,12 +92,10 @@
         }
       }
     },
-    input({
-      onkeydown: ({keyCode}) => keyCode === 13 && todo.maker.make()
-    }),
+    input({onkeydown: ({keyCode}) => keyCode === 13 && todo.maker.make()}),
     button({onclick: () => todo.maker.make()}, 'add')
     ),
-    list: section.list({render: 'body'}, div.stats(statFilters))
+    list: section.list({$: 'body'}, div.stats(statFilters))
   }
 
   store.forEach((done, val) => todo.new(val, done))

@@ -1,4 +1,4 @@
-import {query, flatten, infinify, isNil, isArr, isEl, isFunc, isObj, isInput, isNode, isMounted, isProxyNode, isPrimitive, isStr, ProxyNodeSymbol} from './common.js'
+import {query, flatten, infinify, isArr, isEl, isFunc, isInput, isMounted, isProxyNode, isStr, ProxyNodeSymbol} from './common.js'
 import {domfn, emit, render, vpend, prime} from './dom-functions.js'
 import {EventManager} from './event-manager.js'
 
@@ -7,9 +7,7 @@ const ProxiedNodes = new Map()
 const state = (data = {}) => {
   const binds = new Map()
   binds.add = (key, fn) => {
-    if (!binds.has(key)) {
-      binds.set(key, new Set())
-    }
+    if (!binds.has(key)) binds.set(key, new Set())
     binds.get(key).add(fn)
   }
   binds.remove = (key, fn) => {
@@ -19,15 +17,12 @@ const state = (data = {}) => {
       } else {
         binds.each(key, bind => bind.revoke())
       }
-      if (!binds.get(key).size) {
-        binds.delete(key)
-      }
+
+      if (!binds.get(key).size) binds.delete(key)
     }
   }
   binds.each = (key, fn) => {
-    if (binds.has(key)) {
-      binds.get(key).forEach(fn)
-    }
+    if (binds.has(key)) binds.get(key).forEach(fn)
   }
 
   const bind = (key, fn, intermediate, revoke) => {
@@ -59,55 +54,41 @@ const state = (data = {}) => {
   }
 
   const deleteProperty = key => {
-    data[key] = undefined
     binds.remove(key)
+    return delete data[key]
   }
 
   const proxy = new Proxy((strings, ...keys) => {
-    if (isObj(strings)) {
-      for (let key in strings) {
-        proxy[key] = strings[key]
-      }
-      return
-    }
-    if (isStr(strings)) {
+    if (strings.constructor === Object) {
+      for (const key in strings) proxy[key] = strings[key]
+    } else if (typeof strings === 'string') {
       proxy[strings] = keys[0]
-    }
-    if (isArr(strings)) {
-      return flatten(
-        keys
-          .reduce(
-            (prev, cur, i) => [prev, bind.text(cur), strings[i + 1]],
-            strings[0]
-          )
-          .filter(s => !isStr(s) || s.length)
+    } else if (isArr(strings)) {
+      return flatten(keys
+        .reduce(
+          (prev, cur, i) => [prev, bind.text(cur), strings[i + 1]],
+          strings[0]
+        )
+        .filter(s => !isStr(s) || s.length)
       )
     }
   }, {
-    get (fn, key) {
-      if (key === 'bind') return bind
-      else if (key[0] === '$') {
-        return bind.bind(undefined, key.split('$')[1])
-      }
-      return data[key]
-    },
+    get: (fn, key) => key === 'bind' ? bind : key[0] === '$'
+      ? bind.bind(undefined, key.split('$')[1]) : Reflect.get(data, key),
+
     set (fn, key, val) {
-      if (isNil(val)) {
+      if (val == null) {
         deleteProperty(key)
+      } else {
+        const old = data[key]
+        if (val !== old) {
+          data[key] = val
+          binds.each(key, bind => bind(val, old, proxy))
+        }
       }
-      const old = data[key]
-      if (isPrimitive(val) && val === old) {
-        return true
-      }
-      data[key] = val
-      binds.each(key, bind => {
-        bind(val, old, proxy)
-      })
       return true
     },
-    deleteProperty (fn, key) {
-      deleteProperty(key)
-    }
+    deleteProperty: (fn, key) => deleteProperty(key)
   })
 
   return proxy
@@ -117,10 +98,12 @@ export const $ = node => {
   if (isProxyNode(node)) return node
   if (typeof node === 'string') node = query(node)
   if (ProxiedNodes.has(node)) return ProxiedNodes.get(node)
-  if (!isNode(node)) throw new TypeError(`$ needs a Node: ${node}`)
+  if (!(node instanceof window.Node)) {
+    throw new TypeError(`$ needs a Node: ${node}`)
+  }
 
-  const Class = new Proxy((...args) => {
-    domfn.class(node, ...args)
+  const Class = new Proxy((c, state) => {
+    domfn.class(node, c, state)
     return proxy
   }, {
     get: (fn, key) => node.classList.contains(key),
@@ -136,11 +119,9 @@ export const $ = node => {
       const result = domfn.attr(node, attr, val)
       return result === node ? proxy : result
     }, {
-      get (fn, key) {
-        if (key === 'has') return hasAttr
-        if (key === 'remove' || key === 'rm') return rmAttr
-        return getAttr(key)
-      },
+      get: (fn, key) => key === 'has'
+        ? hasAttr : key === 'remove' ? rmAttr : getAttr(key),
+
       set (fn, key, val) {
         key === 'remove' ? rmAttr(val) : fn(key, val)
         return true
@@ -157,7 +138,7 @@ export const $ = node => {
 
   const proxy = new Proxy(
     Object.assign(fn => {
-      if (isFunc(fn) && !isProxyNode(fn)) fn.call(node, proxy, node)
+      if (fn instanceof Function && !isProxyNode(fn)) fn.call(node, proxy, node)
       return node
     }, {
       class: Class,
@@ -169,7 +150,7 @@ export const $ = node => {
     }),
     {
       get (fn, key) {
-        if (key in fn) return fn[key]
+        if (Reflect.has(fn, key)) return Reflect.get(fn, key)
         else if (key === 'txt') return node[textContent]
         else if (key === 'html') return node[innerHTML]
         else if (key === 'mounted') return isMounted(node)
@@ -183,7 +164,10 @@ export const $ = node => {
             return result === node || result === proxy ? proxy : result
           }
         }
-        return key === ProxyNodeSymbol || (isFunc(node[key]) && !isProxyNode(node[key]) ? node[key].bind(node) : node[key])
+        return key === ProxyNodeSymbol || (
+          isFunc(node[key]) && !isProxyNode(node[key])
+            ? node[key].bind(node) : node[key]
+        )
       },
       set (fn, key, val) {
         if (key === 'class') Class(node, val)

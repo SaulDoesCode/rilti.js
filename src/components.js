@@ -16,19 +16,10 @@ export const component = (tagName, config) => {
 }
 component.plugin = plugin => {
   if (isObj(plugin)) {
-    if (!component.plugins) {
-      component.plugins = {
-        config: new Set(),
-        create: new Set(),
-        mount: new Set(),
-        remount: new Set(),
-        unmount: new Set()
-      }
-    }
-    for (let key in plugin) {
-      if (key in component.plugins) {
-        component.plugins.add(plugin[key])
-      }
+    if (!component.plugins) component.plugins = {}
+    for (const key in plugin) {
+      if (!(key in component.plugins)) component.plugins[key] = new Set()
+      component.plugins.add(plugin[key])
     }
   }
 }

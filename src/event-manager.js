@@ -1,18 +1,20 @@
-import {curry, query, isFunc, isEl, isObj, isStr} from './common.js'
+import {curry, query} from './common.js'
 import $ from './proxy-node.js'
 
 export const EventManager = curry((once, target, type, handle, options = false) => {
-  if (isStr(target)) target = query(target)
-  if (isObj(type)) {
+  if (typeof target === 'string') target = query(target)
+  if (type === Object(type)) {
     for (const name in type) {
       type[name] = EventManager(once, target, name, type[name], options)
     }
     return type
   }
-  if (!isFunc(handle)) return EventManager.bind(undefined, once, target, type)
+  if (!(handle instanceof Function)) {
+    return EventManager.bind(undefined, once, target, type)
+  }
 
   handle = handle.bind(target)
-  const proxiedTarget = isEl(target) ? $(target) : target
+  const proxiedTarget = target instanceof window.Node ? $(target) : target
 
   const handler = evt => {
     handle(evt, proxiedTarget)
