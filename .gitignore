@@ -98,3 +98,4 @@ lock
 LOCK
 *.out
 .cache
+*.lock

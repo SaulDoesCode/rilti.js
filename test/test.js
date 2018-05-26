@@ -68,7 +68,11 @@ describe('isX', () => {
 
   it('should test whether a value is a javascript primitive', () => {
     expect(
-      isPrimitive(42) && isPrimitive('42') && isPrimitive(true) && !isPrimitive(Promise.resolve(42)) && !isPrimitive(() => 42)
+      isPrimitive(42) &&
+      isPrimitive('42') &&
+      isPrimitive(true) &&
+      !isPrimitive(Promise.resolve(42)) &&
+      !isPrimitive(() => 42)
     ).toBeTruthy()
   })
 
@@ -80,13 +84,20 @@ describe('isX', () => {
 
   it('should test whether a value is Array-like', () => {
     expect(
-      isArrlike([1, 2, 3]) && isArrlike('123') && !isArrlike(class {}) && !isArrlike(() => [4, 2])
+      isArrlike([1, 2, 3]) &&
+      isArrlike('123') &&
+      !isArrlike(class {}) &&
+      !isArrlike(() => [4, 2])
     ).toBeTruthy()
   })
 
   it('should test whether a value is null or undefined', () => {
     expect(
-      isNil(undefined) && isNil(null) && !isNil(0) && !isNil('') && !isNil(false)
+      isNil(undefined) &&
+      isNil(null) &&
+      !isNil(0) &&
+      !isNil('') &&
+      !isNil(false)
     ).toBeTruthy()
   })
 
@@ -98,7 +109,12 @@ describe('isX', () => {
 
   it('should test whether a value is a Boolean', () => {
     expect(
-      isBool(true) && isBool(false) && !isBool(0) && !isBool('') && !isBool(null) && !isBool(void 0)
+      isBool(true) &&
+      isBool(false) &&
+      !isBool(0) &&
+      !isBool('') &&
+      !isBool(null) &&
+      !isBool(void 0)
     ).toBeTruthy()
   })
 
@@ -287,7 +303,7 @@ describe('dom', () => {
       expect(el() instanceof window.Node).toBeTruthy()
     })
     it('should have a Text Node with "Hello World" inside', () => {
-      expect(el.childNodes[0].textContent).toEqual(txt)
+      expect(el.textContent).toEqual(txt)
     })
   })
 
@@ -317,7 +333,10 @@ describe('event listening and emtting', () => {
 })
 
 describe('dom querying', () => {
-  const els = 'abcdefg'.split('').map((v, i) => dom.div({attr: {query: i}}, v)())
+  const els = 'abcdefg'
+    .split('')
+    .map((v, i) => dom.div({attr: {query: i}}, v)())
+
   document.body.append(...els)
 
   it('should query and find a particular element', () => {
@@ -352,7 +371,7 @@ describe('async element rendering', () => {
     setTimeout(() => {
       $el = query('#r1')
       done()
-    }, 1000)
+    }, 2222)
   })
   it('element should render to document.body', () => {
     if (!$el) {
@@ -365,7 +384,7 @@ describe('async element rendering', () => {
 
 describe('prime html to be renderable (repeatably not just as a one use fragment)', () => {
   it('should take raw html and make a node filled array out of it', () => {
-    const raw = `<div>1</div><div>2</div><div>3</div><div>4</div><div>5</div><div>6</div>`
+    const raw = [1, 2, 3, 4, 5, 6].map(n => `<div>${n}</div>`).join('')
     const primedHTML = html(raw)
     expect(isArr(primedHTML) && isNodeList(primedHTML)).toBeTruthy()
     expect(primedHTML[0].textContent).toBe('1')
@@ -435,13 +454,9 @@ describe('compose', () => {
   it('should compose functions', () => {
     const nums = [123, 332, 1453]
     const sum = nums[0] + nums[1] + nums[2]
-    const stateCombiner = ({n = 0, state = 0}) => ({
-      state: nums[n] + state,
-      n: n + 1
-    })
-    const composition = compose(stateCombiner, stateCombiner, stateCombiner)
+    const stateCombiner = ({i = 0, n = 0}) => ({i: i + 1, n: nums[i] + n})
     expect(
-      composition({n: 0, state: 0}).state
+      compose(stateCombiner, stateCombiner, stateCombiner)({i: 0, n: 0}).n
     ).toBe(sum)
   })
 })
@@ -452,10 +467,8 @@ attributeObserver,
 components,
 component,
 svg,
-fastdom,
 domfn,
 directive,
 directives,
-prime,
-model
+prime
 */
