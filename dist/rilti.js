@@ -1107,7 +1107,7 @@
     const proxied = $(el)
 
     if (!Created(el)) {
-      proxied.state = state
+      proxied.state = Object.assign({}, state, proxied.state)
       el[ComponentSymbol] = el.tagName
 
       methods && assimilate.methods(el, methods)
