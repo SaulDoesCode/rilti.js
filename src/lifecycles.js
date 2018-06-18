@@ -1,3 +1,4 @@
+/* global CustomEvent MutationObserver */
 import {mutateSet, isComponent} from './common.js'
 import {updateComponent} from './components.js'
 import {attributeChange} from './directives.js'
@@ -9,7 +10,7 @@ export const Unmounted = mutateSet(new WeakSet())
 export const CR = (n, undone = !Created(n), component = isComponent(n)) => {
   if (undone && !component) {
     Created(n, true)
-    n.dispatchEvent(new window.CustomEvent('create'))
+    n.dispatchEvent(new CustomEvent('create'))
   }
 }
 
@@ -18,12 +19,12 @@ export const MNT = (n, iscomponent = isComponent(n)) => {
   if (!Mounted(n)) {
     if (Unmounted(n)) {
       Unmounted(n, false)
-      n.dispatchEvent(new window.CustomEvent('remount'))
+      n.dispatchEvent(new CustomEvent('remount'))
     } else if (iscomponent) {
-      n.dispatchEvent(new window.CustomEvent('mount'))
+      n.dispatchEvent(new CustomEvent('mount'))
     } else {
       Mounted(n, true)
-      n.dispatchEvent(new window.CustomEvent('mount'))
+      n.dispatchEvent(new CustomEvent('mount'))
     }
   }
 }
@@ -31,13 +32,13 @@ export const MNT = (n, iscomponent = isComponent(n)) => {
 export const UNMNT = n => {
   Mounted(n, false)
   Unmounted(n, true)
-  n.dispatchEvent(new window.CustomEvent('unmount'))
+  n.dispatchEvent(new CustomEvent('unmount'))
 }
 
 export const MountNodes = n => updateComponent(n, 'mount') || MNT(n)
 export const UnmountNodes = n => updateComponent(n, 'unmount') || UNMNT(n)
 
-new window.MutationObserver(muts => {
+new MutationObserver(muts => {
   for (let i = 0; i < muts.length; i++) {
     const {addedNodes, removedNodes, attributeName} = muts[i]
     if (addedNodes.length) {

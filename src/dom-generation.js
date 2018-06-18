@@ -1,3 +1,4 @@
+/* global Node Text */
 import {isArr, isObj, isProxyNode, isPrimitive, isRenderable} from './common.js'
 import {updateComponent, components} from './components.js'
 import {CR} from './lifecycles.js'
@@ -11,15 +12,16 @@ export const html = (input, host) => {
     return Array.from(
       document.createRange().createContextualFragment(input).childNodes
     )
-  } else if (input instanceof window.Node) {
+  } else if (input instanceof Node) {
     return input
   } else if (isArr(input)) {
     return input.map(i => html(i))
   }
+  throw new Error('.html: unrenderable input')
 }
 
 export const frag = inner =>
-  inner !== undefined ? html(inner) : document.createDocumentFragment()
+  inner != null ? html(inner) : document.createDocumentFragment()
 
 export const assimilate = {
   props (el, props) {
@@ -43,7 +45,9 @@ export const assimilate = {
       } else if (val instanceof Function && !isProxyNode(val)) {
         el[prop] = val.call(el, proxied)
       } else {
-        Object.defineProperty(el, prop, Object.getOwnPropertyDescriptor(props, prop))
+        Object.defineProperty(
+          el, prop, Object.getOwnPropertyDescriptor(props, prop)
+        )
       }
     }
   },
@@ -78,14 +82,11 @@ const infinifyDOM = (dom, tag) => {
   }))
 }
 
-export const body = (...args) => {
-  attach(document.body || 'body', 'appendChild', ...args)
-  return args.length > 1 ? args : args[0]
-}
+export const body = (...args) => attach(document.body || 'body', 'appendChild', ...args)
 
 export const text = (options, txt = '') => {
   if (isPrimitive(options)) [txt, options] = [options, undefined]
-  return dom(new window.Text(txt), options)
+  return dom(new Text(txt), options)
 }
 
 const reserved = ['$', 'id', 'render', 'children', 'html', 'class', 'className']
@@ -112,18 +113,24 @@ export const dom = new Proxy(Object.assign((tag, opts, ...children) => {
   const iscomponent = components.has(el.tagName)
   if (iscomponent) var componentHandled
 
-  const proxied = $(el)
+  let proxied
+  if (!isObj(opts)) {
+    proxied = $(el)
+  } else {
+    var {pure, cycle} = opts
 
-  if (isObj(opts)) {
-    var {pure} = opts
+    if (!pure) {
+      proxied = $(el)
+      if (isObj(opts.state)) {
+        proxied.state = opts.state
+      }
+    }
+
     if (!iscomponent && opts.props) assimilate.props(el, opts.props)
     opts.methods && assimilate.methods(el, opts.methods)
-    if (isObj(opts.state)) {
-      proxied.state = opts.state
-    }
+    let val
     for (const key in opts) {
-      let val = opts[key]
-      if (val == null) continue
+      if ((val = opts[key]) == null) continue
 
       if (key[0] === 'o' && key[1] === 'n') {
         const isOnce = key[2] === 'c' && key[3] === 'e'
@@ -136,23 +143,23 @@ export const dom = new Proxy(Object.assign((tag, opts, ...children) => {
         opts[mode][type] = type.length
           ? evtfn(el, type, ...args) : evtfn(el, ...args)
       } else if (key in el) {
-        if (typeof el[key] === 'function') {
+        if (el[key] instanceof Function) {
           isArr(val) ? el[key].apply(el, val) : el[key](val)
         } else {
           el[key] = opts[key]
         }
       } else if (key in domfn) {
-        val = isArr(opts[key]) ? domfn[key](el, ...val) : domfn[key](el, val)
+        val = isArr(val) ? domfn[key](el, ...val) : domfn[key](el, val)
         if (val !== el) opts[key] = val
       }
     }
 
-    if (opts.cycle) {
-      const {mount, create, remount, unmount} = opts.cycle
-      create && once.create(el, create.bind(el, proxied))
-      mount && once.mount(el, mount.bind(el, proxied))
-      opts.cycle.unmount = unmount && on.unmount(el, unmount.bind(el, proxied))
-      opts.cycle.remount = remount && on.remount(el, remount.bind(el, proxied))
+    if (cycle) {
+      const {mount, create, remount, unmount} = cycle
+      if (create) once.create(el, create.bind(el, proxied || el))
+      if (mount) once.mount(el, mount.bind(el, proxied || el))
+      if (unmount) cycle.unmount = on.unmount(el, unmount.bind(el, proxied || el))
+      if (remount) cycle.remount = on.remount(el, remount.bind(el, proxied || el))
     }
 
     if (iscomponent) {
@@ -160,26 +167,26 @@ export const dom = new Proxy(Object.assign((tag, opts, ...children) => {
       componentHandled = true
     }
 
-    const renderHost = opts.$ || opts.render
-    if (renderHost) attach(renderHost, 'appendChild', el)
+    const host = opts.$ || opts.render
+    if (host) attach(host, 'appendChild', el)
     else if (opts.renderAfter) attach(opts.renderAfter, 'after', el)
     else if (opts.renderBefore) attach(opts.renderBefore, 'before', el)
   }
 
-  if (el.nodeType !== 3 /* el != TextNode */) {
-    if (isProxyNode(opts) && opts !== proxied) {
-      children.unshift(opts(proxied))
+  if (el.nodeType !== 3 /* el != Text */) {
+    if (isProxyNode(opts) && (!proxied || opts !== proxied)) {
+      children.unshift(opts(proxied || el))
     } else if (opts instanceof Function) {
-      const result = opts.call(el, proxied)
-      opts = result !== el && result !== proxied ? result : undefined
+      const result = opts.call(el, proxied || el)
+      opts = result !== el && (!proxied || result !== proxied) ? result : undefined
     }
     if (isRenderable(opts)) children.unshift(opts)
-    if (children.length) attach(proxied, 'appendChild', ...children)
+    if (children.length) attach(proxied || el, 'appendChild', ...children)
   }
 
   iscomponent
     ? !componentHandled && updateComponent(el, undefined)
     : CR(el, true, iscomponent)
 
-  return pure ? el : proxied
+  return proxied || el
 }, {text, body, svg, frag, html}), {get: infinifyDOM})

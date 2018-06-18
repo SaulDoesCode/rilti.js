@@ -1,10 +1,9 @@
+/* global Text Node NodeList CustomEvent */
 import {
   curry,
   run,
   queryAsync,
   isArr,
-  isDef,
-  isFunc,
   isInput,
   isMounted,
   isNodeList,
@@ -17,11 +16,11 @@ import {MNT} from './lifecycles.js'
 import {attributeChange} from './directives.js'
 
 export const emit = (node, type, detail) => {
-  node.dispatchEvent(new window.CustomEvent(type, {detail}))
+  node.dispatchEvent(new CustomEvent(type, {detail}))
   return node
 }
 
-// vpend - virtual append, add nodes and get them as a document fragment
+// vpend - virtual append, add nodes and append them as a document fragment
 export const vpend = (
   children,
   host,
@@ -47,11 +46,11 @@ export const vpend = (
     }
     if (typeof child === 'string') {
       if (!child.length) continue
-      child = new window.Text(child)
+      child = new Text(child)
     } else if (isArr(child)) {
       child = vpend(child, host, connector, dfrag, true)
     }
-    if (child instanceof window.Node) {
+    if (child instanceof Node) {
       dfrag.appendChild(child)
       children[i] = child
     }
@@ -79,24 +78,24 @@ export const prime = (...nodes) => {
       nodes.splice(i, 1)
       continue
     }
-    if (n instanceof window.Node || n instanceof Function) {
+    if (n instanceof Node || n instanceof Function) {
       continue
     } else if (typeof n === 'string' || typeof n === 'number') {
       const nextI = i + 1
       if (nextI < nodes.length) {
         const next = nodes[nextI]
         if (typeof next === 'string' || typeof next === 'number') {
-          nodes[i] = new window.Text(String(n) + String(next))
+          nodes[i] = new Text(String(n) + String(next))
           nodes.splice(nextI, 1)
           i--
         } else {
-          nodes[i] = new window.Text(String(n))
+          nodes[i] = new Text(String(n))
         }
       }
       continue
     }
 
-    const isnl = n instanceof window.NodeList
+    const isnl = n instanceof NodeList
     if (isnl) {
       if (n.length < 2) {
         nodes[i] = n[0]
@@ -118,7 +117,7 @@ export const prime = (...nodes) => {
       }
       nodes.splice(i, 1, ...n)
       i--
-    } else if (isDef(n)) {
+    } else if (n != null) {
       throw new Error(`illegal renderable: ${n}`)
     }
   }
@@ -132,7 +131,7 @@ export const prime = (...nodes) => {
 */
 export const attach = (host, connector, ...renderables) => {
   if (host instanceof Function && !isProxyNode(host)) host = host()
-  const nodeHost = host instanceof window.Node || isProxyNode(host)
+  const nodeHost = host instanceof Node || isProxyNode(host)
   renderables = prime(renderables)
   if (nodeHost) {
     if ((connector === 'after' || connector === 'before') && !isMounted(host)) {
@@ -145,7 +144,7 @@ export const attach = (host, connector, ...renderables) => {
   } if (isArr(host)) {
     host.push(...renderables)
   }
-  return renderables.length < 2 ? renderables[0] : renderables
+  return renderables.length === 1 ? renderables[0] : renderables
 }
 
 /*
@@ -184,9 +183,9 @@ export const domfn = {
     } else {
       if (typeof c === 'string') c = c.split(' ')
       if (isArr(c)) {
-        const boolState = typeof state === 'boolean'
+        const noState = typeof state !== 'boolean'
         for (let i = 0; i < c.length; i++) {
-          node.classList[boolState ? state ? 'add' : 'remove' : 'toggle'](c[i])
+          node.classList[noState ? 'toggle' : state ? 'add' : 'remove'](c[i])
         }
       }
     }
@@ -276,7 +275,7 @@ export const domfn = {
     return node
   },
   replace (node, newnode) {
-    if (isFunc(newnode)) newnode = newnode()
+    if (newnode instanceof Function) newnode = newnode()
     run(() => node.replaceWith(newnode))
     return newnode
   }

@@ -1,54 +1,63 @@
-import {curry, query} from './common.js'
+/* global Node */
+import {isObj, isArr, isStr, curry, queryAll} from './common.js'
 import $ from './proxy-node.js'
 
-export const EventManager = curry((once, target, type, handle, options = false) => {
-  if (typeof target === 'string') target = query(target)
-  if (type === Object(type)) {
+const listen = (once, target, type, fn, options = false) => {
+  if (isStr(target) && (target = queryAll(target)).length === 1) {
+    target = target[0]
+  }
+
+  if (!target.addEventListener || (isArr(target) && !target.length)) {
+    throw new Error('nil/empty event target(s)')
+  }
+
+  let typeobj = isObj(type)
+  if (type == null || !(typeobj || isStr(type))) {
+    throw new TypeError('cannot listen to nil or invalid event type')
+  }
+
+  if (isArr(target)) {
+    for (let i = 0; i < target.length; i++) {
+      target[i] = listen(
+        once, target, typeobj ? Object.assign({}, type) : type, fn, options
+      )
+    }
+    return target
+  }
+
+  if (typeobj) {
     for (const name in type) {
-      type[name] = EventManager(once, target, name, type[name], options)
+      type[name] = listen(once, target, name, type[name], options)
     }
     return type
   }
-  if (!(handle instanceof Function)) {
-    return EventManager.bind(undefined, once, target, type)
+
+  if (target instanceof Node && !options.proxy) target = $(target)
+
+  function wrapper () {
+    fn.call(this, ...arguments, target)
+    if (off.once) off()
   }
 
-  handle = handle.bind(target)
-  const proxiedTarget = target instanceof window.Node ? $(target) : target
-
-  const handler = evt => {
-    handle(evt, proxiedTarget)
-    once && remove()
+  const on = mode => {
+    if (mode != null && mode !== off.once) off.once = !!mode
+    target.addEventListener(type, wrapper, options)
+    off.ison = true
+    return off
   }
+  const off = Object.assign(() => {
+    target.removeEventListener(type, wrapper)
+    off.ison = false
+  }, {target, listen: on, once})
+  off.off = off
 
-  const remove = () => {
-    target.removeEventListener(type, handler)
-    return manager
-  }
-
-  const add = mode => {
-    once = !!mode
-    target.addEventListener(type, handler, options)
-    return manager
-  }
-
-  const manager = {
-    handler,
-    on: add,
-    off: remove,
-    once: add.bind(undefined, true),
-    emit (type, detail) {
-      target.dispatchEvent(new window.CustomEvent(type, {detail}))
-      return manager
-    }
-  }
-
-  return add(once)
-}, 3)
-
-// Event Manager Proxy Configuration
-const EMPC = {
-  get: (fn, type) => (tgt, hndl, opts) => fn(tgt, type, hndl, opts)
+  return on()
 }
-export const once = new Proxy(EventManager(true), EMPC)
-export const on = new Proxy(EventManager(false), EMPC)
+
+const infinifyListen = {
+  get: (ln, type) => (tgt, fn, opts) => ln(tgt, type, fn, opts)
+}
+
+export const on = new Proxy(listen.bind(null, false), infinifyListen)
+export const once = new Proxy(listen.bind(null, true), infinifyListen)
+export const EventManager = curry(listen, 3)

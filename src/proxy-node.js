@@ -1,3 +1,4 @@
+/* global Text Node */
 import {query, flatten, infinify, isArr, isEl, isFunc, isInput, isMounted, isProxyNode, isStr, ProxyNodeSymbol} from './common.js'
 import {domfn, emit, render, vpend, prime} from './dom-functions.js'
 import {EventManager} from './event-manager.js'
@@ -37,20 +38,20 @@ const state = (data = {}) => {
   }
 
   bind.text = (key, fn, revoke) => {
-    const text = new window.Text()
-    const bindFN = val => { text.textContent = val }
+    const txt = new Text()
+    const bindFN = val => { txt.textContent = val }
     const b = bind(
       key,
       bindFN,
       undefined,
       () => {
         if (revoke) revoke(proxy)
-        domfn.remove(text)
+        domfn.remove(txt)
       }
     )
     if (key in data) bindFN(data[key])
     if (fn) fn(b)
-    return text
+    return txt
   }
 
   const deleteProperty = key => {
@@ -98,7 +99,7 @@ export const $ = node => {
   if (isProxyNode(node)) return node
   if (typeof node === 'string') node = query(node)
   if (ProxiedNodes.has(node)) return ProxiedNodes.get(node)
-  if (!(node instanceof window.Node)) {
+  if (!(node instanceof Node)) {
     throw new TypeError(`$ needs a Node: ${node}`)
   }
 
@@ -138,7 +139,9 @@ export const $ = node => {
 
   const proxy = new Proxy(
     Object.assign(fn => {
-      if (fn instanceof Function && !isProxyNode(fn)) fn.call(node, proxy, node)
+      if (fn instanceof Function && !isProxyNode(fn)) {
+        fn.call(node, proxy, node)
+      }
       return node
     }, {
       class: Class,

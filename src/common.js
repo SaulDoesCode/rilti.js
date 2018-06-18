@@ -1,3 +1,4 @@
+/* global Node NodeList Element SVGElement HTMLInputElement HTMLTextAreaElement */
 export const ProxyNodeSymbol = Symbol('Proxy Node')
 export const ComponentSymbol = Symbol('Component')
 
@@ -23,21 +24,23 @@ export const isNum = o => typeof o === 'number' && !isNaN(o)
 
 export const isInt = o => isNum(o) && o % 1 === 0
 
-export const isArrlike = o =>
-  isArr(o) || o instanceof window.NodeList ||
-  (isDef(o) && !(isFunc(o) || isNode(o)) && o.length % 1 === 0)
+export const isArrlike = o => isArr(o) || (
+  o != null && (
+    o instanceof NodeList ||
+    (!(isFunc(o) || isNode(o)) && o.length % 1 === 0)
+  )
+)
 
-export const isNodeList = (o, arr = true) =>
-  o instanceof window.NodeList || (arr && allare(o, isNode))
+export const isNodeList = (o, arr = true) => o instanceof NodeList || (arr && allare(o, isNode))
 
-export const isNode = o => o instanceof window.Node
+export const isNode = o => o instanceof Node
 
 export const isPrimitive = o => {
   o = typeof o
   return o === 'string' || o === 'number' || o === 'boolean'
 }
 
-export const isEl = o => o instanceof window.Element
+export const isEl = o => o instanceof Element
 
 export const isPromise = o => typeof o === 'object' && isFunc(o.then)
 
@@ -51,16 +54,15 @@ export const isMounted = (child, parent = document) => isNodeList(child)
 
 export const isSvg = o => {
   if (isProxyNode(o)) o = o()
-  return o instanceof window.SVGElement
+  return o instanceof SVGElement
 }
 
 export const isInput = o => {
   if (isProxyNode(o)) o = o()
-  return o instanceof window.HTMLInputElement ||
-    o instanceof window.HTMLTextAreaElement
+  return o instanceof HTMLInputElement || o instanceof HTMLTextAreaElement
 }
 
-export const isRenderable = o => o instanceof window.Node ||
+export const isRenderable = o => o instanceof Node ||
   isProxyNode(o) || isPrimitive(o) || allare(o, isRenderable)
 
 /*
@@ -91,8 +93,9 @@ export const compose = (...fns) => fns.reduce((a, b) => (...args) => a(b(...args
 * and optionally
 * set the arity or pre bound arguments
 */
-export const curry = (fn, arity = fn.length, ...args) =>
-  arity <= args.length ? fn(...args) : curry.bind(undefined, fn, arity, ...args)
+export const curry = (fn, arity = fn.length, ...args) => arity <= args.length
+  ? fn(...args)
+  : curry.bind(undefined, fn, arity, ...args)
 
 /*
 * flatten recursively spreads out nested arrays

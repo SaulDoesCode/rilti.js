@@ -50,11 +50,11 @@ export const attributeObserver = (el, name, opts) => {
 }
 
 export const directives = new Map()
-export const directive = (name, {init, update, remove}) => {
+export const directive = (name, opts) => {
   const directive = new Map()
   directive.init = el => {
     if (!beenInitiated(name, el)) {
-      directive.set(el, attributeObserver(el, name, {init, update, remove}))
+      directive.set(el, attributeObserver(el, name, opts))
     }
   }
   directive.stop = el => {
