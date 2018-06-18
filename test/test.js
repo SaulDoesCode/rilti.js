@@ -1,4 +1,4 @@
-/* global rilti describe it expect Text beforeEach */
+/* global rilti describe it expect Text beforeEach Node */
 const {
   isArr,
   isNil,
@@ -300,17 +300,16 @@ describe('dom', () => {
     const txt = 'Hello World'
     const el = dom.div(el => txt)
     it('should create a <div>Hello World</div>', () => {
-      expect(el() instanceof window.Node).toBeTruthy()
+      expect(el() instanceof Node).toBeTruthy()
     })
     it('should have a Text Node with "Hello World" inside', () => {
-      expect(el.textContent).toEqual(txt)
+      expect(el.childNodes[0].textContent).toEqual(txt)
     })
   })
 
   describe('create element with classes shorthand', () => {
-    const txt = 'Hello World'
-    const el = dom.div.card.board.box(el => txt)()
-    it('should certain classes', () => {
+    const el = dom.div.card.board.box('Hello World')()
+    it('should have certain classes', () => {
       expect(
         el.classList.contains('card') &&
         el.classList.contains('board') &&
