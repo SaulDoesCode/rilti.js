@@ -1,6 +1,5 @@
 const express = require('express')
 const compression = require('compression')
-const path = require('path')
 const fs = require('fs')
 const chokidar = require('chokidar')
 const zlib = require('zlib')
@@ -59,7 +58,7 @@ const fileMutation = async location => {
      _______________________________
         `)
       } catch (e) {
-        console.log('there was an error with the minification of ' + filename)
+        console.log('there was an error with the minification of ' + location)
       }
     } catch (err) {
       console.log(`something's fishy: `, err)
