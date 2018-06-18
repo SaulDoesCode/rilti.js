@@ -1,5 +1,5 @@
 { /* global rilti */
-  const {directive, runAsync, $, isRenderable, isProxyNode, isFunc, isStr, on, render} = rilti
+  const {directive, each, runAsync, $, isRenderable, isProxyNode, isFunc, isStr, on, render} = rilti
 
   const routes = new Map()
   routes.viewBinds = new Map()
@@ -50,19 +50,15 @@
     route.activate()
     return viewbind
   }
-  route.revoke = name => {
-    const route = routes.get(name)
-    if (route) {
+  route.revoke = route => {
+    if ((route = routes.get(route))) {
       if (route.consumers && route.consumers.size) {
-        route.consumers.forEach(consumer => {
+        each(route.consumers, consumer => {
           if (consumer.revoke) consumer.revoke()
         })
         route.consumers.clear()
       }
-      route.view = undefined
-      route.consumers = undefined
-      route.name = undefined
-      routes.delete(name)
+      routes.delete(route.name)
     }
   }
 
@@ -72,17 +68,15 @@
     if (name !== window.location.hash || '#') window.location.hash = name
     const route = routes.get(name)
     if (route && route.consumers && route.consumers.size) {
-      route.consumers.forEach(consume => consume(route, true, name))
+      each(route.consumers, consume => consume(route, true, name))
     }
     if (routes.activeBinds.size) {
-      routes.activeBinds.forEach(bind => bind(route, true, name))
+      each(routes.activeBinds, bind => bind(route, true, name))
     }
-    if (routes.active !== undefined) {
+    if (routes.active != null) {
       const oldroute = routes.get(routes.active)
       if (oldroute.consumers && oldroute.consumers.size) {
-        oldroute.consumers.forEach(consumer => {
-          consumer(oldroute, false, routes.active)
-        })
+        each(oldroute.consumers, c => c(oldroute, false, routes.active))
       }
     }
     routes.active = name
