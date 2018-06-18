@@ -12,6 +12,7 @@
 }(this, function (exports) {
   'use strict'
 
+  /* global Node NodeList Element SVGElement HTMLInputElement HTMLTextAreaElement */
   const ProxyNodeSymbol = Symbol('Proxy Node')
   const ComponentSymbol = Symbol('Component')
 
@@ -37,21 +38,23 @@
 
   const isInt = o => isNum(o) && o % 1 === 0
 
-  const isArrlike = o =>
-    isArr(o) || o instanceof window.NodeList ||
-    (isDef(o) && !(isFunc(o) || isNode(o)) && o.length % 1 === 0)
+  const isArrlike = o => isArr(o) || (
+    o != null && (
+      o instanceof NodeList ||
+      (!(isFunc(o) || isNode(o)) && o.length % 1 === 0)
+    )
+  )
 
-  const isNodeList = (o, arr = true) =>
-    o instanceof window.NodeList || (arr && allare(o, isNode))
+  const isNodeList = (o, arr = true) => o instanceof NodeList || (arr && allare(o, isNode))
 
-  const isNode = o => o instanceof window.Node
+  const isNode = o => o instanceof Node
 
   const isPrimitive = o => {
     o = typeof o
     return o === 'string' || o === 'number' || o === 'boolean'
   }
 
-  const isEl = o => o instanceof window.Element
+  const isEl = o => o instanceof Element
 
   const isPromise = o => typeof o === 'object' && isFunc(o.then)
 
@@ -65,16 +68,15 @@
 
   const isSvg = o => {
     if (isProxyNode(o)) o = o()
-    return o instanceof window.SVGElement
+    return o instanceof SVGElement
   }
 
   const isInput = o => {
     if (isProxyNode(o)) o = o()
-    return o instanceof window.HTMLInputElement ||
-      o instanceof window.HTMLTextAreaElement
+    return o instanceof HTMLInputElement || o instanceof HTMLTextAreaElement
   }
 
-  const isRenderable = o => o instanceof window.Node ||
+  const isRenderable = o => o instanceof Node ||
     isProxyNode(o) || isPrimitive(o) || allare(o, isRenderable)
 
   /*
@@ -105,8 +107,9 @@
   * and optionally
   * set the arity or pre bound arguments
   */
-  const curry = (fn, arity = fn.length, ...args) =>
-    arity <= args.length ? fn(...args) : curry.bind(undefined, fn, arity, ...args)
+  const curry = (fn, arity = fn.length, ...args) => arity <= args.length
+    ? fn(...args)
+    : curry.bind(undefined, fn, arity, ...args)
 
   /*
   * flatten recursively spreads out nested arrays
@@ -220,6 +223,8 @@
   const mutateSet = set => (n, state) =>
     set[state == null ? 'has' : state ? 'add' : 'delete'](n)
 
+  /* global Text Node */
+
   const ProxiedNodes = new Map()
 
   const state = (data = {}) => {
@@ -255,20 +260,20 @@
     }
 
     bind.text = (key, fn, revoke) => {
-      const text = new window.Text()
-      const bindFN = val => { text.textContent = val }
+      const txt = new Text()
+      const bindFN = val => { txt.textContent = val }
       const b = bind(
         key,
         bindFN,
         undefined,
         () => {
           if (revoke) revoke(proxy)
-          domfn.remove(text)
+          domfn.remove(txt)
         }
       )
       if (key in data) bindFN(data[key])
       if (fn) fn(b)
-      return text
+      return txt
     }
 
     const deleteProperty = key => {
@@ -316,7 +321,7 @@
     if (isProxyNode(node)) return node
     if (typeof node === 'string') node = query(node)
     if (ProxiedNodes.has(node)) return ProxiedNodes.get(node)
-    if (!(node instanceof window.Node)) {
+    if (!(node instanceof Node)) {
       throw new TypeError(`$ needs a Node: ${node}`)
     }
 
@@ -356,7 +361,9 @@
 
     const proxy = new Proxy(
       Object.assign(fn => {
-        if (fn instanceof Function && !isProxyNode(fn)) fn.call(node, proxy, node)
+        if (fn instanceof Function && !isProxyNode(fn)) {
+          fn.call(node, proxy, node)
+        }
         return node
       }, {
         class: Class,
@@ -412,57 +419,69 @@
     return proxy
   }
 
-  const EventManager = curry((once, target, type, handle, options = false) => {
-    if (typeof target === 'string') target = query(target)
-    if (type === Object(type)) {
+  /* global Node */
+
+  const listen = (once, target, type, fn, options = false) => {
+    if (isStr(target) && (target = queryAll(target)).length === 1) {
+      target = target[0]
+    }
+
+    if (!target.addEventListener || (isArr(target) && !target.length)) {
+      throw new Error('nil/empty event target(s)')
+    }
+
+    let typeobj = isObj(type)
+    if (type == null || !(typeobj || isStr(type))) {
+      throw new TypeError('cannot listen to nil or invalid event type')
+    }
+
+    if (isArr(target)) {
+      for (let i = 0; i < target.length; i++) {
+        target[i] = listen(
+          once, target, typeobj ? Object.assign({}, type) : type, fn, options
+        )
+      }
+      return target
+    }
+
+    if (typeobj) {
       for (const name in type) {
-        type[name] = EventManager(once, target, name, type[name], options)
+        type[name] = listen(once, target, name, type[name], options)
       }
       return type
     }
-    if (!(handle instanceof Function)) {
-      return EventManager.bind(undefined, once, target, type)
+
+    if (target instanceof Node && !options.proxy) target = $(target)
+
+    function wrapper () {
+      fn.call(this, ...arguments, target)
+      if (off.once) off()
     }
 
-    handle = handle.bind(target)
-    const proxiedTarget = target instanceof window.Node ? $(target) : target
-
-    const handler = evt => {
-      handle(evt, proxiedTarget)
-      once && remove()
+    const on = mode => {
+      if (mode != null && mode !== off.once) off.once = !!mode
+      target.addEventListener(type, wrapper, options)
+      off.ison = true
+      return off
     }
+    const off = Object.assign(() => {
+      target.removeEventListener(type, wrapper)
+      off.ison = false
+    }, {target, listen: on, once})
+    off.off = off
 
-    const remove = () => {
-      target.removeEventListener(type, handler)
-      return manager
-    }
-
-    const add = mode => {
-      once = !!mode
-      target.addEventListener(type, handler, options)
-      return manager
-    }
-
-    const manager = {
-      handler,
-      on: add,
-      off: remove,
-      once: add.bind(undefined, true),
-      emit (type, detail) {
-        target.dispatchEvent(new window.CustomEvent(type, {detail}))
-        return manager
-      }
-    }
-
-    return add(once)
-  }, 3)
-
-  // Event Manager Proxy Configuration
-  const EMPC = {
-    get: (fn, type) => (tgt, hndl, opts) => fn(tgt, type, hndl, opts)
+    return on()
   }
-  const once = new Proxy(EventManager(true), EMPC)
-  const on = new Proxy(EventManager(false), EMPC)
+
+  const infinifyListen = {
+    get: (ln, type) => (tgt, fn, opts) => ln(tgt, type, fn, opts)
+  }
+
+  const on = new Proxy(listen.bind(null, false), infinifyListen)
+  const once = new Proxy(listen.bind(null, true), infinifyListen)
+  const EventManager = curry(listen, 3)
+
+  /* global Node Text */
 
   const html = (input, host) => {
     if (input instanceof Function) input = input(host)
@@ -470,15 +489,16 @@
       return Array.from(
         document.createRange().createContextualFragment(input).childNodes
       )
-    } else if (input instanceof window.Node) {
+    } else if (input instanceof Node) {
       return input
     } else if (isArr(input)) {
       return input.map(i => html(i))
     }
+    throw new Error('.html: unrenderable input')
   }
 
   const frag = inner =>
-    inner !== undefined ? html(inner) : document.createDocumentFragment()
+    inner != null ? html(inner) : document.createDocumentFragment()
 
   const assimilate = {
     props (el, props) {
@@ -502,7 +522,9 @@
         } else if (val instanceof Function && !isProxyNode(val)) {
           el[prop] = val.call(el, proxied)
         } else {
-          Object.defineProperty(el, prop, Object.getOwnPropertyDescriptor(props, prop))
+          Object.defineProperty(
+            el, prop, Object.getOwnPropertyDescriptor(props, prop)
+          )
         }
       }
     },
@@ -537,14 +559,11 @@
     }))
   }
 
-  const body = (...args) => {
-    attach(document.body || 'body', 'appendChild', ...args)
-    return args.length > 1 ? args : args[0]
-  }
+  const body = (...args) => attach(document.body || 'body', 'appendChild', ...args)
 
   const text = (options, txt = '') => {
     if (isPrimitive(options)) [txt, options] = [options, undefined]
-    return dom(new window.Text(txt), options)
+    return dom(new Text(txt), options)
   }
 
   const reserved = ['$', 'id', 'render', 'children', 'html', 'class', 'className']
@@ -571,18 +590,24 @@
     const iscomponent = components.has(el.tagName)
     if (iscomponent) var componentHandled
 
-    const proxied = $(el)
+    let proxied
+    if (!isObj(opts)) {
+      proxied = $(el)
+    } else {
+      var {pure, cycle} = opts
 
-    if (isObj(opts)) {
-      var {pure} = opts
+      if (!pure) {
+        proxied = $(el)
+        if (isObj(opts.state)) {
+          proxied.state = opts.state
+        }
+      }
+
       if (!iscomponent && opts.props) assimilate.props(el, opts.props)
       opts.methods && assimilate.methods(el, opts.methods)
-      if (isObj(opts.state)) {
-        proxied.state = opts.state
-      }
+      let val
       for (const key in opts) {
-        let val = opts[key]
-        if (val == null) continue
+        if ((val = opts[key]) == null) continue
 
         if (key[0] === 'o' && key[1] === 'n') {
           const isOnce = key[2] === 'c' && key[3] === 'e'
@@ -595,23 +620,23 @@
           opts[mode][type] = type.length
             ? evtfn(el, type, ...args) : evtfn(el, ...args)
         } else if (key in el) {
-          if (typeof el[key] === 'function') {
+          if (el[key] instanceof Function) {
             isArr(val) ? el[key].apply(el, val) : el[key](val)
           } else {
             el[key] = opts[key]
           }
         } else if (key in domfn) {
-          val = isArr(opts[key]) ? domfn[key](el, ...val) : domfn[key](el, val)
+          val = isArr(val) ? domfn[key](el, ...val) : domfn[key](el, val)
           if (val !== el) opts[key] = val
         }
       }
 
-      if (opts.cycle) {
-        const {mount, create, remount, unmount} = opts.cycle
-        create && once.create(el, create.bind(el, proxied))
-        mount && once.mount(el, mount.bind(el, proxied))
-        opts.cycle.unmount = unmount && on.unmount(el, unmount.bind(el, proxied))
-        opts.cycle.remount = remount && on.remount(el, remount.bind(el, proxied))
+      if (cycle) {
+        const {mount, create, remount, unmount} = cycle
+        if (create) once.create(el, create.bind(el, proxied || el))
+        if (mount) once.mount(el, mount.bind(el, proxied || el))
+        if (unmount) cycle.unmount = on.unmount(el, unmount.bind(el, proxied || el))
+        if (remount) cycle.remount = on.remount(el, remount.bind(el, proxied || el))
       }
 
       if (iscomponent) {
@@ -619,36 +644,38 @@
         componentHandled = true
       }
 
-      const renderHost = opts.$ || opts.render
-      if (renderHost) attach(renderHost, 'appendChild', el)
+      const host = opts.$ || opts.render
+      if (host) attach(host, 'appendChild', el)
       else if (opts.renderAfter) attach(opts.renderAfter, 'after', el)
       else if (opts.renderBefore) attach(opts.renderBefore, 'before', el)
     }
 
-    if (el.nodeType !== 3 /* el != TextNode */) {
-      if (isProxyNode(opts) && opts !== proxied) {
-        children.unshift(opts(proxied))
+    if (el.nodeType !== 3 /* el != Text */) {
+      if (isProxyNode(opts) && (!proxied || opts !== proxied)) {
+        children.unshift(opts(proxied || el))
       } else if (opts instanceof Function) {
-        const result = opts.call(el, proxied)
-        opts = result !== el && result !== proxied ? result : undefined
+        const result = opts.call(el, proxied || el)
+        opts = result !== el && (!proxied || result !== proxied) ? result : undefined
       }
       if (isRenderable(opts)) children.unshift(opts)
-      if (children.length) attach(proxied, 'appendChild', ...children)
+      if (children.length) attach(proxied || el, 'appendChild', ...children)
     }
 
     iscomponent
       ? !componentHandled && updateComponent(el, undefined)
       : CR(el, true, iscomponent)
 
-    return pure ? el : proxied
+    return proxied || el
   }, {text, body, svg, frag, html}), {get: infinifyDOM})
 
+  /* global Text Node NodeList CustomEvent */
+
   const emit = (node, type, detail) => {
-    node.dispatchEvent(new window.CustomEvent(type, {detail}))
+    node.dispatchEvent(new CustomEvent(type, {detail}))
     return node
   }
 
-  // vpend - virtual append, add nodes and get them as a document fragment
+  // vpend - virtual append, add nodes and append them as a document fragment
   const vpend = (
     children,
     host,
@@ -674,11 +701,11 @@
       }
       if (typeof child === 'string') {
         if (!child.length) continue
-        child = new window.Text(child)
+        child = new Text(child)
       } else if (isArr(child)) {
         child = vpend(child, host, connector, dfrag, true)
       }
-      if (child instanceof window.Node) {
+      if (child instanceof Node) {
         dfrag.appendChild(child)
         children[i] = child
       }
@@ -706,24 +733,24 @@
         nodes.splice(i, 1)
         continue
       }
-      if (n instanceof window.Node || n instanceof Function) {
+      if (n instanceof Node || n instanceof Function) {
         continue
       } else if (typeof n === 'string' || typeof n === 'number') {
         const nextI = i + 1
         if (nextI < nodes.length) {
           const next = nodes[nextI]
           if (typeof next === 'string' || typeof next === 'number') {
-            nodes[i] = new window.Text(String(n) + String(next))
+            nodes[i] = new Text(String(n) + String(next))
             nodes.splice(nextI, 1)
             i--
           } else {
-            nodes[i] = new window.Text(String(n))
+            nodes[i] = new Text(String(n))
           }
         }
         continue
       }
 
-      const isnl = n instanceof window.NodeList
+      const isnl = n instanceof NodeList
       if (isnl) {
         if (n.length < 2) {
           nodes[i] = n[0]
@@ -745,7 +772,7 @@
         }
         nodes.splice(i, 1, ...n)
         i--
-      } else if (isDef(n)) {
+      } else if (n != null) {
         throw new Error(`illegal renderable: ${n}`)
       }
     }
@@ -759,7 +786,7 @@
   */
   const attach = (host, connector, ...renderables) => {
     if (host instanceof Function && !isProxyNode(host)) host = host()
-    const nodeHost = host instanceof window.Node || isProxyNode(host)
+    const nodeHost = host instanceof Node || isProxyNode(host)
     renderables = prime(renderables)
     if (nodeHost) {
       if ((connector === 'after' || connector === 'before') && !isMounted(host)) {
@@ -772,7 +799,7 @@
     } if (isArr(host)) {
       host.push(...renderables)
     }
-    return renderables.length < 2 ? renderables[0] : renderables
+    return renderables.length === 1 ? renderables[0] : renderables
   }
 
   /*
@@ -811,9 +838,9 @@
       } else {
         if (typeof c === 'string') c = c.split(' ')
         if (isArr(c)) {
-          const boolState = typeof state === 'boolean'
+          const noState = typeof state !== 'boolean'
           for (let i = 0; i < c.length; i++) {
-            node.classList[boolState ? state ? 'add' : 'remove' : 'toggle'](c[i])
+            node.classList[noState ? 'toggle' : state ? 'add' : 'remove'](c[i])
           }
         }
       }
@@ -903,7 +930,7 @@
       return node
     },
     replace (node, newnode) {
-      if (isFunc(newnode)) newnode = newnode()
+      if (newnode instanceof Function) newnode = newnode()
       run(() => node.replaceWith(newnode))
       return newnode
     }
@@ -958,11 +985,11 @@
   }
 
   const directives = new Map()
-  const directive = (name, {init, update, remove}) => {
+  const directive = (name, opts) => {
     const directive = new Map()
     directive.init = el => {
       if (!beenInitiated(name, el)) {
-        directive.set(el, attributeObserver(el, name, {init, update, remove}))
+        directive.set(el, attributeObserver(el, name, opts))
       }
     }
     directive.stop = el => {
@@ -984,6 +1011,8 @@
     emit(el, 'attr', {name, value, oldvalue, present})
   }
 
+  /* global CustomEvent MutationObserver */
+
   const Created = mutateSet(new WeakSet())
   const Mounted = mutateSet(new WeakSet())
   const Unmounted = mutateSet(new WeakSet())
@@ -991,7 +1020,7 @@
   const CR = (n, undone = !Created(n), component$$1 = isComponent(n)) => {
     if (undone && !component$$1) {
       Created(n, true)
-      n.dispatchEvent(new window.CustomEvent('create'))
+      n.dispatchEvent(new CustomEvent('create'))
     }
   }
 
@@ -1000,12 +1029,12 @@
     if (!Mounted(n)) {
       if (Unmounted(n)) {
         Unmounted(n, false)
-        n.dispatchEvent(new window.CustomEvent('remount'))
+        n.dispatchEvent(new CustomEvent('remount'))
       } else if (iscomponent) {
-        n.dispatchEvent(new window.CustomEvent('mount'))
+        n.dispatchEvent(new CustomEvent('mount'))
       } else {
         Mounted(n, true)
-        n.dispatchEvent(new window.CustomEvent('mount'))
+        n.dispatchEvent(new CustomEvent('mount'))
       }
     }
   }
@@ -1013,13 +1042,13 @@
   const UNMNT = n => {
     Mounted(n, false)
     Unmounted(n, true)
-    n.dispatchEvent(new window.CustomEvent('unmount'))
+    n.dispatchEvent(new CustomEvent('unmount'))
   }
 
   const MountNodes = n => updateComponent(n, 'mount') || MNT(n)
   const UnmountNodes = n => updateComponent(n, 'unmount') || UNMNT(n)
 
-  new window.MutationObserver(muts => {
+  new MutationObserver(muts => {
     for (let i = 0; i < muts.length; i++) {
       const {addedNodes, removedNodes, attributeName} = muts[i]
       if (addedNodes.length) {
