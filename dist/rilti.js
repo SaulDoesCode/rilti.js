@@ -426,7 +426,7 @@
       target = target[0]
     }
 
-    if (!target.addEventListener || (isArr(target) && !target.length)) {
+    if (isArr(target) ? !target.length : !target.addEventListener) {
       throw new Error('nil/empty event target(s)')
     }
 
@@ -438,7 +438,7 @@
     if (isArr(target)) {
       for (let i = 0; i < target.length; i++) {
         target[i] = listen(
-          once, target, typeobj ? Object.assign({}, type) : type, fn, options
+          once, target[i], typeobj ? Object.assign({}, type) : type, fn, options
         )
       }
       return target
@@ -464,10 +464,12 @@
       off.ison = true
       return off
     }
+
     const off = Object.assign(() => {
       target.removeEventListener(type, wrapper)
       off.ison = false
-    }, {target, listen: on, once})
+      return off
+    }, {target, on, once})
     off.off = off
 
     return on()
@@ -937,10 +939,17 @@
   }
   domfn.empty = domfn.clear
 
+  /* const watched = Object.create(null)
+  const watch = (name, opts) => {
+    if (opts == null) throw new TypeError(`attr.watch: useless watcher opts == null`)
+    watched[name] = opts = Object.assign(Object.create(null), opts)
+  }
+  watch.update = (name, el, value = el.getAttribute(name)) => {}
+  */
+
   const Initiated = new Map()
-  const beenInitiated = (name, el) => (
+  const beenInitiated = (name, el) =>
     Initiated.has(name) && Initiated.get(name)(el)
-  )
 
   const attributeObserver = (el, name, opts) => {
     el = $(el)
@@ -977,7 +986,7 @@
         }
         old = value
       }
-    }).off
+    })
     return () => {
       stop()
       if (Initiated.has(name)) Initiated.get(name)(el, false)
@@ -1008,7 +1017,9 @@
     present = el.hasAttribute(name)
   ) => {
     if (directives.has(name)) directives.get(name).init($(el))
-    emit(el, 'attr', {name, value, oldvalue, present})
+    if (value !== oldvalue) {
+      emit(el, 'attr', {name, value, oldvalue, present})
+    }
   }
 
   /* global CustomEvent MutationObserver */
