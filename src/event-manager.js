@@ -7,7 +7,7 @@ const listen = (once, target, type, fn, options = false) => {
     target = target[0]
   }
 
-  if (!target.addEventListener || (isArr(target) && !target.length)) {
+  if (isArr(target) ? !target.length : !target.addEventListener) {
     throw new Error('nil/empty event target(s)')
   }
 
@@ -19,7 +19,7 @@ const listen = (once, target, type, fn, options = false) => {
   if (isArr(target)) {
     for (let i = 0; i < target.length; i++) {
       target[i] = listen(
-        once, target, typeobj ? Object.assign({}, type) : type, fn, options
+        once, target[i], typeobj ? Object.assign({}, type) : type, fn, options
       )
     }
     return target
@@ -45,10 +45,12 @@ const listen = (once, target, type, fn, options = false) => {
     off.ison = true
     return off
   }
+
   const off = Object.assign(() => {
     target.removeEventListener(type, wrapper)
     off.ison = false
-  }, {target, listen: on, once})
+    return off
+  }, {target, on, once})
   off.off = off
 
   return on()
