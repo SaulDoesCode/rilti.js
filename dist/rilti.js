@@ -422,9 +422,10 @@
   /* global Node */
 
   const listen = (once, target, type, fn, options = false) => {
-    if (isStr(target) && (target = queryAll(target)).length === 1) {
-      target = target[0]
-    }
+    if (
+      isStr(target) &&
+      (isArr(target) ? target : target = queryAll(target)).length === 1
+    ) target = target[0]
 
     if (isArr(target) ? !target.length : !target.addEventListener) {
       throw new Error('nil/empty event target(s)')
@@ -440,6 +441,14 @@
         target[i] = listen(
           once, target[i], typeobj ? Object.assign({}, type) : type, fn, options
         )
+      }
+      target.off = () => {
+        for (const h of target) h()
+        return target
+      }
+      target.on = mode => {
+        for (const h of target) h.on(mode)
+        return target
       }
       return target
     }
@@ -1060,20 +1069,16 @@
   const UnmountNodes = n => updateComponent(n, 'unmount') || UNMNT(n)
 
   new MutationObserver(muts => {
-    for (let i = 0; i < muts.length; i++) {
-      const {addedNodes, removedNodes, attributeName} = muts[i]
+    for (const mut of muts) {
+      const {addedNodes, removedNodes, attributeName} = mut
       if (addedNodes.length) {
-        for (let x = 0; x < addedNodes.length; x++) {
-          MountNodes(addedNodes[x])
-        }
+        for (const node of addedNodes) MountNodes(node)
       }
       if (removedNodes.length) {
-        for (let x = 0; x < removedNodes.length; x++) {
-          UnmountNodes(removedNodes[x])
-        }
+        for (const node of removedNodes) UnmountNodes(node)
       }
-      if (typeof attributeName === 'string') {
-        attributeChange(muts[i].target, attributeName, muts[i].oldValue)
+      if (attributeName != null) {
+        attributeChange(mut.target, attributeName, mut.oldValue)
       }
     }
   })
@@ -1087,7 +1092,7 @@
       throw new Error(`component: ${tagName} tagName is un-hyphenated`)
     }
     components.set(tagName.toUpperCase(), config)
-    run(() => queryEach(tagName, updateComponent))
+    run(() => queryEach(tagName, el => updateComponent(el)))
     return dom[tagName]
   }
   component.plugin = plugin => {
@@ -1138,27 +1143,29 @@
 
       emit(el, 'create')
 
-      isObj(config.on) && proxied.on(config.on)
-      isObj(config.once) && proxied.once(config.once)
+      if (isObj(config.on)) proxied.on(config.on)
+      if (isObj(config.once)) proxied.once(config.once)
 
       if (isObj(attr)) {
         for (const name in attr) attributeObserver(el, name, attr[name])
       }
       remount && proxied.on.remount(remount.bind(el, proxied))
     }
+
+    console.log(el, stage)
     if (!Mounted(el) && stage === 'mount') {
       if (Unmounted(el)) {
         component.plugins && component.plugins.remount.forEach(fn => {
           fn.bind(el, proxied, el)
         })
-        remount && remount.call(el, proxied)
+        if (remount) remount.call(el, proxied)
         emit(el, 'remount')
       } else {
         Mounted(el, true)
         component.plugins && component.plugins.mount.forEach(fn => {
           fn.bind(el, proxied, el)
         })
-        mount && mount.call(el, proxied)
+        if (mount) mount.call(el, proxied)
         emit(el, stage)
       }
     } else if (stage === 'unmount') {
@@ -1167,7 +1174,7 @@
       component.plugins && component.plugins.unmount.forEach(fn => {
         fn.bind(el, proxied, el)
       })
-      unmount && unmount.call(el, proxied)
+      if (unmount) unmount.call(el, proxied)
       emit(el, stage)
     }
     return el
