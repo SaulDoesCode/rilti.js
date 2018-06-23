@@ -39,20 +39,16 @@ export const MountNodes = n => updateComponent(n, 'mount') || MNT(n)
 export const UnmountNodes = n => updateComponent(n, 'unmount') || UNMNT(n)
 
 new MutationObserver(muts => {
-  for (let i = 0; i < muts.length; i++) {
-    const {addedNodes, removedNodes, attributeName} = muts[i]
+  for (const mut of muts) {
+    const {addedNodes, removedNodes, attributeName} = mut
     if (addedNodes.length) {
-      for (let x = 0; x < addedNodes.length; x++) {
-        MountNodes(addedNodes[x])
-      }
+      for (const node of addedNodes) MountNodes(node)
     }
     if (removedNodes.length) {
-      for (let x = 0; x < removedNodes.length; x++) {
-        UnmountNodes(removedNodes[x])
-      }
+      for (const node of removedNodes) UnmountNodes(node)
     }
-    if (typeof attributeName === 'string') {
-      attributeChange(muts[i].target, attributeName, muts[i].oldValue)
+    if (attributeName != null) {
+      attributeChange(mut.target, attributeName, mut.oldValue)
     }
   }
 })
