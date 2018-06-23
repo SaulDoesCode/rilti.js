@@ -3,9 +3,10 @@ import {isObj, isArr, isStr, curry, queryAll} from './common.js'
 import $ from './proxy-node.js'
 
 const listen = (once, target, type, fn, options = false) => {
-  if (isStr(target) && (target = queryAll(target)).length === 1) {
-    target = target[0]
-  }
+  if (
+    isStr(target) &&
+    (isArr(target) ? target : target = queryAll(target)).length === 1
+  ) target = target[0]
 
   if (isArr(target) ? !target.length : !target.addEventListener) {
     throw new Error('nil/empty event target(s)')
@@ -21,6 +22,14 @@ const listen = (once, target, type, fn, options = false) => {
       target[i] = listen(
         once, target[i], typeobj ? Object.assign({}, type) : type, fn, options
       )
+    }
+    target.off = () => {
+      for (const h of target) h()
+      return target
+    }
+    target.on = mode => {
+      for (const h of target) h.on(mode)
+      return target
     }
     return target
   }
