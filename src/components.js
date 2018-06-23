@@ -11,7 +11,7 @@ export const component = (tagName, config) => {
     throw new Error(`component: ${tagName} tagName is un-hyphenated`)
   }
   components.set(tagName.toUpperCase(), config)
-  run(() => queryEach(tagName, updateComponent))
+  run(() => queryEach(tagName, el => updateComponent(el)))
   return dom[tagName]
 }
 component.plugin = plugin => {
@@ -62,27 +62,29 @@ export const updateComponent = (el, config, stage, afterProps) => {
 
     emit(el, 'create')
 
-    isObj(config.on) && proxied.on(config.on)
-    isObj(config.once) && proxied.once(config.once)
+    if (isObj(config.on)) proxied.on(config.on)
+    if (isObj(config.once)) proxied.once(config.once)
 
     if (isObj(attr)) {
       for (const name in attr) attributeObserver(el, name, attr[name])
     }
     remount && proxied.on.remount(remount.bind(el, proxied))
   }
+
+  console.log(el, stage)
   if (!Mounted(el) && stage === 'mount') {
     if (Unmounted(el)) {
       component.plugins && component.plugins.remount.forEach(fn => {
         fn.bind(el, proxied, el)
       })
-      remount && remount.call(el, proxied)
+      if (remount) remount.call(el, proxied)
       emit(el, 'remount')
     } else {
       Mounted(el, true)
       component.plugins && component.plugins.mount.forEach(fn => {
         fn.bind(el, proxied, el)
       })
-      mount && mount.call(el, proxied)
+      if (mount) mount.call(el, proxied)
       emit(el, stage)
     }
   } else if (stage === 'unmount') {
@@ -91,7 +93,7 @@ export const updateComponent = (el, config, stage, afterProps) => {
     component.plugins && component.plugins.unmount.forEach(fn => {
       fn.bind(el, proxied, el)
     })
-    unmount && unmount.call(el, proxied)
+    if (unmount) unmount.call(el, proxied)
     emit(el, stage)
   }
   return el
