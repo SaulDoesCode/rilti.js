@@ -11,9 +11,10 @@ Feel free to fork or raise issues. Constructive criticism is always welcome
 
 * 🐫 Loadbearing Spirit - Expressive DOM generation and custom-element components sans polyfill
 * 🐱 Lion - Fearless element/component local *State Solution* with simple data-binding
-* 👶 Child - Proxy based DOM manipulation and Powerful all accepting async Rendering System
+* 👶 Child - Proxy enhanced DOM manipulation and Powerful all accepting async Rendering System
 
 ## features
+
 * elm-like ideas about architecture
 * flexible declarative programming style
 * node lifecycle hooks
@@ -122,13 +123,15 @@ Stop writing html (yes JSX too)!
 Just generate everything, it's so simple.
 
 ```js
-const {a, button, h1, header, nav, section} = rilti.fastdom
+const {a, button, h1, header, nav, section} = rilti.dom
 
 section.navbar({$: 'body'}, // <- $ is shorthand for render: 'Node/Selector'
-  header(h1('My Wicked Website')),
+  header(
+    h1('My Wicked Website')
+  ),
   nav(
-    ['Home','Blog','About','Contact'].map(
-      name => a['nav-bn']({href: '#/' + name.toLowerCase()}, name)
+    'Home Blog About Contact'.split(' ').map(name =>
+      a['nav-bn']({href: '#/' + name.toLowerCase()}, name)
     ),
     a['nav-bn']({
       css: {backgroundColor: 'white', color: 'dimgrey'},
@@ -143,7 +146,7 @@ section.navbar({$: 'body'}, // <- $ is shorthand for render: 'Node/Selector'
 The above produces this html
 
 ```html
-<section id="navbar">
+<section class="navbar">
   <header>
     <h1>My Wicked Website</h1>
   </header>
@@ -236,10 +239,12 @@ everything found in rilti.domfn will be available as:
 
 ```js
 const contentCard = async (src, hidden = false) => {
-  const card = rilti.dom.div()
-  card.class = 'card'
-  card.class({hidden})
-  card.attr['aria-hidden'] = hidden
+  const card = rilti.dom.div.card() // <- <div class="card"></div>
+  
+  card.class({hidden}) // add class .hidden if hidden === true
+  card.class.hidden = hidden // <- this works too
+
+  card.attr['aria-hidden'] = hidden // set attribute
 
   card.css({
     '--custom-theme': 'hsl(331, 70%, 48%)',
@@ -251,6 +256,13 @@ const contentCard = async (src, hidden = false) => {
   try {
     const res = await fetch(src)
     card.append(await res.text())
+
+    card.on.click((e, card) => {
+      card.once.animationend(() => {
+        card.class('flip-animation', false) // remove
+      })
+      card.class('flip-animation', true)
+    })
   } catch (e) {
     card.remove()
     console.error('could not load content from: ' + src)
@@ -262,7 +274,7 @@ const contentCard = async (src, hidden = false) => {
 ``dom['any-arbitrary-tag'](=options, ...children) -> Node/Element``
 
 ```javascript
-dom['random-tag']
+dom['random-tag'] // <- <random-tag class="with random chainable classes">
 .with
 .random
 ['chainable']
