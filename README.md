@@ -63,6 +63,7 @@ as well as like this ``on('any-event', node)(func, =options)``
 and also ``on(node, { click: e => {} }, =options)``.
 
 #### examples of rilti used to build things
+
 * [Rilti News - Progressive Web App](https://grimstack.io/news/)         
 * [Todo-list](https://codepen.io/SaulDoesCode/pen/zRaMQY)         
 * [Javascript calculator](https://codepen.io/SaulDoesCode/pen/VQqeBL)     
@@ -259,7 +260,7 @@ const contentCard = async (src, hidden = false) => {
 
     card.on.click((e, card) => {
       card.once.animationend(() => {
-        card.class('flip-animation', false) // remove
+        card.class('flip-animation', false)
       })
       card.class('flip-animation', true)
     })
