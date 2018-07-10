@@ -124,10 +124,21 @@ export const dom = new Proxy(Object.assign((tag, opts, ...children) => {
       if (isObj(opts.state)) {
         proxied.state = opts.state
       }
+      if (opts.binds) {
+        for (const key in opts.binds) {
+          proxied.state.bind(key, opts.binds[key])
+        }
+      }  
+      delete opts.state
     }
 
-    if (!iscomponent && opts.props) assimilate.props(el, opts.props)
-    opts.methods && assimilate.methods(el, opts.methods)
+    if (!iscomponent && opts.props) {
+      assimilate.props(el, opts.props)
+    }
+    if (opts.methods) {
+      assimilate.methods(el, opts.methods)
+    }
+
     let val
     for (const key in opts) {
       if ((val = opts[key]) == null) continue
