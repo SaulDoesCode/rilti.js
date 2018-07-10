@@ -2,14 +2,24 @@ import {mutateSet, run, queryEach} from './common.js'
 import {emit} from './dom-functions.js'
 import $ from './proxy-node.js'
 
+/* const watched = Object.create(null)
+const watch = (name, opts) => {
+  if (opts == null) throw new TypeError(`attr.watch: useless watcher opts == null`)
+  watched[name] = opts = Object.assign(Object.create(null), opts)
+}
+watch.update = (name, el, value = el.getAttribute(name)) => {}
+*/
+
 const Initiated = new Map()
-const beenInitiated = (name, el) => (
+const beenInitiated = (name, el) =>
   Initiated.has(name) && Initiated.get(name)(el)
-)
 
 export const attributeObserver = (el, name, opts) => {
   el = $(el)
-  const {init, update, remove} = opts
+  let {init, update, remove} = opts
+  if (!init && !update && opts instanceof Function) {
+    [init, update] = [opts, opts]
+  }
   const intialize = (present, value) => {
     if (present && !beenInitiated(name, el)) {
       if (init) init(el, value)
@@ -42,11 +52,18 @@ export const attributeObserver = (el, name, opts) => {
       }
       old = value
     }
-  }).off
-  return () => {
+  })
+
+  const manager = () => {
     stop()
     if (Initiated.has(name)) Initiated.get(name)(el, false)
   }
+  manager.stop = manager
+  manager.start = () => {
+    stop.on()
+    Initiated.get(name)(el, true)
+  }
+  return manager
 }
 
 export const directives = new Map()
@@ -73,5 +90,7 @@ export const attributeChange = (
   present = el.hasAttribute(name)
 ) => {
   if (directives.has(name)) directives.get(name).init($(el))
-  emit(el, 'attr', {name, value, oldvalue, present})
+  if (value !== oldvalue) {
+    emit(el, 'attr', {name, value, oldvalue, present})
+  }
 }
