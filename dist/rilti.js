@@ -227,7 +227,7 @@
 
   const ProxiedNodes = new Map()
 
-  const state = (data = {}) => {
+  const state = (data = {}, host) => {
     const binds = new Map()
     binds.add = (key, fn) => {
       if (!binds.has(key)) binds.set(key, new Set())
@@ -251,10 +251,10 @@
     const bind = (key, fn, intermediate, revoke) => {
       if (intermediate) fn = intermediate(fn, proxy)
       binds.add(key, fn)
-      if (key in data) fn(data[key], undefined, proxy)
+      if (key in data) fn.call(host, data[key], undefined, proxy, host)
       fn.revoke = () => {
         if (revoke) revoke(proxy)
-        binds.remove.bind(undefined, key, fn)
+        binds.remove(key, fn)
       }
       return fn
     }
@@ -297,7 +297,7 @@
       }
     }, {
       get: (fn, key) => key === 'bind' ? bind : key[0] === '$'
-        ? bind.bind(undefined, key.split('$')[1]) : Reflect.get(data, key),
+        ? bind.bind(null, key.substr(1)) : Reflect.get(data, key),
 
       set (fn, key, val) {
         if (val == null) {
@@ -306,7 +306,7 @@
           const old = data[key]
           if (val !== old) {
             data[key] = val
-            binds.each(key, bind => bind(val, old, proxy))
+            binds.each(key, bind => bind.call(host, val, old, proxy, host))
           }
         }
         return true
@@ -376,23 +376,21 @@
       {
         get (fn, key) {
           if (Reflect.has(fn, key)) return Reflect.get(fn, key)
+          else if (key === 'state') return fn[key] || (fn[key] = state(Object.create(null), proxy))
           else if (key === 'txt') return node[textContent]
           else if (key === 'html') return node[innerHTML]
           else if (key === 'mounted') return isMounted(node)
           else if (key === 'children') return Array.from(node.children)
           else if (key === '$children') return Array.prototype.map.call(node.children, $)
           else if (key === 'parent' && node.parentNode) return $(node.parentNode)
-          else if (key === 'state') return fn[key] || (fn[key] = state())
           else if (key in domfn) {
             return (...args) => {
               const result = domfn[key](node, ...args)
               return result === node || result === proxy ? proxy : result
             }
-          }
-          return key === ProxyNodeSymbol || (
-            isFunc(node[key]) && !isProxyNode(node[key])
-              ? node[key].bind(node) : node[key]
-          )
+          } else if (key === ProxyNodeSymbol) return true
+          const val = node[key]
+          return isFunc(val) && !isProxyNode(val) ? val.bind(node) : val
         },
         set (fn, key, val) {
           if (key === 'class') Class(node, val)
@@ -612,10 +610,21 @@
         if (isObj(opts.state)) {
           proxied.state = opts.state
         }
+        if (opts.binds) {
+          for (const key in opts.binds) {
+            proxied.state.bind(key, opts.binds[key])
+          }
+        }
+        delete opts.state
       }
 
-      if (!iscomponent && opts.props) assimilate.props(el, opts.props)
-      opts.methods && assimilate.methods(el, opts.methods)
+      if (!iscomponent && opts.props) {
+        assimilate.props(el, opts.props)
+      }
+      if (opts.methods) {
+        assimilate.methods(el, opts.methods)
+      }
+
       let val
       for (const key in opts) {
         if ((val = opts[key]) == null) continue
@@ -962,7 +971,10 @@
 
   const attributeObserver = (el, name, opts) => {
     el = $(el)
-    const {init, update, remove} = opts
+    let {init, update, remove} = opts
+    if (!init && !update && opts instanceof Function) {
+      [init, update] = [opts, opts]
+    }
     const intialize = (present, value) => {
       if (present && !beenInitiated(name, el)) {
         if (init) init(el, value)
@@ -996,10 +1008,17 @@
         old = value
       }
     })
-    return () => {
+
+    const manager = () => {
       stop()
       if (Initiated.has(name)) Initiated.get(name)(el, false)
     }
+    manager.stop = manager
+    manager.start = () => {
+      stop.on()
+      Initiated.get(name)(el, true)
+    }
+    return manager
   }
 
   const directives = new Map()
@@ -1126,11 +1145,11 @@
       proxied.state = Object.assign({}, state, proxied.state)
       el[ComponentSymbol] = el.tagName
 
-      methods && assimilate.methods(el, methods)
-      props && assimilate.props(el, props)
-      afterProps && assimilate.props(el, afterProps)
+      if (methods) assimilate.methods(el, methods)
+      if (props) assimilate.props(el, props)
+      if (afterProps) assimilate.props(el, afterProps)
       Created(el, true)
-      create && create.call(el, proxied)
+      if (create) create.call(el, proxied)
 
       if (component.plugins) {
         component.plugins.config.forEach(fn => {
@@ -1147,17 +1166,22 @@
       if (isObj(config.once)) proxied.once(config.once)
 
       if (isObj(attr)) {
-        for (const name in attr) attributeObserver(el, name, attr[name])
+        proxied.state.observedAttrs = Object.create(null)
+        for (const name in attr) {
+          proxied.state.observedAttrs[name] = attributeObserver(el, name, attr[name])
+        }
       }
-      remount && proxied.on.remount(remount.bind(el, proxied))
+      if (remount) proxied.on.remount(remount.bind(el, proxied))
     }
 
-    console.log(el, stage)
-    if (!Mounted(el) && stage === 'mount') {
+    if (!Mounted(el) && (stage === 'mount' || isMounted(el))) {
       if (Unmounted(el)) {
         component.plugins && component.plugins.remount.forEach(fn => {
           fn.bind(el, proxied, el)
         })
+        for (const name in proxied.state.observedAttrs) {
+          proxied.state.observedAttrs[name].start()
+        }
         if (remount) remount.call(el, proxied)
         emit(el, 'remount')
       } else {
@@ -1174,6 +1198,9 @@
       component.plugins && component.plugins.unmount.forEach(fn => {
         fn.bind(el, proxied, el)
       })
+      for (const name in proxied.state.observedAttrs) {
+        proxied.state.observedAttrs[name].stop()
+      }
       if (unmount) unmount.call(el, proxied)
       emit(el, stage)
     }
