@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>rilti color picker</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="../assets/defaults.css">
+    <link rel="stylesheet" href="./color-picker.css">
+    <link rel="modulepreload" href="../../src/core.js">
+    <link rel="modulepreload" href="../../src/common.js">
+    <link rel="modulepreload" href="../../src/proxy-node.js">
+    <link rel="modulepreload" href="../../src/dom-generation.js">
+    <link rel="modulepreload" href="../../src/components.js">
+    <link rel="modulepreload" href="../../src/directives.js">
+    <link rel="modulepreload" href="../../src/dom-functions.js">
+    <link rel="modulepreload" href="../../src/lifecycles.js">
+    <link rel="modulepreload" href="../../src/event-manager.js">
+    <link rel="modulepreload" href="./modules/range-input.js">
+    <style>
+      range-input {
+        margin: 1em auto;
+        width: 400px;
+        height: 400px;
+        background: #fff;
+      }
+      range-input > .handle {
+        background: #333;
+      }
+    </style>
+    <script type="module">
+      import {$, dom} from '../../src/core.js'
+      import {} from './modules/range-input.js'
+
+      dom.h3({$: 'body'}, $('range-input').state`x: ${'valueX'}%, y: ${'valueY'}%`)
+    </script>
+  </head>
+  <body>
+    <range-input opts="lockY: false; x: 13; y: 20"></range-input>
+  </body>
+</html>
