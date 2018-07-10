@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>rilti.js pointer tracker using state templates</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="./assets/defaults.css">
+    <script src="../dist/rilti.js"></script>
+    <script>
+    rilti.dom.div({
+      $: 'body',
+      onpointermove: ({x, y}, {state}) => state({x, y})
+    }, 
+      ({state}) => state`pointer is at (${'x'}x, ${'y'}y)`
+    )
+    </script>
+  </head>
+</html>
