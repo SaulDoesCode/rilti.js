@@ -5,7 +5,7 @@ import {EventManager} from './event-manager.js'
 
 const ProxiedNodes = new Map()
 
-const state = (data = {}) => {
+const state = (data = {}, host) => {
   const binds = new Map()
   binds.add = (key, fn) => {
     if (!binds.has(key)) binds.set(key, new Set())
@@ -29,10 +29,10 @@ const state = (data = {}) => {
   const bind = (key, fn, intermediate, revoke) => {
     if (intermediate) fn = intermediate(fn, proxy)
     binds.add(key, fn)
-    if (key in data) fn(data[key], undefined, proxy)
+    if (key in data) fn.call(host, data[key], undefined, proxy, host)
     fn.revoke = () => {
       if (revoke) revoke(proxy)
-      binds.remove.bind(undefined, key, fn)
+      binds.remove(key, fn)
     }
     return fn
   }
@@ -75,7 +75,7 @@ const state = (data = {}) => {
     }
   }, {
     get: (fn, key) => key === 'bind' ? bind : key[0] === '$'
-      ? bind.bind(undefined, key.split('$')[1]) : Reflect.get(data, key),
+      ? bind.bind(null, key.substr(1)) : Reflect.get(data, key),
 
     set (fn, key, val) {
       if (val == null) {
@@ -84,7 +84,7 @@ const state = (data = {}) => {
         const old = data[key]
         if (val !== old) {
           data[key] = val
-          binds.each(key, bind => bind(val, old, proxy))
+          binds.each(key, bind => bind.call(host, val, old, proxy, host))
         }
       }
       return true
@@ -154,23 +154,21 @@ export const $ = node => {
     {
       get (fn, key) {
         if (Reflect.has(fn, key)) return Reflect.get(fn, key)
+        else if (key === 'state') return fn[key] || (fn[key] = state(Object.create(null), proxy))
         else if (key === 'txt') return node[textContent]
         else if (key === 'html') return node[innerHTML]
         else if (key === 'mounted') return isMounted(node)
         else if (key === 'children') return Array.from(node.children)
         else if (key === '$children') return Array.prototype.map.call(node.children, $)
         else if (key === 'parent' && node.parentNode) return $(node.parentNode)
-        else if (key === 'state') return fn[key] || (fn[key] = state())
         else if (key in domfn) {
           return (...args) => {
             const result = domfn[key](node, ...args)
             return result === node || result === proxy ? proxy : result
           }
-        }
-        return key === ProxyNodeSymbol || (
-          isFunc(node[key]) && !isProxyNode(node[key])
-            ? node[key].bind(node) : node[key]
-        )
+        } else if (key === ProxyNodeSymbol) return true
+        const val = node[key]
+        return isFunc(val) && !isProxyNode(val) ? val.bind(node) : val
       },
       set (fn, key, val) {
         if (key === 'class') Class(node, val)
