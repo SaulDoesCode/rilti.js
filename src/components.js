@@ -1,4 +1,4 @@
-import {ComponentSymbol, run, queryEach, isObj, isStr} from './common.js'
+import {ComponentSymbol, run, queryEach, isObj, isStr, isMounted} from './common.js'
 import {Mounted, Unmounted, Created} from './lifecycles.js'
 import {dom, assimilate} from './dom-generation.js'
 import {emit} from './dom-functions.js'
@@ -45,11 +45,11 @@ export const updateComponent = (el, config, stage, afterProps) => {
     proxied.state = Object.assign({}, state, proxied.state)
     el[ComponentSymbol] = el.tagName
 
-    methods && assimilate.methods(el, methods)
-    props && assimilate.props(el, props)
-    afterProps && assimilate.props(el, afterProps)
+    if (methods) assimilate.methods(el, methods)
+    if (props) assimilate.props(el, props)
+    if (afterProps) assimilate.props(el, afterProps)
     Created(el, true)
-    create && create.call(el, proxied)
+    if (create) create.call(el, proxied)
 
     if (component.plugins) {
       component.plugins.config.forEach(fn => {
@@ -66,17 +66,22 @@ export const updateComponent = (el, config, stage, afterProps) => {
     if (isObj(config.once)) proxied.once(config.once)
 
     if (isObj(attr)) {
-      for (const name in attr) attributeObserver(el, name, attr[name])
+      proxied.state.observedAttrs = Object.create(null)
+      for (const name in attr) {
+        proxied.state.observedAttrs[name] = attributeObserver(el, name, attr[name])
+      }
     }
-    remount && proxied.on.remount(remount.bind(el, proxied))
+    if (remount) proxied.on.remount(remount.bind(el, proxied))
   }
 
-  console.log(el, stage)
-  if (!Mounted(el) && stage === 'mount') {
+  if (!Mounted(el) && (stage === 'mount' || isMounted(el))) {
     if (Unmounted(el)) {
       component.plugins && component.plugins.remount.forEach(fn => {
         fn.bind(el, proxied, el)
       })
+      for (const name in proxied.state.observedAttrs) {
+        proxied.state.observedAttrs[name].start()
+      }
       if (remount) remount.call(el, proxied)
       emit(el, 'remount')
     } else {
@@ -93,6 +98,9 @@ export const updateComponent = (el, config, stage, afterProps) => {
     component.plugins && component.plugins.unmount.forEach(fn => {
       fn.bind(el, proxied, el)
     })
+    for (const name in proxied.state.observedAttrs) {
+      proxied.state.observedAttrs[name].stop()
+    }
     if (unmount) unmount.call(el, proxied)
     emit(el, stage)
   }

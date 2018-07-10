@@ -1,5 +1,4 @@
 import {
-  // utils
   allare,
   each,
   flatten,
@@ -11,7 +10,6 @@ import {
   queryAsync,
   queryAll,
   queryEach,
-  // type testing
   isArr,
   isComponent,
   isNil,
