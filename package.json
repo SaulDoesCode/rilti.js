@@ -37,21 +37,18 @@
   },
   "homepage": "https://github.com/sauldoescode/rilti.js#readme",
   "devDependencies": {
-    "babel-cli": "^7.0.0-beta.3",
-    "babel-core": "^7.0.0-beta.3",
-    "babel-eslint": "^8.2.3",
-    "babel-minify": "^0.5.0-alpha.72092d20",
-    "babel-preset-minify": "^0.5.0-alpha.72092d20",
-    "chokidar": "^2.0.2",
+    "@babel/cli": "^7.0.0-beta.52",
+    "babel-minify": "^0.5.0-alpha.a24dd066",
+    "chokidar": "^2.0.4",
     "compression": "^1.7.2",
-    "express": "^4.16.2",
+    "express": "^4.16.3",
     "jasmine": "^3.1.0",
     "jasmine-core": "^3.1.0",
-    "karma": "^2.0.2",
+    "karma": "^2.0.4",
     "karma-chrome-launcher": "^2.2.0",
     "karma-firefox-launcher": "^1.1.0",
-    "karma-jasmine": "^1.1.1",
-    "rollup": "^0.57.1",
+    "karma-jasmine": "^1.1.2",
+    "rollup": "^0.62.0",
     "standard": "^11.0.1"
   }
 }
