@@ -289,6 +289,6 @@ export const domfn = {
     query = queryAll(query, node)
     return pure ? query : query.map(n => $(n))
   },
-  findOne: (q, pure) => pure ? query(q) : $(q)
+  findOne: (node, q, pure) => pure ? query(q, node) : $(q)
 }
 domfn.empty = domfn.clear
