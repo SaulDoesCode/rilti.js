@@ -1,4 +1,5 @@
-import {dom, component, on, once, each, isNum} from '../../../src/core.js'
+import * as rilti from '../../../src/core.js'
+const {dom, component, on, once, each, isNum} = rilti
 
 export const clamp = (n, min, max) => Math.min(Math.max(n, min), max)
 

@@ -2,6 +2,8 @@
 import {
   curry,
   run,
+  query,
+  queryAll,
   queryAsync,
   isArr,
   isInput,
@@ -14,9 +16,10 @@ import {once} from './event-manager.js'
 import {frag} from './dom-generation.js'
 import {MNT} from './lifecycles.js'
 import {attributeChange} from './directives.js'
+import $ from './proxy-node.js'
 
 export const emit = (node, type, detail) => {
-  node.dispatchEvent(new CustomEvent(type, {detail}))
+  node.dispatchEvent(typeof type !== 'string' ? type : new CustomEvent(type, {detail}))
   return node
 }
 
@@ -281,6 +284,11 @@ export const domfn = {
     if (newnode instanceof Function) newnode = newnode()
     run(() => node.replaceWith(newnode))
     return newnode
-  }
+  },
+  find (node, query, pure) {
+    query = queryAll(query, node)
+    return pure ? query : query.map(n => $(n))
+  },
+  findOne: (q, pure) => pure ? query(q) : $(q)
 }
 domfn.empty = domfn.clear
