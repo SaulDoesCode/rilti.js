@@ -699,7 +699,7 @@
   /* global Text Node NodeList CustomEvent */
 
   const emit = (node, type, detail) => {
-    node.dispatchEvent(new CustomEvent(type, {detail}))
+    node.dispatchEvent(typeof type !== 'string' ? type : new CustomEvent(type, {detail}))
     return node
   }
 
@@ -961,7 +961,12 @@
       if (newnode instanceof Function) newnode = newnode()
       run(() => node.replaceWith(newnode))
       return newnode
-    }
+    },
+    find (node, query$$1, pure) {
+      query$$1 = queryAll(query$$1, node)
+      return pure ? query$$1 : query$$1.map(n => $(n))
+    },
+    findOne: (q, pure) => pure ? query(q) : $(q)
   }
   domfn.empty = domfn.clear
 
