@@ -1,10 +1,10 @@
 language: node_js
 node_js:
-  - "10"
+  - "stable"
 cache:
   yarn: true
   directories:
-    - node_modules
+    - "node_modules"
 addons:
   firefox: latest
 before_install:
