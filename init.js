@@ -6,12 +6,14 @@ const zlib = require('zlib')
 
 const PORT = 2018
 
+// const isWindows = process.platform === 'win32'
+
 const childProc = require('child_process')
 const exec = cmd => new Promise((resolve, reject) => childProc.exec(cmd,
   (err, stdout) => err ? reject(err) : resolve(stdout)
 ))
 
-const buildLibrary = () => exec('npm run build')
+const buildLibrary = () => exec('yarn build')
 
 const app = express()
 app.use(compression())
@@ -33,12 +35,13 @@ app.use(express.static('./', {
 
 app.listen(PORT, () => console.log(`Server Started on at localhost:${PORT}/`))
 
-const watcher = chokidar.watch('../rilti/', {
-  ignored: ['../rilti/node_modules', '../rilti/.git']
+const watcher = chokidar.watch('../rilti.js/', {
+  ignored: ['../rilti.js/node_modules', '../rilti.js/.git']
 })
 
 const fileMutation = async location => {
   console.log(`File Change: ${location}`)
+  location = location.replace(/\\/g, '\/')
   if (location.includes('/src/') && location.includes('.js')) {
     try {
       const success = await buildLibrary()
