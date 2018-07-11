@@ -966,7 +966,7 @@
       query$$1 = queryAll(query$$1, node)
       return pure ? query$$1 : query$$1.map(n => $(n))
     },
-    findOne: (q, pure) => pure ? query(q) : $(q)
+    findOne: (node, q, pure) => pure ? query(q, node) : $(q)
   }
   domfn.empty = domfn.clear
 
@@ -1120,6 +1120,7 @@
 
   const components = new Map()
   const component = (tagName, config) => {
+    if (isFunc(config)) config = config()
     if (tagName.indexOf('-') === -1) {
       throw new Error(`component: ${tagName} tagName is un-hyphenated`)
     }

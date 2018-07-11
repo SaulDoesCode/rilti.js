@@ -1,4 +1,4 @@
-import {ComponentSymbol, run, queryEach, isObj, isStr, isMounted} from './common.js'
+import {ComponentSymbol, run, queryEach, isObj, isStr, isFunc, isMounted} from './common.js'
 import {Mounted, Unmounted, Created} from './lifecycles.js'
 import {dom, assimilate} from './dom-generation.js'
 import {emit} from './dom-functions.js'
@@ -7,6 +7,7 @@ import {attributeObserver} from './directives.js'
 
 export const components = new Map()
 export const component = (tagName, config) => {
+  if (isFunc(config)) config = config()
   if (tagName.indexOf('-') === -1) {
     throw new Error(`component: ${tagName} tagName is un-hyphenated`)
   }
