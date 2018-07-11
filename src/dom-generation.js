@@ -1,5 +1,5 @@
 /* global Node Text */
-import {isArr, isObj, isProxyNode, isPrimitive, isRenderable} from './common.js'
+import {isNum, isArr, isObj, isProxyNode, isPrimitive, isRenderable} from './common.js'
 import {updateComponent, components} from './components.js'
 import {CR} from './lifecycles.js'
 import {attach, domfn} from './dom-functions.js'
@@ -8,6 +8,7 @@ import $ from './proxy-node.js'
 
 export const html = (input, host) => {
   if (input instanceof Function) input = input(host)
+  if (isNum(input)) input = String(input)
   if (typeof input === 'string') {
     return Array.from(
       document.createRange().createContextualFragment(input).childNodes
@@ -20,8 +21,8 @@ export const html = (input, host) => {
   throw new Error('.html: unrenderable input')
 }
 
-export const frag = inner =>
-  inner != null ? html(inner) : document.createDocumentFragment()
+export const frag = inner => inner != null
+  ? html(inner) : document.createDocumentFragment()
 
 export const assimilate = {
   props (el, props) {
@@ -59,28 +60,23 @@ export const assimilate = {
   }
 }
 
-const infinifyDOM = (dom, tag) => {
-  if (Reflect.has(dom, tag)) return Reflect.get(dom, tag)
-  const el = dom.bind(undefined, tag)
-  el.$classes = []
-  return (dom[tag] = new Proxy(el, {
-    apply (el, _, args) {
-      el = el(...args)
-      if (dom[tag].$classes.length) {
-        for (let i = 0; i < dom[tag].$classes.length; i++) {
-          el.classList.add(dom[tag].$classes[i])
-        }
-        dom[tag].$classes.length = 0
-      }
+// classes.push(...className.replace(/_/g, '-').split('.'))
+
+const infinifyDOM = (gen, tag) => tag in gen ? Reflect.get(gen, tag) : (gen[tag] = new Proxy(gen.bind(null, tag), {
+  get (el, className) {
+    const classes = className.replace(/_/g, '-').split('.')
+    return new Proxy(function () {
+      el = el.apply(null, arguments)
+      el.classList.add(...classes)
       return el
-    },
-    get (el, className, proxy) {
-      if (className === '$classes') return el.$classes
-      el.$classes.push(...className.replace(/_/g, '-').split('.'))
-      return proxy
-    }
-  }))
-}
+    }, {
+      get (_, anotherClass, proxy) {
+        classes.push(...anotherClass.replace(/_/g, '-').split('.'))
+        return proxy
+      }
+    })
+  }
+}))
 
 export const body = (...args) => attach(document.body || 'body', 'appendChild', ...args)
 
@@ -97,7 +93,7 @@ const svgEL = (tag, opts, ...children) => {
     for (const key in opts) {
       if (isPrimitive(opts[key]) && reserved.indexOf(key) === -1 && !(key in domfn)) {
         el.setAttribute(key, opts[key])
-        opts[key] = undefined
+        delete opts[key]
       }
     }
   }
@@ -128,7 +124,7 @@ export const dom = new Proxy(Object.assign((tag, opts, ...children) => {
         for (const key in opts.binds) {
           proxied.state.bind(key, opts.binds[key])
         }
-      }  
+      }
       delete opts.state
     }
 
@@ -192,11 +188,15 @@ export const dom = new Proxy(Object.assign((tag, opts, ...children) => {
       opts = result !== el && (!proxied || result !== proxied) ? result : undefined
     }
     if (isRenderable(opts)) children.unshift(opts)
-    if (children.length) attach(proxied || el, 'appendChild', ...children)
+    if (children.length === 1) {
+      attach(proxied || el, 'appendChild', children[0])
+    } else if (children.length) {
+      attach(proxied || el, 'appendChild', ...children)
+    }
   }
 
   iscomponent
-    ? !componentHandled && updateComponent(el, undefined)
+    ? !componentHandled && updateComponent(el)
     : CR(el, true, iscomponent)
 
   return proxied || el

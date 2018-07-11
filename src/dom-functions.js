@@ -44,7 +44,8 @@ export const vpend = (
         if (ishost) continue
       }
     }
-    if (typeof child === 'string') {
+    const childtype = typeof child
+    if (childtype === 'string' || childtype === 'number') {
       if (!child.length) continue
       child = new Text(child)
     } else if (isArr(child)) {
@@ -74,23 +75,25 @@ export const vpend = (
 export const prime = (...nodes) => {
   for (let i = 0; i < nodes.length; i++) {
     let n = nodes[i]
-    if (n == null || typeof n === 'boolean') {
+    const ntype = typeof n
+    if (n == null || ntype === 'boolean') {
       nodes.splice(i, 1)
       continue
     }
     if (n instanceof Node || n instanceof Function) {
       continue
-    } else if (typeof n === 'string' || typeof n === 'number') {
+    } else if (ntype === 'string' || ntype === 'number') {
       const nextI = i + 1
       if (nextI < nodes.length) {
         const next = nodes[nextI]
-        if (typeof next === 'string' || typeof next === 'number') {
-          nodes[i] = new Text(String(n) + String(next))
+        const nexttype = typeof next
+        if (nexttype === 'string' || nexttype === 'number') {
+          nodes[i] = String(n) + String(next)
           nodes.splice(nextI, 1)
           i--
-        } else {
-          nodes[i] = new Text(String(n))
         }
+      } else {
+        nodes[i] = new Text(String(n))
       }
       continue
     }
@@ -108,7 +111,7 @@ export const prime = (...nodes) => {
 
     if (isArr(n)) {
       if (!isnl) {
-        n = prime.apply(undefined, n)
+        n = prime.apply(null, n)
         if (n.length < 2) {
           nodes[i] = n[0]
           i--
