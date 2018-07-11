@@ -90,7 +90,7 @@ export const updateComponent = (el, config, stage, afterProps) => {
         fn.bind(el, proxied, el)
       })
       if (mount) mount.call(el, proxied)
-      emit(el, stage)
+      emit(el, 'mount')
     }
   } else if (stage === 'unmount') {
     Mounted(el, false)
