@@ -494,6 +494,7 @@
 
   const html = (input, host) => {
     if (input instanceof Function) input = input(host)
+    if (isNum(input)) input = String(input)
     if (typeof input === 'string') {
       return Array.from(
         document.createRange().createContextualFragment(input).childNodes
@@ -506,8 +507,8 @@
     throw new Error('.html: unrenderable input')
   }
 
-  const frag = inner =>
-    inner != null ? html(inner) : document.createDocumentFragment()
+  const frag = inner => inner != null
+    ? html(inner) : document.createDocumentFragment()
 
   const assimilate = {
     props (el, props) {
@@ -545,28 +546,23 @@
     }
   }
 
-  const infinifyDOM = (dom, tag) => {
-    if (Reflect.has(dom, tag)) return Reflect.get(dom, tag)
-    const el = dom.bind(undefined, tag)
-    el.$classes = []
-    return (dom[tag] = new Proxy(el, {
-      apply (el, _, args) {
-        el = el(...args)
-        if (dom[tag].$classes.length) {
-          for (let i = 0; i < dom[tag].$classes.length; i++) {
-            el.classList.add(dom[tag].$classes[i])
-          }
-          dom[tag].$classes.length = 0
-        }
+  // classes.push(...className.replace(/_/g, '-').split('.'))
+
+  const infinifyDOM = (gen, tag) => tag in gen ? Reflect.get(gen, tag) : (gen[tag] = new Proxy(gen.bind(null, tag), {
+    get (el, className) {
+      const classes = className.replace(/_/g, '-').split('.')
+      return new Proxy(function () {
+        el = el.apply(null, arguments)
+        el.classList.add(...classes)
         return el
-      },
-      get (el, className, proxy) {
-        if (className === '$classes') return el.$classes
-        el.$classes.push(...className.replace(/_/g, '-').split('.'))
-        return proxy
-      }
-    }))
-  }
+      }, {
+        get (_, anotherClass, proxy) {
+          classes.push(...anotherClass.replace(/_/g, '-').split('.'))
+          return proxy
+        }
+      })
+    }
+  }))
 
   const body = (...args) => attach(document.body || 'body', 'appendChild', ...args)
 
@@ -583,7 +579,7 @@
       for (const key in opts) {
         if (isPrimitive(opts[key]) && reserved.indexOf(key) === -1 && !(key in domfn)) {
           el.setAttribute(key, opts[key])
-          opts[key] = undefined
+          delete opts[key]
         }
       }
     }
@@ -678,11 +674,15 @@
         opts = result !== el && (!proxied || result !== proxied) ? result : undefined
       }
       if (isRenderable(opts)) children.unshift(opts)
-      if (children.length) attach(proxied || el, 'appendChild', ...children)
+      if (children.length === 1) {
+        attach(proxied || el, 'appendChild', children[0])
+      } else if (children.length) {
+        attach(proxied || el, 'appendChild', ...children)
+      }
     }
 
     iscomponent
-      ? !componentHandled && updateComponent(el, undefined)
+      ? !componentHandled && updateComponent(el)
       : CR(el, true, iscomponent)
 
     return proxied || el
@@ -719,7 +719,8 @@
           if (ishost) continue
         }
       }
-      if (typeof child === 'string') {
+      const childtype = typeof child
+      if (childtype === 'string' || childtype === 'number') {
         if (!child.length) continue
         child = new Text(child)
       } else if (isArr(child)) {
@@ -749,23 +750,25 @@
   const prime = (...nodes) => {
     for (let i = 0; i < nodes.length; i++) {
       let n = nodes[i]
-      if (n == null || typeof n === 'boolean') {
+      const ntype = typeof n
+      if (n == null || ntype === 'boolean') {
         nodes.splice(i, 1)
         continue
       }
       if (n instanceof Node || n instanceof Function) {
         continue
-      } else if (typeof n === 'string' || typeof n === 'number') {
+      } else if (ntype === 'string' || ntype === 'number') {
         const nextI = i + 1
         if (nextI < nodes.length) {
           const next = nodes[nextI]
-          if (typeof next === 'string' || typeof next === 'number') {
-            nodes[i] = new Text(String(n) + String(next))
+          const nexttype = typeof next
+          if (nexttype === 'string' || nexttype === 'number') {
+            nodes[i] = String(n) + String(next)
             nodes.splice(nextI, 1)
             i--
-          } else {
-            nodes[i] = new Text(String(n))
           }
+        } else {
+          nodes[i] = new Text(String(n))
         }
         continue
       }
@@ -783,7 +786,7 @@
 
       if (isArr(n)) {
         if (!isnl) {
-          n = prime.apply(undefined, n)
+          n = prime.apply(null, n)
           if (n.length < 2) {
             nodes[i] = n[0]
             i--
