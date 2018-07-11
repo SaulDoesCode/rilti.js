@@ -59,8 +59,8 @@ export const vpend = (
   if (host && !noHostAppend) {
     run(() => {
       host[connector](dfrag)
-      for (let i = 0; i < children.length; i++) {
-        children[i] && children[i].dispatchEvent && MNT(children[i])
+      for (const child of children) {
+        if (child != null && child.dispatchEvent) MNT(child)
       }
     })
   }

@@ -16,7 +16,7 @@ export const CR = (n, undone = !Created(n), component = isComponent(n)) => {
 
 export const MNT = (n, iscomponent = isComponent(n)) => {
   CR(n, !Created(n), iscomponent)
-  if (!Mounted(n)) {
+  if (!Mounted(n) && n.parentNode) {
     if (Unmounted(n)) {
       Unmounted(n, false)
       n.dispatchEvent(new CustomEvent('remount'))
