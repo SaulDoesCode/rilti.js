@@ -342,8 +342,7 @@
         const result = domfn.attr(node, attr, val)
         return result === node ? proxy : result
       }, {
-        get: (fn, key) => key === 'has'
-          ? hasAttr : key === 'remove' ? rmAttr : getAttr(key),
+        get: (fn, key) => key === 'has' ? hasAttr : key === 'remove' ? rmAttr : getAttr(key),
 
         set (fn, key, val) {
           key === 'remove' ? rmAttr(val) : fn(key, val)
@@ -380,6 +379,15 @@
           else if (key === 'txt') return node[textContent]
           else if (key === 'html') return node[innerHTML]
           else if (key === 'mounted') return isMounted(node)
+          /*
+          // still thinking about how to make this work
+          else if (key === 'mounting') {
+            return new Promise(resolve => {
+              if (isMounted(node) || node.parentNode) return resolve(proxy.parent)
+              proxy.once.mount(e => resolve(proxy.parent))
+            })
+          }
+          */
           else if (key === 'children') return Array.from(node.children)
           else if (key === '$children') return Array.prototype.map.call(node.children, $)
           else if (key === 'parent' && node.parentNode) return $(node.parentNode)
@@ -734,9 +742,6 @@
     if (host && !noHostAppend) {
       run(() => {
         host[connector](dfrag)
-        for (let i = 0; i < children.length; i++) {
-          children[i] && children[i].dispatchEvent && MNT(children[i])
-        }
       })
     }
     return children
@@ -1068,7 +1073,7 @@
 
   const MNT = (n, iscomponent = isComponent(n)) => {
     CR(n, !Created(n), iscomponent)
-    if (!Mounted(n)) {
+    if (!Mounted(n) && n.parentNode) {
       if (Unmounted(n)) {
         Unmounted(n, false)
         n.dispatchEvent(new CustomEvent('remount'))
