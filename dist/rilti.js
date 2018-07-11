@@ -319,7 +319,10 @@
 
   const $ = node => {
     if (isProxyNode(node)) return node
-    if (typeof node === 'string') node = query(node)
+    if (typeof node === 'string') {
+      node = query(node)
+      if (!node) throw new Error('no selector match')
+    }
     if (ProxiedNodes.has(node)) return ProxiedNodes.get(node)
     if (!(node instanceof Node)) {
       throw new TypeError(`$ needs a Node: ${node}`)
