@@ -302,7 +302,21 @@ describe('dom', () => {
     it('should create a <div>Hello World</div>', () => {
       expect(el() instanceof Node).toBeTruthy()
     })
-    it('should have a Text Node with "Hello World" inside', () => {
+    it('should have a Text Node with "Hello World" inside', async () => {
+      if (!await (new Promise(resolve => {
+        let limit = 15
+        const checkAgain = (again = false) => {
+          again ? setTimeout(() => {
+            checkAgain(
+              el.childNodes[0] instanceof Text &&
+              el.childNodes[0].textContent !== txt
+            )
+            limit--
+          }, 50) : resolve(true)
+          if (limit === 0) resolve(false)
+        }
+        checkAgain()
+      }))) throw new Error('render pipeline is broken fix it now!!!')
       expect(el.childNodes[0].textContent).toEqual(txt)
     })
   })
@@ -359,6 +373,17 @@ describe('dom querying', () => {
     const el = await queryAsync('div[query]')
     expect(els.includes(el)).toBeTruthy()
   })
+
+  /*
+  // still figuring out how to make this possible
+  it('should wait for the element to mount before resolving', async () => {
+    const child = dom.div.child()
+    expect(child.mounted).toBeFalsy()
+    dom.div.host(child)
+    await child.mounting
+    expect(child.mounted).toBeTruthy()
+  })
+  */
 })
 
 describe('async element rendering', () => {
