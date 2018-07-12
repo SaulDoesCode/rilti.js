@@ -38,12 +38,10 @@
 
   const isInt = o => isNum(o) && o % 1 === 0
 
-  const isArrlike = o => isArr(o) || (
-    o != null && (
-      o instanceof NodeList ||
-      (!(isFunc(o) || isNode(o)) && o.length % 1 === 0)
-    )
-  )
+  const isArrlike = o => o != null && (isArr(o) || (
+    !(o instanceof Function || o instanceof Node) &&
+    o.length % 1 === 0
+  ))
 
   const isNodeList = (o, arr = true) => o instanceof NodeList || (arr && allare(o, isNode))
 
@@ -128,8 +126,7 @@
   /*
   * runAsync runs a function asynchronously
   */
-  exports.runAsync = (fn, ...args) =>
-    window.requestIdleCallback(fn.bind(undefined, ...args))
+  exports.runAsync = (fn, ...args) => window.requestIdleCallback(fn.bind(undefined, ...args))
 
   if (!window.requestIdleCallback) {
     exports.runAsync = (fn, ...args) => setTimeout(fn, 0, ...args)
@@ -139,7 +136,6 @@
   * run runs a function on DOMContentLoaded or asynchronously
   * if document.body is present and loaded
   */
-
   const run = function () {
     if (document.body || document.readyState === 'complete') {
       exports.runAsync.apply(undefined, arguments)
@@ -156,8 +152,7 @@
   * DOM Query Selector Functions
   *
   */
-  const query = (selector, host = document) =>
-    isNode(selector) ? selector : query(host).querySelector(selector)
+  const query = (selector, host = document) => isNode(selector) ? selector : query(host).querySelector(selector)
 
   const queryAsync = (selector, host) => new Promise((resolve, reject) => {
     const find = () => {
@@ -171,8 +166,12 @@
     document.body ? find() : run(find)
   })
 
-  const queryAll = (selector, host = document) =>
-    Array.from(query(host).querySelectorAll(selector))
+  /*
+  *  queryAll(selector String|Node, host = document String|Node)
+  *  it returns an array of elements matching a selector,
+  *  a nicer querySelectorAll essentially.
+  */
+  const queryAll = (selector, host = document) => Array.from(query(host).querySelectorAll(selector))
 
   const queryEach = (selector, fn, host = document) => {
     if (!isFunc(fn)) [fn, host] = [host, document]
@@ -220,8 +219,43 @@
   * mutateSet is an abstraction over Set and WeakSet
   * it combines all basic Set ops into a single function
   */
-  const mutateSet = set => (n, state) =>
-    set[state == null ? 'has' : state ? 'add' : 'delete'](n)
+  const mutateSet = set => (n, state) => set[state == null ? 'has' : state ? 'add' : 'delete'](n)
+
+  const copyprop = (host, obj, key) => {
+    Object.defineProperty(host, key, Object.getOwnPropertyDescriptor(obj, key))
+    return host
+  }
+  /*
+  * merge(host Object|Array, target Object|Array)
+  * merge objects together deeply.
+  * it copies prop descriptions instead of raw values.
+  */
+
+  const merge = (host, target) => {
+    if (isArr(host) && isArr(target)) {
+      for (let i = 0; i < target.length; i++) {
+        const val = target[i]
+        if (!host.includes(val)) host.push(val)
+      }
+    } else if (merge.able(host) && merge.able(target)) {
+      for (const key in target) {
+        if (key in host) {
+          const old = host[key]
+          const val = target[key]
+          if (merge.able(old) && merge.able(val)) {
+            merge(old, val)
+          } else if (val != null) {
+            copyprop(host, target, key)
+          }
+        } else {
+          copyprop(host, target, key)
+        }
+      }
+    }
+    return host
+  }
+
+  merge.able = o => o != null && (isArr(o) || !(isPrimitive(o) || isPromise(o)))
 
   /* global Text Node */
 
@@ -1271,6 +1305,7 @@
   exports.directive = directive
   exports.directives = directives
   exports.prime = prime
+  exports.merge = merge
   exports.Mounted = Mounted
   exports.Unmounted = Unmounted
   exports.Created = Created
