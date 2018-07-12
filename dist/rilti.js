@@ -969,7 +969,8 @@
       query$$1 = queryAll(query$$1, node)
       return pure ? query$$1 : query$$1.map(n => $(n))
     },
-    findOne: (node, q, pure) => pure ? query(q, node) : $(q)
+    findOne: (node, q, pure) =>
+      pure ? query(q, node) : (q = query(q, node)) ? $(q) : q
   }
   domfn.empty = domfn.clear
 
