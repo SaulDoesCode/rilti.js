@@ -33,7 +33,8 @@ const {
   each,
   dom,
   html,
-  $
+  $,
+  merge
   /* ,components,
   component,
   attributeObserver,
@@ -43,8 +44,8 @@ const {
   domfn,
   directive,
   directives,
-  prime,
-  model */
+  prime
+  */
 } = rilti
 
 describe('isX', () => {
@@ -304,18 +305,23 @@ describe('dom', () => {
     })
     it('should have a Text Node with "Hello World" inside', async () => {
       if (!await (new Promise(resolve => {
-        let limit = 15
-        const checkAgain = (again = false) => {
-          again ? setTimeout(() => {
-            checkAgain(
-              el.childNodes[0] instanceof Text &&
-              el.childNodes[0].textContent !== txt
-            )
-            limit--
-          }, 50) : resolve(true)
-          if (limit === 0) resolve(false)
-        }
-        checkAgain()
+        window.requestIdleCallback(() => {
+          let limit = 15
+          const checkAgain = (again = false) => {
+            again ? setTimeout(() => {
+              checkAgain(
+                el.childNodes[0] instanceof Text &&
+                el.childNodes[0].textContent !== txt
+              )
+              limit--
+            }, 50) : resolve(true)
+            if (limit === 0) resolve(false)
+          }
+          checkAgain(
+            el.childNodes[0] instanceof Text &&
+            el.childNodes[0].textContent !== txt
+          )
+        })
       }))) throw new Error('render pipeline is broken fix it now!!!')
       expect(el.childNodes[0].textContent).toEqual(txt)
     })
@@ -463,6 +469,39 @@ describe('each', () => {
   })
 })
 
+describe('merge', () => {
+  it('should deeply merge either objects or array-likes', () => {
+    const a = {
+      home: {
+        kitchen: {
+          cuboard: {
+            plates: 4,
+            utensils: ['knife', 'fork']
+          }
+        }
+      }
+    }
+
+    const b = {
+      home: {
+        kitchen: {
+          cuboard: {
+            plates: 5,
+            utensils: ['spoon']
+          }
+        }
+      }
+    }
+
+    rilti.merge(a, b)
+    const {plates, utensils} = a.home.kitchen.cuboard
+
+    expect(utensils.includes('spoon')).toBeTruthy()
+    expect(utensils.includes('knife')).toBeTruthy()
+    expect(utensils.includes('fork')).toBeTruthy()
+    expect(plates).toBe(5)
+  })
+})
 /*
 describe('map2json', () => {
   it('should convert a map to json', () => {
