@@ -104,7 +104,7 @@ color-picker > section.controls > *:first-of-type {
   border-radius: 3px 3px 0 0;
 }
 
-.ocean::before, color-picker > .handle::before {
+color-picker > .handle::before {
   position: absolute;
   content: '';
   top: 0;

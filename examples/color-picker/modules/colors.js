@@ -306,7 +306,7 @@ export const HSVaColor = (h = 0, s = 0, v = 100, a = 1) => {
 
 const randInt = (max = 100, min = 0) => Math.floor(Math.random() * (max - min + 1)) + min
 
-HSVaColor.random = (randomAlpha) => HSVaColor(
+HSVaColor.random = randomAlpha => HSVaColor(
   randInt(360),
   randInt(),
   randInt(),
