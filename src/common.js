@@ -211,12 +211,12 @@ export const copyprop = (host, obj, key) => {
   Object.defineProperty(host, key, Object.getOwnPropertyDescriptor(obj, key))
   return host
 }
+
 /*
 * merge(host Object|Array, target Object|Array)
 * merge objects together deeply.
 * it copies prop descriptions instead of raw values.
 */
-
 export const merge = (host, target) => {
   if (isArr(host) && isArr(target)) {
     for (let i = 0; i < target.length; i++) {

@@ -43,7 +43,7 @@ export const updateComponent = (el, config, stage, afterProps) => {
   const proxied = $(el)
 
   if (!Created(el)) {
-    proxied.state = Object.assign({}, state, proxied.state)
+    proxied.state = Object.assign(Object.create(null), state, proxied.state)
     el[ComponentSymbol] = el.tagName
 
     if (methods) assimilate.methods(el, methods)

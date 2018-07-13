@@ -1,5 +1,5 @@
 /* global Node Text */
-import {isNum, isArr, isObj, isProxyNode, isPrimitive, isRenderable} from './common.js'
+import {copyprop, isNum, isArr, isObj, isProxyNode, isPrimitive, isRenderable} from './common.js'
 import {updateComponent, components} from './components.js'
 import {CR} from './lifecycles.js'
 import {attach, domfn} from './dom-functions.js'
@@ -46,9 +46,7 @@ export const assimilate = {
       } else if (val instanceof Function && !isProxyNode(val)) {
         el[prop] = val.call(el, proxied)
       } else {
-        Object.defineProperty(
-          el, prop, Object.getOwnPropertyDescriptor(props, prop)
-        )
+        copyprop(el, props, prop)
       }
     }
   },
@@ -118,14 +116,8 @@ export const dom = new Proxy(Object.assign((tag, opts, ...children) => {
     if (!pure) {
       proxied = $(el)
       if (isObj(opts.state)) {
-        proxied.state = opts.state
+        opts.state = (proxied.state = opts.state)
       }
-      if (opts.binds) {
-        for (const key in opts.binds) {
-          proxied.state.bind(key, opts.binds[key])
-        }
-      }
-      delete opts.state
     }
 
     if (!iscomponent && opts.props) {
@@ -149,6 +141,8 @@ export const dom = new Proxy(Object.assign((tag, opts, ...children) => {
         if (!opts[mode]) opts[mode] = {}
         opts[mode][type] = type.length
           ? evtfn(el, type, ...args) : evtfn(el, ...args)
+      } else if (key === 'state') {
+        continue
       } else if (key in el) {
         if (el[key] instanceof Function) {
           isArr(val) ? el[key].apply(el, val) : el[key](val)
@@ -172,6 +166,12 @@ export const dom = new Proxy(Object.assign((tag, opts, ...children) => {
     if (iscomponent) {
       updateComponent(el, undefined, undefined, opts.props)
       componentHandled = true
+    }
+
+    if (proxied && opts.binds) {
+      for (const key in opts.binds) {
+        proxied.state.bind(key, opts.binds[key])
+      }
     }
 
     const host = opts.$ || opts.render

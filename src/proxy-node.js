@@ -5,7 +5,7 @@ import {EventManager} from './event-manager.js'
 
 const ProxiedNodes = new Map()
 
-const state = (data = {}, host) => {
+const state = (data = Object.create(null), host) => {
   const binds = new Map()
   binds.add = (key, fn) => {
     if (!binds.has(key)) binds.set(key, new Set())
