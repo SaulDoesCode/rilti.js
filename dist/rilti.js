@@ -225,12 +225,12 @@
     Object.defineProperty(host, key, Object.getOwnPropertyDescriptor(obj, key))
     return host
   }
+
   /*
   * merge(host Object|Array, target Object|Array)
   * merge objects together deeply.
   * it copies prop descriptions instead of raw values.
   */
-
   const merge = (host, target) => {
     if (isArr(host) && isArr(target)) {
       for (let i = 0; i < target.length; i++) {
@@ -261,7 +261,7 @@
 
   const ProxiedNodes = new Map()
 
-  const state = (data = {}, host) => {
+  const state = (data = Object.create(null), host) => {
     const binds = new Map()
     binds.add = (key, fn) => {
       if (!binds.has(key)) binds.set(key, new Set())
@@ -577,9 +577,7 @@
         } else if (val instanceof Function && !isProxyNode(val)) {
           el[prop] = val.call(el, proxied)
         } else {
-          Object.defineProperty(
-            el, prop, Object.getOwnPropertyDescriptor(props, prop)
-          )
+          copyprop(el, props, prop)
         }
       }
     },
@@ -649,14 +647,8 @@
       if (!pure) {
         proxied = $(el)
         if (isObj(opts.state)) {
-          proxied.state = opts.state
+          opts.state = (proxied.state = opts.state)
         }
-        if (opts.binds) {
-          for (const key in opts.binds) {
-            proxied.state.bind(key, opts.binds[key])
-          }
-        }
-        delete opts.state
       }
 
       if (!iscomponent && opts.props) {
@@ -680,6 +672,8 @@
           if (!opts[mode]) opts[mode] = {}
           opts[mode][type] = type.length
             ? evtfn(el, type, ...args) : evtfn(el, ...args)
+        } else if (key === 'state') {
+          continue
         } else if (key in el) {
           if (el[key] instanceof Function) {
             isArr(val) ? el[key].apply(el, val) : el[key](val)
@@ -703,6 +697,12 @@
       if (iscomponent) {
         updateComponent(el, undefined, undefined, opts.props)
         componentHandled = true
+      }
+
+      if (proxied && opts.binds) {
+        for (const key in opts.binds) {
+          proxied.state.bind(key, opts.binds[key])
+        }
       }
 
       const host = opts.$ || opts.render
@@ -1194,7 +1194,7 @@
     const proxied = $(el)
 
     if (!Created(el)) {
-      proxied.state = Object.assign({}, state, proxied.state)
+      proxied.state = Object.assign(Object.create(null), state, proxied.state)
       el[ComponentSymbol] = el.tagName
 
       if (methods) assimilate.methods(el, methods)
