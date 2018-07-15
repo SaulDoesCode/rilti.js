@@ -1,17 +1,21 @@
-import {component, dom} from '../../src/core.js'
+import * as rilti from '../../src/core.js'
 import {} from './modules/range-input.js'
 import {HSVaColor, parseToHSV} from './modules/colors.js'
-
+const {component, dom} = window.rilti = rilti
 const {div, section} = dom
 
 component('color-picker', {
   create (el) {
-    const {state} = el
-    state({hue: 0, opacity: 100})
-
-    let $color = HSVaColor.random()
-    console.log($color)
     const stats = div.stats()
+    const {state} = el
+    let $color = HSVaColor.random()
+
+    state({
+      hue: $color.h,
+      opacity: $color.a * 100
+    })
+
+    console.log($color)
 
     const updateColor = color => {
       if (color != null) {
