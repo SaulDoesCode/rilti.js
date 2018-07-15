@@ -54,8 +54,11 @@ const state = (data = Object.create(null), host) => {
     if (input == null) throw new Error(`state.bind.${key}: invalid/nil input element)`)
     if (input instanceof Node) input = $(input)
     let shouldUpdate = true
+    const realInput = isInput(input)
     const bindFN = val => {
-      if (shouldUpdate) input.value = val
+      if (shouldUpdate) {
+        realInput ? input.value = val : input.innerText = val
+      }
     }
     const listener = input.on.input(e => {
       shouldUpdate = false
@@ -92,8 +95,11 @@ const state = (data = Object.create(null), host) => {
     }
     return proxy
   }, {
-    get: (fn, key) => key === 'bind' ? bind : key[0] === '$'
-      ? bind.bind(null, key.substr(1)) : Reflect.get(data, key),
+    get: (fn, key) =>
+      key === 'bind' ? bind
+        : key === 'binds' ? binds
+          : key[0] === '$' ? bind.bind(null, key.substr(1))
+            : Reflect.get(data, key),
 
     set (fn, key, val) {
       if (val == null) {
@@ -178,7 +184,6 @@ export const $ = node => {
         else if (key === 'state') return fn[key] || (fn[key] = state(Object.create(null), proxy))
         else if (key === 'txt') return node[textContent]
         else if (key === 'html') return node[innerHTML]
-        else if (key === 'value' && !isinput) return node.innerText
         else if (key === 'mounted') return isMounted(node)
         /*
         // still thinking about how to make this work
@@ -214,8 +219,6 @@ export const $ = node => {
             node[textContent] = ''
             vpend(prime(val), node)
           }
-        } else if (key === 'value' && !isinput) {
-          node.innerText = val
         } else {
           node[key] = val
         }
