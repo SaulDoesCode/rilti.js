@@ -72,8 +72,8 @@
   const isInput = (o, contentEditable) => {
     if (isProxyNode(o)) o = o()
     return o instanceof HTMLInputElement || o instanceof HTMLTextAreaElement || (
-      contentEditable &&
-  o instanceof Element &&
+      !!contentEditable &&
+      o instanceof Element &&
       o.getAttribute('contenteditable') === 'true'
     )
   }
@@ -314,8 +314,11 @@
       if (input == null) throw new Error(`state.bind.${key}: invalid/nil input element)`)
       if (input instanceof Node) input = $(input)
       let shouldUpdate = true
+      const realInput = isInput(input)
       const bindFN = val => {
-        if (shouldUpdate) input.value = val
+        if (shouldUpdate) {
+          realInput ? input.value = val : input.innerText = val
+        }
       }
       const listener = input.on.input(e => {
         shouldUpdate = false
@@ -352,8 +355,11 @@
       }
       return proxy
     }, {
-      get: (fn, key) => key === 'bind' ? bind : key[0] === '$'
-        ? bind.bind(null, key.substr(1)) : Reflect.get(data, key),
+      get: (fn, key) =>
+        key === 'bind' ? bind
+          : key === 'binds' ? binds
+            : key[0] === '$' ? bind.bind(null, key.substr(1))
+              : Reflect.get(data, key),
 
       set (fn, key, val) {
         if (val == null) {
@@ -438,7 +444,6 @@
           else if (key === 'state') return fn[key] || (fn[key] = state(Object.create(null), proxy))
           else if (key === 'txt') return node[textContent]
           else if (key === 'html') return node[innerHTML]
-          else if (key === 'value' && !isinput) return node.innerText
           else if (key === 'mounted') return isMounted(node)
           /*
           // still thinking about how to make this work
@@ -474,8 +479,6 @@
               node[textContent] = ''
               vpend(prime(val), node)
             }
-          } else if (key === 'value' && !isinput) {
-            node.innerText = val
           } else {
             node[key] = val
           }
@@ -617,7 +620,16 @@
 
   // classes.push(...className.replace(/_/g, '-').split('.'))
 
-  const infinifyDOM = (gen, tag) => tag in gen ? Reflect.get(gen, tag) : (gen[tag] = new Proxy(gen.bind(null, tag), {
+  const hyphenate = str => {
+    const upperChars = str.match(/([A-Z])/g)
+    if (!upperChars) return str
+    for (let i = 0, n = upperChars.length; i < n; i++) {
+      str = str.replace(new RegExp(upperChars[i]), '-' + upperChars[i].toLowerCase())
+    }
+    return str[0] === '-' ? str.slice(1) : str
+  }
+
+  const infinifyDOM = (gen, tag) => (tag = hyphenate(tag)) && tag in gen ? Reflect.get(gen, tag) : (gen[tag] = new Proxy(gen.bind(null, tag), {
     get (el, className) {
       const classes = className.replace(/_/g, '-').split('.')
       return new Proxy(function () {
@@ -1146,12 +1158,10 @@
       if (Unmounted(n)) {
         Unmounted(n, false)
         n.dispatchEvent(new CustomEvent('remount'))
-      } else if (iscomponent) {
-        n.dispatchEvent(new CustomEvent('mount'))
-      } else {
-        Mounted(n, true)
-        n.dispatchEvent(new CustomEvent('mount'))
+        return
       }
+      if (!iscomponent) Mounted(n, true)
+      n.dispatchEvent(new CustomEvent('mount'))
     }
   }
 
