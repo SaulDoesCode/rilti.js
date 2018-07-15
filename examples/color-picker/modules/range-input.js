@@ -8,9 +8,6 @@ const clamp = (n, min, max) => Math.min(Math.max(n, min), max)
 component('range-input', {
   // set up everything before element touches DOM
   create (range /* Proxy<Function => Element> */) {
-    // setup zero values in state (observer-like abstraction tracking changes)
-    range.state({value: 0, valueX: 0, valueY: 0})
-
     // local vars for easier logic
     let Value, ValueY
 
@@ -61,7 +58,8 @@ component('range-input', {
       const hHeight = handle.offsetHeight
       const Min = hHeight / 2
       const Max = range.offsetHeight - Min
-      const hTop = (value / range.limitY) * (Max - Min)
+      // const hTop = (value / range.limitY) * (Max - Min)
+      const hTop = (1 - value / range.limitY) * (Max - Min)
       handle.style.top = hTop + 'px'
 
       if (!range.decimals) value = Math.round(value)
@@ -122,7 +120,8 @@ component('range-input', {
 
         const hTop = clamp(y, min, max) - min
         handle.style.top = hTop + 'px'
-        let value = (hTop * range.limitY) / (max - min)
+        // let value = (hTop * range.limitY) / (max - min)
+        let value = range.limitY - (hTop * range.limitY) / (max - min)
         if (!range.decimals) value = Math.round(value)
         if (value !== ValueY) {
           ValueY = range.state.valueY = value

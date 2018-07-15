@@ -24,21 +24,17 @@ component('color-picker', {
         } else {
           Object.assign($color, color)
         }
-        ocean.valueX = $color.s
-        ocean.valueY = $color.v
-        state.hueRange.value = $color.h
-        state.opacityRange.value = Math.round($color.a * 100)
       }
+      ocean.valueX = $color.s
+      ocean.valueY = $color.v
+      state.hueRange.setX($color.h)
+      state.opacityRange.setX(Math.round($color.a * 100))
 
-      /*
       ocean.style.background = `linear-gradient(to top, rgba(0, 0, 0, ${$color.a}), transparent),
         linear-gradient(to left, hsla(${$color.h}, 100%, 50%, ${$color.a}), rgba(255, 255, 255, ${$color.a}))`
-      */
 
-      ocean.style.background = `linear-gradient(to bottom, rgba(0, 0, 0, ${$color.a}), transparent),
-        linear-gradient(to left, hsla(${$color.h}, 100%, 50%, ${$color.a}), rgba(255, 255, 255, ${$color.a}))`
-      ocean.handle.style.background = $color.toHSLA().toString()
-      stats.txt = $color.toHSLA().toString()
+      const hsla = $color.toHSLA().toString()
+      ocean.handle.style.background = stats.txt = hsla
       return $color
     }
 
@@ -63,7 +59,6 @@ component('color-picker', {
         }
       }),
       state.opacityRange = dom['range-input'].opacity({
-        props: {value: 100},
         binds: {
           value (v, ov) {
             $color.a = v / 100
@@ -73,16 +68,12 @@ component('color-picker', {
       })
     )
 
-    stats.appendTo(el)
-    updateColor($color)
     Object.defineProperty(el(), 'color', {get: () => Object.assign({}, $color), set: updateColor})
+    stats.appendTo(el)
+    updateColor()
   },
   remount (el) {
-    console.log('mount', el)
     const {width} = el.getBoundingClientRect()
     el.style.left = ((el.parent.offsetWidth + width) / 2) + 'px'
-  },
-  destroy ({state: {movable}}) {
-    movable.revoke()
   }
 })
