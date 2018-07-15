@@ -108,15 +108,15 @@ div({
 )
 ```
 
-### Mouse tracker
+### Pointer tracker
 ```js
 rilti.dom.div({
   $: 'body',
   css: {width: '300px', height: '300px'},
-  onmousemove ({clientX, clientY}, {state}) { state({clientX, clientY}) },
-},
-  ({state}) => state`The Pointer is at (${'clientX'}x, ${'clientY'}y)`
-)
+  onpointermove ({x, y}, {state}) { state({x, y}) },
+}, ({state}) => state`
+  The pointer is at (${'x'}x, ${'y'}y)
+`)
 ```
 
 ### Declaratively Generate a Site Navbar
@@ -127,9 +127,7 @@ Just generate everything, it's so simple.
 const {a, button, h1, header, nav, section} = rilti.dom
 
 section.navbar({$: 'body'}, // <- $ is shorthand for render: 'Node/Selector'
-  header(
-    h1('My Wicked Website')
-  ),
+  header(h1('My Wicked Website')),
   nav(
     'Home Blog About Contact'.split(' ').map(name =>
       a['nav-bn']({href: '#/' + name.toLowerCase()}, name)
@@ -310,9 +308,7 @@ dom['random-tag'] // <- <random-tag class="with random chainable classes">
       },
       // or as one function
       innerds (el, val) {
-        if (val === undefined) {
-          return el.txt
-        }
+        if (val == null) return el.txt
         el.txt = val.trim()
       }
     },
@@ -414,8 +410,8 @@ rilti.component('tick-box', {
 ```
 
 #### weight
-* unminified:  > 36kb
-* minified: > 14.1kb
-* minified && compressed: > 6kb
+* unminified:  > 42kb
+* minified: > 18kb
+* minified && compressed: > 7kb
 
 #### license = MIT
