@@ -340,7 +340,10 @@
 
     const proxy = new Proxy((strings, ...keys) => {
       if (strings.constructor === Object) {
-        for (const key in strings) proxy[key] = strings[key]
+        const silent = keys[0] === true
+        for (const key in strings) {
+          (silent ? data : proxy)[key] = strings[key]
+        }
       } else if (typeof strings === 'string') {
         proxy[strings] = keys[0]
       } else if (isArr(strings)) {
