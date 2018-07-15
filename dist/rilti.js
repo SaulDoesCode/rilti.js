@@ -345,7 +345,7 @@
           (silent ? data : proxy)[key] = strings[key]
         }
       } else if (typeof strings === 'string') {
-        proxy[strings] = keys[0]
+        (keys[1] === true ? data : proxy)[strings] = keys[0]
       } else if (isArr(strings)) {
         return flatten(
           keys.reduce(
