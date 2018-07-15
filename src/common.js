@@ -58,8 +58,8 @@ export const isSvg = o => {
 export const isInput = (o, contentEditable) => {
   if (isProxyNode(o)) o = o()
   return o instanceof HTMLInputElement || o instanceof HTMLTextAreaElement || (
-    contentEditable &&
-o instanceof Element &&
+    !!contentEditable &&
+    o instanceof Element &&
     o.getAttribute('contenteditable') === 'true'
   )
 }
