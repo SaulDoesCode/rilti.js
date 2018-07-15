@@ -60,7 +60,16 @@ export const assimilate = {
 
 // classes.push(...className.replace(/_/g, '-').split('.'))
 
-const infinifyDOM = (gen, tag) => tag in gen ? Reflect.get(gen, tag) : (gen[tag] = new Proxy(gen.bind(null, tag), {
+const hyphenate = str => {
+  const upperChars = str.match(/([A-Z])/g)
+  if (!upperChars) return str
+  for (let i = 0, n = upperChars.length; i < n; i++) {
+    str = str.replace(new RegExp(upperChars[i]), '-' + upperChars[i].toLowerCase())
+  }
+  return str[0] === '-' ? str.slice(1) : str
+}
+
+const infinifyDOM = (gen, tag) => (tag = hyphenate(tag)) && tag in gen ? Reflect.get(gen, tag) : (gen[tag] = new Proxy(gen.bind(null, tag), {
   get (el, className) {
     const classes = className.replace(/_/g, '-').split('.')
     return new Proxy(function () {
