@@ -20,12 +20,10 @@ export const MNT = (n, iscomponent = isComponent(n)) => {
     if (Unmounted(n)) {
       Unmounted(n, false)
       n.dispatchEvent(new CustomEvent('remount'))
-    } else if (iscomponent) {
-      n.dispatchEvent(new CustomEvent('mount'))
-    } else {
-      Mounted(n, true)
-      n.dispatchEvent(new CustomEvent('mount'))
+      return
     }
+    if (!iscomponent) Mounted(n, true)
+    n.dispatchEvent(new CustomEvent('mount'))
   }
 }
 
