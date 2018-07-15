@@ -26,10 +26,11 @@ const state = (data = Object.create(null), host) => {
     if (binds.has(key)) binds.get(key).forEach(fn)
   }
 
-  const bind = (key, fn, intermediate, revoke) => {
+  const bind = (key, fn, revoke, intermediate) => {
+    if (isInput(fn, true)) return bind.input(key, fn, revoke)
     if (intermediate) fn = intermediate(fn, proxy)
-    binds.add(key, fn)
-    if (key in data) fn.call(host, data[key], undefined, proxy, host)
+    binds.add(key, fn = fn.bind(host))
+    if (key in data) fn(data[key], undefined, proxy, host)
     fn.revoke = () => {
       if (revoke) revoke(proxy)
       binds.remove(key, fn)
@@ -37,21 +38,36 @@ const state = (data = Object.create(null), host) => {
     return fn
   }
 
-  bind.text = (key, fn, revoke) => {
+  bind.text = (key, revoke) => {
     const txt = new Text()
     const bindFN = val => { txt.textContent = val }
-    const b = bind(
-      key,
-      bindFN,
-      undefined,
-      () => {
-        if (revoke) revoke(proxy)
-        domfn.remove(txt)
-      }
-    )
+    bind(key, bindFN, () => {
+      if (revoke) revoke(proxy)
+      domfn.remove(txt)
+    })
     if (key in data) bindFN(data[key])
-    if (fn) fn(b)
     return txt
+  }
+
+  bind.input = (key, input, revoke) => {
+    if (isStr(input)) input = query(input)
+    if (input == null) throw new Error(`state.bind.${key}: invalid/nil input element)`)
+    if (input instanceof Node) input = $(input)
+    let shouldUpdate = true
+    const bindFN = val => {
+      if (shouldUpdate) input.value = val
+    }
+    const listener = input.on.input(e => {
+      shouldUpdate = false
+      proxy[key] = input.value
+      shouldUpdate = true
+    })
+    bind(key, bindFN, () => {
+      if (revoke) revoke(proxy)
+      listener.off()
+    })
+    if (key in data) bindFN(data[key])
+    return input
   }
 
   const deleteProperty = key => {
@@ -65,14 +81,16 @@ const state = (data = Object.create(null), host) => {
     } else if (typeof strings === 'string') {
       proxy[strings] = keys[0]
     } else if (isArr(strings)) {
-      return flatten(keys
-        .reduce(
+      return flatten(
+        keys.reduce(
           (prev, cur, i) => [prev, bind.text(cur), strings[i + 1]],
           strings[0]
-        )
-        .filter(s => !isStr(s) || s.length)
+        ).filter(s => !isStr(s) || s.length)
       )
+    } else if (isInput(strings, true) && typeof keys[0] === 'string') {
+      return bind.input(strings, ...keys)
     }
+    return proxy
   }, {
     get: (fn, key) => key === 'bind' ? bind : key[0] === '$'
       ? bind.bind(null, key.substr(1)) : Reflect.get(data, key),
@@ -84,7 +102,7 @@ const state = (data = Object.create(null), host) => {
         const old = data[key]
         if (val !== old) {
           data[key] = val
-          binds.each(key, bind => bind.call(host, val, old, proxy, host))
+          binds.each(key, bind => bind(val, old, proxy, host))
         }
       }
       return true
@@ -133,8 +151,9 @@ export const $ = node => {
     })
   }
 
-  const textContent = isInput(node) ? 'value' : 'textContent'
-  const innerHTML = isInput(node) ? 'value' : node.nodeType === 3 ? textContent : 'innerHTML'
+  const isinput = isInput(node)
+  const textContent = isinput ? 'value' : 'textContent'
+  const innerHTML = isinput ? 'value' : node.nodeType === 3 ? textContent : 'innerHTML'
 
   const once = infinify(EventManager(true, node), false)
   const on = infinify(EventManager(false, node), false)
@@ -159,6 +178,7 @@ export const $ = node => {
         else if (key === 'state') return fn[key] || (fn[key] = state(Object.create(null), proxy))
         else if (key === 'txt') return node[textContent]
         else if (key === 'html') return node[innerHTML]
+        else if (key === 'value' && !isinput) return node.innerText
         else if (key === 'mounted') return isMounted(node)
         /*
         // still thinking about how to make this work
@@ -194,6 +214,8 @@ export const $ = node => {
             node[textContent] = ''
             vpend(prime(val), node)
           }
+        } else if (key === 'value' && !isinput) {
+          node.innerText = val
         } else {
           node[key] = val
         }
