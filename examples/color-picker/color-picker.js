@@ -33,14 +33,13 @@ component('color-picker', {
       ocean.style.background = `linear-gradient(to top, rgba(0, 0, 0, ${$color.a}), transparent),
         linear-gradient(to left, hsla(${$color.h}, 100%, 50%, ${$color.a}), rgba(255, 255, 255, ${$color.a}))`
 
-      const hsla = $color.toHSLA().toString()
-      ocean.handle.style.background = stats.txt = hsla
+      stats.txt = $color.toHSLA().toString()
+      ocean.handle.style.border = $color.a < 1 ? '1px solid ' + $color.clone({a: 1}).toString() : ''
       return $color
     }
 
     const ocean = state.ocean = dom['range-input'].ocean({
       $: el,
-      props: {lockY: false},
       oninput (e, {valueX, valueY}) {
         $color.s = valueX
         $color.v = valueY
@@ -50,7 +49,7 @@ component('color-picker', {
 
     section.controls({$: el},
       state.hueRange = dom['range-input'].hue({
-        props: {limit: 360},
+        props: {limit: 360, lockY: true},
         binds: {
           value (v, ov, p, {handle}) {
             handle.style.backgroundColor = `hsl(${$color.h = v}, 100%, 50%)`
@@ -59,6 +58,7 @@ component('color-picker', {
         }
       }),
       state.opacityRange = dom['range-input'].opacity({
+        props: {lockY: true},
         binds: {
           value (v, ov) {
             $color.a = v / 100

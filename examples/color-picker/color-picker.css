@@ -32,11 +32,10 @@ range-input>.handle {
   width: 10px;
   height: calc(var(--color-picker-range-height) + 6px);
   top: calc(50% - (var(--color-picker-range-height) + 6px) / 2);
-  left: 0;
   background: #fff;
   border: 1px solid hsla(0, 0%, 100%, .8);
   box-shadow: 0 2px 4px rgba(0, 0, 0, .14);
-  box-sizing: border-box;
+  box-sizing: content-box;
   user-drag: none;
   user-select: none;
   -moz-user-select: none;
@@ -56,20 +55,17 @@ range-input.hue {
 
 range-input.hue>.handle {
   border: 1px solid hsla(0, 0%, 100%, .8);
-  background: red;
 }
 
 color-picker {
   position: absolute;
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-start;
   align-content: center;
   align-items: center;
   flex-flow: column nowrap;
-  background-image: url('data:image/svg+xml;utf8, <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2 2"><path fill="white" d="M1,0H2V1H1V0ZM0,1H1V2H0V1Z"/><path fill="gray" d="M0,0H1V1H0V0ZM1,1H2V2H1V1Z"/></svg>');
-  background-size: .5em;
+  background: #fff;
   border-radius: .15em;
-  background: linear-gradient(to bottom, hsla(0,0%,100%,0) 0%,hsla(0,0%,100%,1) 75%,hsla(0,0%,100%,1) 100%);
   width: var(--color-picker-width);
   height: var(--color-picker-height);
   left: calc(50% - var(--color-picker-width) / 2);
@@ -104,7 +100,7 @@ color-picker > section.controls > *:first-of-type {
   border-radius: 3px 3px 0 0;
 }
 
-color-picker > .handle::before {
+color-picker > .handle::before, .ocean::before {
   position: absolute;
   content: '';
   top: 0;
@@ -113,7 +109,7 @@ color-picker > .handle::before {
   height: 100%;
   background-image: url('data:image/svg+xml;utf8, <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2 2"><path fill="white" d="M1,0H2V1H1V0ZM0,1H1V2H0V1Z"/><path fill="gray" d="M0,0H1V1H0V0ZM1,1H2V2H1V1Z"/></svg>');
   background-size: .5em;
-  border-radius: .15em;
+  border-radius: 3px;
   z-index: -1;
 }
 
@@ -125,8 +121,8 @@ color-picker > .handle::before {
   width: 18px;
   height: 18px;
   border: 1px solid hsla(0, 0%, 98%, .55);
-  background: #fff;
-  border-radius: 3px;
+  background: transparent;
+  border-radius: 100%;
   box-shadow: 0 3px 5px rgba(0, 0, 0, .14);
   cursor: -moz-grab;
   cursor: -webkit-grabbing;
@@ -138,24 +134,4 @@ color-picker > .handle::before {
   -webkit-user-select: none;
   -ms-user-select: none;
   touch-action: none;
-}
-
-.ocean > .handle > span {
-  position: absolute;
-  display: block;
-  width: 5px;
-  height: 5px;
-  border-radius: 100%;
-  pointer-events: none;
-  left: calc(50% - 5px / 2);
-  bottom: calc(100% + 3px);
-  background: #fff;
-  transition: all 120ms ease-in-out;
-  opacity: 0;
-  transform: scale(0);
-}
-
-color-picker > .handle:hover>span {
-  opacity: 1;
-  transform: scale(1);
 }
