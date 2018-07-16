@@ -147,6 +147,9 @@ component('range-input', {
       start: once.pointerdown([range, handle], () => {
         [rWidth, rHeight] = [range.offsetWidth, range.offsetHeight]
         rRect = range.getBoundingClientRect()
+        if (range.lockY) {
+          range.handle.style.top = `calc(50% - ${range.handle.offsetHeight / 2}px)`
+        }
         events.move.on()
         events.stop.on()
       }).off()
@@ -160,6 +163,9 @@ component('range-input', {
     if (!range.lockY) range.handle.style.top = 0
     range.setX()
     range.setY()
+    if (range.lockY) {
+      range.handle.style.top = `calc(50% - ${range.handle.offsetHeight / 2}px)`
+    }
     // start listening for user interactions
     range.state.events.start.on()
   },
