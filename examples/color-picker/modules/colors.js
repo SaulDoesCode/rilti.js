@@ -292,13 +292,20 @@ export const HSVaColor = (h = 0, s = 0, v = 100, a = 1) => {
       return cmyk
     },
 
-    clone: () => HSVaColor($color.h, $color.s, $color.v, $color.a),
+    clone: ({
+      h = $color.h,
+      s = $color.s,
+      v = $color.v,
+      a = $color.a
+    }) => HSVaColor(h, s, v, a),
 
     toOpaque () {
       const color = $color.clone()
       color.a = 1
       return color
-    }
+    },
+
+    toString () { return $color.toRGBA() }
   }
 
   return $color
