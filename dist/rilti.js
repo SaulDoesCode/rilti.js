@@ -311,7 +311,7 @@
 
     bind.input = (key, input, revoke) => {
       if (isStr(input)) input = query(input)
-      if (input == null) throw new Error(`state.bind.${key}: invalid/nil input element)`)
+      if (input == null) throw new Error(`bind ${key}: invalid/nil input element)`)
       if (input instanceof Node) input = $(input)
       let shouldUpdate = true
       const realInput = isInput(input)
@@ -438,8 +438,8 @@
         attr: Attr,
         on: on$$1,
         once: once$$1,
-        emit: emit.bind(undefined, node),
-        render: render.bind(undefined, node)
+        emit: emit.bind(null, node),
+        render: render.bind(null, node)
       }),
       {
         get (fn, key) {
@@ -632,21 +632,23 @@
     return str[0] === '-' ? str.slice(1) : str
   }
 
-  const infinifyDOM = (gen, tag) => (tag = hyphenate(tag)) && tag in gen ? Reflect.get(gen, tag) : (gen[tag] = new Proxy(gen.bind(null, tag), {
-    get (el, className) {
-      const classes = className.replace(/_/g, '-').split('.')
-      return new Proxy(function () {
-        el = el.apply(null, arguments)
-        el.classList.add(...classes)
-        return el
-      }, {
-        get (_, anotherClass, proxy) {
-          classes.push(...anotherClass.replace(/_/g, '-').split('.'))
-          return proxy
-        }
-      })
-    }
-  }))
+  const infinifyDOM = (gen, tag) => (tag = hyphenate(tag)) && tag in gen
+    ? Reflect.get(gen, tag)
+    : (gen[tag] = new Proxy(gen.bind(null, tag), {
+      get (el, className) {
+        const classes = className.replace(/_/g, '-').split('.')
+        return new Proxy(function () {
+          el = el.apply(null, arguments)
+          el.classList.add(...classes)
+          return el
+        }, {
+          get (_, anotherClass, proxy) {
+            classes.push(...anotherClass.replace(/_/g, '-').split('.'))
+            return proxy
+          }
+        })
+      }
+    }))
 
   const body = (...args) => attach(document.body || 'body', 'appendChild', ...args)
 
@@ -669,7 +671,7 @@
     }
     return dom(el, opts, ...children)
   }
-  const svg = new Proxy(svgEL.bind(undefined, 'svg'), {
+  const svg = new Proxy(svgEL.bind(null, 'svg'), {
     get: (_, tag) => infinifyDOM(svgEL, tag)
   })
 
@@ -757,7 +759,7 @@
         children.unshift(opts(proxied || el))
       } else if (opts instanceof Function) {
         const result = opts.call(el, proxied || el)
-        opts = result !== el && (!proxied || result !== proxied) ? result : undefined
+        opts = result !== el && result !== proxied ? result : undefined
       }
       if (isRenderable(opts)) children.unshift(opts)
       if (children.length === 1) {
