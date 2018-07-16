@@ -69,21 +69,23 @@ const hyphenate = str => {
   return str[0] === '-' ? str.slice(1) : str
 }
 
-const infinifyDOM = (gen, tag) => (tag = hyphenate(tag)) && tag in gen ? Reflect.get(gen, tag) : (gen[tag] = new Proxy(gen.bind(null, tag), {
-  get (el, className) {
-    const classes = className.replace(/_/g, '-').split('.')
-    return new Proxy(function () {
-      el = el.apply(null, arguments)
-      el.classList.add(...classes)
-      return el
-    }, {
-      get (_, anotherClass, proxy) {
-        classes.push(...anotherClass.replace(/_/g, '-').split('.'))
-        return proxy
-      }
-    })
-  }
-}))
+const infinifyDOM = (gen, tag) => (tag = hyphenate(tag)) && tag in gen
+  ? Reflect.get(gen, tag)
+  : (gen[tag] = new Proxy(gen.bind(null, tag), {
+    get (el, className) {
+      const classes = className.replace(/_/g, '-').split('.')
+      return new Proxy(function () {
+        el = el.apply(null, arguments)
+        el.classList.add(...classes)
+        return el
+      }, {
+        get (_, anotherClass, proxy) {
+          classes.push(...anotherClass.replace(/_/g, '-').split('.'))
+          return proxy
+        }
+      })
+    }
+  }))
 
 export const body = (...args) => attach(document.body || 'body', 'appendChild', ...args)
 
@@ -106,7 +108,7 @@ const svgEL = (tag, opts, ...children) => {
   }
   return dom(el, opts, ...children)
 }
-export const svg = new Proxy(svgEL.bind(undefined, 'svg'), {
+export const svg = new Proxy(svgEL.bind(null, 'svg'), {
   get: (_, tag) => infinifyDOM(svgEL, tag)
 })
 
@@ -194,7 +196,7 @@ export const dom = new Proxy(Object.assign((tag, opts, ...children) => {
       children.unshift(opts(proxied || el))
     } else if (opts instanceof Function) {
       const result = opts.call(el, proxied || el)
-      opts = result !== el && (!proxied || result !== proxied) ? result : undefined
+      opts = result !== el && result !== proxied ? result : undefined
     }
     if (isRenderable(opts)) children.unshift(opts)
     if (children.length === 1) {

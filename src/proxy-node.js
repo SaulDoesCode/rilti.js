@@ -51,7 +51,7 @@ const state = (data = Object.create(null), host) => {
 
   bind.input = (key, input, revoke) => {
     if (isStr(input)) input = query(input)
-    if (input == null) throw new Error(`state.bind.${key}: invalid/nil input element)`)
+    if (input == null) throw new Error(`bind ${key}: invalid/nil input element)`)
     if (input instanceof Node) input = $(input)
     let shouldUpdate = true
     const realInput = isInput(input)
@@ -178,8 +178,8 @@ export const $ = node => {
       attr: Attr,
       on,
       once,
-      emit: emit.bind(undefined, node),
-      render: render.bind(undefined, node)
+      emit: emit.bind(null, node),
+      render: render.bind(null, node)
     }),
     {
       get (fn, key) {
