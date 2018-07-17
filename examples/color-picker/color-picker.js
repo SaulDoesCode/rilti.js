@@ -6,16 +6,9 @@ const {div, section} = dom
 
 component('color-picker', {
   create (el) {
-    const stats = div.stats()
     const {state} = el
     let $color = HSVaColor.random()
-
-    state({
-      hue: $color.h,
-      opacity: $color.a * 100
-    })
-
-    console.log($color)
+    state({hue: $color.h, opacity: $color.a * 100})
 
     const updateColor = color => {
       if (color != null) {
@@ -33,8 +26,14 @@ component('color-picker', {
       ocean.style.background = `linear-gradient(to top, rgba(0, 0, 0, ${$color.a}), transparent),
         linear-gradient(to left, hsla(${$color.h}, 100%, 50%, ${$color.a}), rgba(255, 255, 255, ${$color.a}))`
 
-      stats.txt = $color.toHSLA().toString()
-      ocean.handle.style.border = $color.a < 1 ? '1px solid ' + $color.clone({a: 1}).toString() : ''
+      stats.txt = $color.toString()
+      const {s, v, a} = $color
+      const handleBorderColor = $color.clone({
+        s: a < 1 ? s : 0,
+        v: a < 1 ? v : s > 31 || v < 60 ? 100 : 0,
+        a: 1
+      })
+      ocean.handle.style.borderColor = handleBorderColor.toHEX().toString()
       return $color
     }
 
@@ -68,8 +67,9 @@ component('color-picker', {
       })
     )
 
+    const stats = div.stats({$: el})
+
     Object.defineProperty(el(), 'color', {get: () => Object.assign({}, $color), set: updateColor})
-    stats.appendTo(el)
     updateColor()
   },
   remount (el) {
