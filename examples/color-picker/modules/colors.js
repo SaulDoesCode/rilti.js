@@ -305,7 +305,9 @@ export const HSVaColor = (h = 0, s = 0, v = 100, a = 1) => {
       return color
     },
 
-    toString () { return $color.toRGBA() }
+    toString () {
+      return `hsva(${$color.h}, ${$color.s}%, ${$color.v}%, ${$color.a})`
+    }
   }
 
   return $color
