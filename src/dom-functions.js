@@ -47,6 +47,7 @@ export const vpend = (
         if (ishost) continue
       }
     }
+
     const childtype = typeof child
     if (childtype === 'string' || childtype === 'number') {
       if (!child.length) continue
@@ -54,6 +55,7 @@ export const vpend = (
     } else if (isArr(child)) {
       child = vpend(child, host, connector, dfrag, true)
     }
+
     if (child instanceof Node) {
       dfrag.appendChild(child)
       children[i] = child
@@ -137,6 +139,10 @@ export const prime = (...nodes) => {
 */
 export const attach = (host, connector, ...renderables) => {
   if (host instanceof Function && !isProxyNode(host)) host = host()
+  if (renderables.length === 1 && isArr(renderables[0])) {
+    renderables = renderables[0]
+  }
+
   const nodeHost = host instanceof Node || isProxyNode(host)
   renderables = prime(renderables)
   if (nodeHost) {
@@ -158,7 +164,9 @@ export const attach = (host, connector, ...renderables) => {
 *
 */
 export const render = (
-  node, host = document.body || 'body', connector = 'appendChild'
+  node,
+  host = document.body || 'body',
+  connector = 'appendChild'
 ) => attach(host, connector, node)
 
 export const domfn = {
@@ -174,6 +182,7 @@ export const domfn = {
     }
     return node
   },
+
   class (node, c, state) {
     if (!node || c == null || !node.classList) return node
 
@@ -197,7 +206,9 @@ export const domfn = {
     }
     return node
   },
+
   hasClass: curry((node, name) => node.classList.contains(name)),
+
   attr (node, attr, val) {
     if (attr.constructor === Object) {
       for (const a in attr) {
@@ -213,6 +224,7 @@ export const domfn = {
     }
     return node
   },
+
   removeAttribute (node, ...attrs) {
     if (attrs.length === 1) {
       node.removeAttribute(attrs[0])
@@ -229,6 +241,7 @@ export const domfn = {
     }
     return node
   },
+
   attrToggle (
     node,
     name,
@@ -239,34 +252,42 @@ export const domfn = {
     attributeChange(node, name, state ? val : null, state ? null : val, state)
     return node
   },
+
   emit,
+
   append (node, ...children) {
     attach(node, 'appendChild', ...children)
     return node
   },
+
   prepend (node, ...children) {
     attach(node, 'prepend', ...children)
     return node
   },
+
   appendTo (node, host) {
     attach(host, 'appendChild', node)
     return node
   },
+
   prependTo (node, host) {
     attach(host, 'prepend', node)
     return node
   },
+
   clear (node) {
     node[isInput(node) ? 'value' : 'textContent'] = ''
     return node
   },
+
   refurbish (node) {
-    for (let i = 0; i < node.attributes.length; i++) {
-      node.removeAttribute(node.attributes[i].name)
+    for (const {name} of node.attributes) {
+      node.removeAttribute(name)
     }
     node.removeAttribute('class')
     return domfn.clear(node)
   },
+
   remove (node, after) {
     if (node instanceof Function) node = node()
     if (isArr(node)) {
@@ -280,15 +301,18 @@ export const domfn = {
     }
     return node
   },
+
   replace (node, newnode) {
     if (newnode instanceof Function) newnode = newnode()
     run(() => node.replaceWith(newnode))
     return newnode
   },
+
   find (node, query, pure) {
     query = queryAll(query, node)
     return pure ? query : query.map(n => $(n))
   },
+
   findOne: (node, q, pure) =>
     pure ? query(q, node) : (q = query(q, node)) ? $(q) : q
 }

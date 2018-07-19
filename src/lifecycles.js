@@ -7,10 +7,14 @@ export const Created = mutateSet(new WeakSet())
 export const Mounted = mutateSet(new WeakSet())
 export const Unmounted = mutateSet(new WeakSet())
 
+const dispatch = (n, state) => {
+  n.dispatchEvent(new CustomEvent(state))
+}
+
 export const CR = (n, undone = !Created(n), component = isComponent(n)) => {
   if (undone && !component) {
     Created(n, true)
-    n.dispatchEvent(new CustomEvent('create'))
+    dispatch(n, 'create')
   }
 }
 
@@ -19,18 +23,18 @@ export const MNT = (n, iscomponent = isComponent(n)) => {
   if (!Mounted(n) && n.parentNode) {
     if (Unmounted(n)) {
       Unmounted(n, false)
-      n.dispatchEvent(new CustomEvent('remount'))
+      dispatch(n, 'remount')
       return
     }
     if (!iscomponent) Mounted(n, true)
-    n.dispatchEvent(new CustomEvent('mount'))
+    dispatch(n, 'mount')
   }
 }
 
 export const UNMNT = n => {
   Mounted(n, false)
   Unmounted(n, true)
-  n.dispatchEvent(new CustomEvent('unmount'))
+  dispatch(n, 'unmount')
 }
 
 export const MountNodes = n => updateComponent(n, 'mount') || MNT(n)
@@ -49,7 +53,9 @@ new MutationObserver(muts => {
       attributeChange(mut.target, attributeName, mut.oldValue)
     }
   }
+}).observe(document, {
+  attributes: true,
+  attributeOldValue: true,
+  childList: true,
+  subtree: true
 })
-  .observe(document,
-    {attributes: true, attributeOldValue: true, childList: true, subtree: true}
-  )

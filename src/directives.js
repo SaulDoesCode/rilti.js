@@ -58,12 +58,11 @@ export const attributeObserver = (el, name, opts) => {
     stop()
     if (Initiated.has(name)) Initiated.get(name)(el, false)
   }
-  manager.stop = manager
   manager.start = () => {
     stop.on()
     Initiated.get(name)(el, true)
   }
-  return manager
+  return (manager.stop = manager)
 }
 
 export const directives = new Map()

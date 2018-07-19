@@ -1,5 +1,13 @@
 /* global Node Text */
-import {copyprop, isNum, isArr, isObj, isProxyNode, isPrimitive, isRenderable} from './common.js'
+import {
+  copyprop,
+  isNum,
+  isArr,
+  isObj,
+  isProxyNode,
+  isPrimitive,
+  isRenderable
+} from './common.js'
 import {updateComponent, components} from './components.js'
 import {CR} from './lifecycles.js'
 import {attach, domfn} from './dom-functions.js'
@@ -24,58 +32,65 @@ export const html = (input, host) => {
 export const frag = inner => inner != null
   ? html(inner) : document.createDocumentFragment()
 
-export const assimilate = {
-  props (el, props) {
-    const proxied = $(el)
-    for (const prop in props) {
-      let val = props[prop]
-      if (prop in el) {
-        el[prop] = val
-      } else if (prop === 'accessors') {
-        for (const key in val) {
-          const {set = val[key], get = val[key]} = val[key]
-          const accessors = {}
-          if (set instanceof Function) {
-            accessors.set = set.bind(el, proxied)
+export const assimilate = Object.assign(
+  (el, {props, methods}, noProps) => {
+    if (!noProps && props) assimilate.props(el, props)
+    if (methods) assimilate.methods(el, methods)
+  },
+  {
+    props (el, props) {
+      const proxied = $(el)
+      for (const prop in props) {
+        let val = props[prop]
+        if (prop in el) {
+          el[prop] = val
+        } else if (prop === 'accessors') {
+          for (const key in val) {
+            const {set = val[key], get = val[key]} = val[key]
+            const accessors = {}
+            if (set instanceof Function) {
+              accessors.set = set.bind(el, proxied)
+            }
+            if (get instanceof Function) {
+              accessors.get = get.bind(el, proxied)
+            }
+            Object.defineProperty(el, key, accessors)
           }
-          if (get instanceof Function) {
-            accessors.get = get.bind(el, proxied)
-          }
-          Object.defineProperty(el, key, accessors)
+        } else if (val instanceof Function && !isProxyNode(val)) {
+          el[prop] = val.call(el, proxied)
+        } else {
+          copyprop(el, props, prop)
         }
-      } else if (val instanceof Function && !isProxyNode(val)) {
-        el[prop] = val.call(el, proxied)
-      } else {
-        copyprop(el, props, prop)
+      }
+    },
+    methods (el, methods) {
+      const proxied = $(el)
+      for (const name in methods) {
+        Object.defineProperty(el, name, {value: methods[name].bind(el, proxied)})
       }
     }
-  },
-  methods (el, methods) {
-    const proxied = $(el)
-    for (const name in methods) {
-      Object.defineProperty(el, name, {value: methods[name].bind(el, proxied)})
-    }
   }
-}
+)
 
 // classes.push(...className.replace(/_/g, '-').split('.'))
 
-const hyphenate = str => {
-  const upperChars = str.match(/([A-Z])/g)
+const tagify = str => {
+  const upperChars = str.match(tagify.regexp)
   if (!upperChars) return str
   for (let i = 0, n = upperChars.length; i < n; i++) {
     str = str.replace(new RegExp(upperChars[i]), '-' + upperChars[i].toLowerCase())
   }
   return str[0] === '-' ? str.slice(1) : str
 }
+tagify.regexp = /([A-Z])/g
 
-const infinifyDOM = (gen, tag) => (tag = hyphenate(tag)) && tag in gen
+const infinifyDOM = (gen, tag) => (tag = tagify(tag)) && tag in gen
   ? Reflect.get(gen, tag)
   : (gen[tag] = new Proxy(gen.bind(null, tag), {
-    get (el, className) {
-      const classes = className.replace(/_/g, '-').split('.')
+    get (fn, classes) {
+      classes = classes.replace(/_/g, '-').split('.')
       return new Proxy(function () {
-        el = el.apply(null, arguments)
+        const el = fn.apply(null, arguments)
         el.classList.add(...classes)
         return el
       }, {
@@ -87,7 +102,8 @@ const infinifyDOM = (gen, tag) => (tag = hyphenate(tag)) && tag in gen
     }
   }))
 
-export const body = (...args) => attach(document.body || 'body', 'appendChild', ...args)
+export const body = (...args) =>
+  attach(document.body || 'body', 'appendChild', ...args)
 
 export const text = (options, txt = '') => {
   if (isPrimitive(options)) [txt, options] = [options, undefined]
@@ -113,6 +129,10 @@ export const svg = new Proxy(svgEL.bind(null, 'svg'), {
 })
 
 export const dom = new Proxy(Object.assign((tag, opts, ...children) => {
+  if (tag[0] === '$') {
+    tag = tag.slice(1)
+    var pure = true
+  }
   const el = typeof tag === 'string' ? document.createElement(tag) : tag
 
   const iscomponent = components.has(el.tagName)
@@ -120,9 +140,10 @@ export const dom = new Proxy(Object.assign((tag, opts, ...children) => {
 
   let proxied
   if (!isObj(opts)) {
-    proxied = $(el)
+    if (!pure) proxied = $(el)
   } else {
-    var {pure, cycle} = opts
+    var {cycle} = opts
+    if (!pure) pure = opts.pure
 
     if (!pure) {
       proxied = $(el)
@@ -131,12 +152,7 @@ export const dom = new Proxy(Object.assign((tag, opts, ...children) => {
       }
     }
 
-    if (!iscomponent && opts.props) {
-      assimilate.props(el, opts.props)
-    }
-    if (opts.methods) {
-      assimilate.methods(el, opts.methods)
-    }
+    assimilate(el, opts, iscomponent)
 
     let val
     for (const key in opts) {
@@ -198,12 +214,10 @@ export const dom = new Proxy(Object.assign((tag, opts, ...children) => {
       const result = opts.call(el, proxied || el)
       opts = result !== el && result !== proxied ? result : undefined
     }
+
     if (isRenderable(opts)) children.unshift(opts)
-    if (children.length === 1) {
-      attach(proxied || el, 'appendChild', children[0])
-    } else if (children.length) {
-      attach(proxied || el, 'appendChild', ...children)
-    }
+
+    if (children.length) attach(proxied || el, 'appendChild', children)
   }
 
   iscomponent
