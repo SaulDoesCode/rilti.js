@@ -43,9 +43,9 @@
     o.length % 1 === 0
   ))
 
-  const isNodeList = (o, arr = true) => o instanceof NodeList || (arr && allare(o, isNode))
-
   const isNode = o => o instanceof Node
+
+  const isNodeList = (o, arr = true) => o instanceof NodeList || (arr && allare(o, isNode))
 
   const isPrimitive = o => {
     o = typeof o
@@ -587,58 +587,65 @@
   const frag = inner => inner != null
     ? html(inner) : document.createDocumentFragment()
 
-  const assimilate = {
-    props (el, props) {
-      const proxied = $(el)
-      for (const prop in props) {
-        let val = props[prop]
-        if (prop in el) {
-          el[prop] = val
-        } else if (prop === 'accessors') {
-          for (const key in val) {
-            const {set = val[key], get = val[key]} = val[key]
-            const accessors = {}
-            if (set instanceof Function) {
-              accessors.set = set.bind(el, proxied)
+  const assimilate = Object.assign(
+    (el, {props, methods}, noProps) => {
+      if (!noProps && props) assimilate.props(el, props)
+      if (methods) assimilate.methods(el, methods)
+    },
+    {
+      props (el, props) {
+        const proxied = $(el)
+        for (const prop in props) {
+          let val = props[prop]
+          if (prop in el) {
+            el[prop] = val
+          } else if (prop === 'accessors') {
+            for (const key in val) {
+              const {set = val[key], get = val[key]} = val[key]
+              const accessors = {}
+              if (set instanceof Function) {
+                accessors.set = set.bind(el, proxied)
+              }
+              if (get instanceof Function) {
+                accessors.get = get.bind(el, proxied)
+              }
+              Object.defineProperty(el, key, accessors)
             }
-            if (get instanceof Function) {
-              accessors.get = get.bind(el, proxied)
-            }
-            Object.defineProperty(el, key, accessors)
+          } else if (val instanceof Function && !isProxyNode(val)) {
+            el[prop] = val.call(el, proxied)
+          } else {
+            copyprop(el, props, prop)
           }
-        } else if (val instanceof Function && !isProxyNode(val)) {
-          el[prop] = val.call(el, proxied)
-        } else {
-          copyprop(el, props, prop)
+        }
+      },
+      methods (el, methods) {
+        const proxied = $(el)
+        for (const name in methods) {
+          Object.defineProperty(el, name, {value: methods[name].bind(el, proxied)})
         }
       }
-    },
-    methods (el, methods) {
-      const proxied = $(el)
-      for (const name in methods) {
-        Object.defineProperty(el, name, {value: methods[name].bind(el, proxied)})
-      }
     }
-  }
+  )
 
   // classes.push(...className.replace(/_/g, '-').split('.'))
 
-  const hyphenate = str => {
-    const upperChars = str.match(/([A-Z])/g)
+  const tagify = str => {
+    const upperChars = str.match(tagify.regexp)
     if (!upperChars) return str
     for (let i = 0, n = upperChars.length; i < n; i++) {
       str = str.replace(new RegExp(upperChars[i]), '-' + upperChars[i].toLowerCase())
     }
     return str[0] === '-' ? str.slice(1) : str
   }
+  tagify.regexp = /([A-Z])/g
 
-  const infinifyDOM = (gen, tag) => (tag = hyphenate(tag)) && tag in gen
+  const infinifyDOM = (gen, tag) => (tag = tagify(tag)) && tag in gen
     ? Reflect.get(gen, tag)
     : (gen[tag] = new Proxy(gen.bind(null, tag), {
-      get (el, className) {
-        const classes = className.replace(/_/g, '-').split('.')
+      get (fn, classes) {
+        classes = classes.replace(/_/g, '-').split('.')
         return new Proxy(function () {
-          el = el.apply(null, arguments)
+          const el = fn.apply(null, arguments)
           el.classList.add(...classes)
           return el
         }, {
@@ -650,7 +657,8 @@
       }
     }))
 
-  const body = (...args) => attach(document.body || 'body', 'appendChild', ...args)
+  const body = (...args) =>
+    attach(document.body || 'body', 'appendChild', ...args)
 
   const text = (options, txt = '') => {
     if (isPrimitive(options)) [txt, options] = [options, undefined]
@@ -676,6 +684,10 @@
   })
 
   const dom = new Proxy(Object.assign((tag, opts, ...children) => {
+    if (tag[0] === '$') {
+      tag = tag.slice(1)
+      var pure = true
+    }
     const el = typeof tag === 'string' ? document.createElement(tag) : tag
 
     const iscomponent = components.has(el.tagName)
@@ -683,9 +695,10 @@
 
     let proxied
     if (!isObj(opts)) {
-      proxied = $(el)
+      if (!pure) proxied = $(el)
     } else {
-      var {pure, cycle} = opts
+      var {cycle} = opts
+      if (!pure) pure = opts.pure
 
       if (!pure) {
         proxied = $(el)
@@ -694,12 +707,7 @@
         }
       }
 
-      if (!iscomponent && opts.props) {
-        assimilate.props(el, opts.props)
-      }
-      if (opts.methods) {
-        assimilate.methods(el, opts.methods)
-      }
+      assimilate(el, opts, iscomponent)
 
       let val
       for (const key in opts) {
@@ -761,12 +769,10 @@
         const result = opts.call(el, proxied || el)
         opts = result !== el && result !== proxied ? result : undefined
       }
+
       if (isRenderable(opts)) children.unshift(opts)
-      if (children.length === 1) {
-        attach(proxied || el, 'appendChild', children[0])
-      } else if (children.length) {
-        attach(proxied || el, 'appendChild', ...children)
-      }
+
+      if (children.length) attach(proxied || el, 'appendChild', children)
     }
 
     iscomponent
@@ -807,6 +813,7 @@
           if (ishost) continue
         }
       }
+
       const childtype = typeof child
       if (childtype === 'string' || childtype === 'number') {
         if (!child.length) continue
@@ -814,6 +821,7 @@
       } else if (isArr(child)) {
         child = vpend(child, host, connector, dfrag, true)
       }
+
       if (child instanceof Node) {
         dfrag.appendChild(child)
         children[i] = child
@@ -894,6 +902,10 @@
   */
   const attach = (host, connector, ...renderables) => {
     if (host instanceof Function && !isProxyNode(host)) host = host()
+    if (renderables.length === 1 && isArr(renderables[0])) {
+      renderables = renderables[0]
+    }
+
     const nodeHost = host instanceof Node || isProxyNode(host)
     renderables = prime(renderables)
     if (nodeHost) {
@@ -915,7 +927,9 @@
   *
   */
   const render = (
-    node, host = document.body || 'body', connector = 'appendChild'
+    node,
+    host = document.body || 'body',
+    connector = 'appendChild'
   ) => attach(host, connector, node)
 
   const domfn = {
@@ -931,6 +945,7 @@
       }
       return node
     },
+
     class (node, c, state) {
       if (!node || c == null || !node.classList) return node
 
@@ -954,7 +969,9 @@
       }
       return node
     },
+
     hasClass: curry((node, name) => node.classList.contains(name)),
+
     attr (node, attr, val) {
       if (attr.constructor === Object) {
         for (const a in attr) {
@@ -970,6 +987,7 @@
       }
       return node
     },
+
     removeAttribute (node, ...attrs) {
       if (attrs.length === 1) {
         node.removeAttribute(attrs[0])
@@ -986,6 +1004,7 @@
       }
       return node
     },
+
     attrToggle (
       node,
       name,
@@ -996,34 +1015,42 @@
       attributeChange(node, name, state ? val : null, state ? null : val, state)
       return node
     },
+
     emit,
+
     append (node, ...children) {
       attach(node, 'appendChild', ...children)
       return node
     },
+
     prepend (node, ...children) {
       attach(node, 'prepend', ...children)
       return node
     },
+
     appendTo (node, host) {
       attach(host, 'appendChild', node)
       return node
     },
+
     prependTo (node, host) {
       attach(host, 'prepend', node)
       return node
     },
+
     clear (node) {
       node[isInput(node) ? 'value' : 'textContent'] = ''
       return node
     },
+
     refurbish (node) {
-      for (let i = 0; i < node.attributes.length; i++) {
-        node.removeAttribute(node.attributes[i].name)
+      for (const {name} of node.attributes) {
+        node.removeAttribute(name)
       }
       node.removeAttribute('class')
       return domfn.clear(node)
     },
+
     remove (node, after) {
       if (node instanceof Function) node = node()
       if (isArr(node)) {
@@ -1037,15 +1064,18 @@
       }
       return node
     },
+
     replace (node, newnode) {
       if (newnode instanceof Function) newnode = newnode()
       run(() => node.replaceWith(newnode))
       return newnode
     },
+
     find (node, query$$1, pure) {
       query$$1 = queryAll(query$$1, node)
       return pure ? query$$1 : query$$1.map(n => $(n))
     },
+
     findOne: (node, q, pure) =>
       pure ? query(q, node) : (q = query(q, node)) ? $(q) : q
   }
@@ -1107,12 +1137,11 @@
       stop()
       if (Initiated.has(name)) Initiated.get(name)(el, false)
     }
-    manager.stop = manager
     manager.start = () => {
       stop.on()
       Initiated.get(name)(el, true)
     }
-    return manager
+    return (manager.stop = manager)
   }
 
   const directives = new Map()
@@ -1150,10 +1179,14 @@
   const Mounted = mutateSet(new WeakSet())
   const Unmounted = mutateSet(new WeakSet())
 
+  const dispatch = (n, state) => {
+    n.dispatchEvent(new CustomEvent(state))
+  }
+
   const CR = (n, undone = !Created(n), component$$1 = isComponent(n)) => {
     if (undone && !component$$1) {
       Created(n, true)
-      n.dispatchEvent(new CustomEvent('create'))
+      dispatch(n, 'create')
     }
   }
 
@@ -1162,18 +1195,18 @@
     if (!Mounted(n) && n.parentNode) {
       if (Unmounted(n)) {
         Unmounted(n, false)
-        n.dispatchEvent(new CustomEvent('remount'))
+        dispatch(n, 'remount')
         return
       }
       if (!iscomponent) Mounted(n, true)
-      n.dispatchEvent(new CustomEvent('mount'))
+      dispatch(n, 'mount')
     }
   }
 
   const UNMNT = n => {
     Mounted(n, false)
     Unmounted(n, true)
-    n.dispatchEvent(new CustomEvent('unmount'))
+    dispatch(n, 'unmount')
   }
 
   const MountNodes = n => updateComponent(n, 'mount') || MNT(n)
@@ -1192,10 +1225,12 @@
         attributeChange(mut.target, attributeName, mut.oldValue)
       }
     }
+  }).observe(document, {
+    attributes: true,
+    attributeOldValue: true,
+    childList: true,
+    subtree: true
   })
-    .observe(document,
-      {attributes: true, attributeOldValue: true, childList: true, subtree: true}
-    )
 
   const components = new Map()
   const component = (tagName, config) => {
