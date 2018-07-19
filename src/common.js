@@ -29,9 +29,9 @@ export const isArrlike = o => o != null && (isArr(o) || (
   o.length % 1 === 0
 ))
 
-export const isNodeList = (o, arr = true) => o instanceof NodeList || (arr && allare(o, isNode))
-
 export const isNode = o => o instanceof Node
+
+export const isNodeList = (o, arr = true) => o instanceof NodeList || (arr && allare(o, isNode))
 
 export const isPrimitive = o => {
   o = typeof o
