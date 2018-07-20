@@ -171,10 +171,20 @@ export const render = (
 
 export const domfn = {
   css (node, styles, prop) {
-    if (styles.constructor === Object) {
+    if (styles == null) {
+      if (document.defaultView) {
+        return document.defaultView.getComputedStyle(node)
+      }
+    } else if (styles.constructor === Object) {
       for (const key in styles) domfn.css(node, key, styles[key])
     } else if (typeof styles === 'string') {
-      if (styles[0] === '-') {
+      if (prop == null) {
+        if (styles && styles[0] === '-') return node.getPropertyValue(styles)
+        if (document.defaultView) {
+          const style = document.defaultView.getComputedStyle(node)
+          if (style) return styles ? style[styles] : style
+        }
+      } else if (styles[0] === '-') {
         node.style.setProperty(styles, prop)
       } else {
         node.style[styles] = prop
