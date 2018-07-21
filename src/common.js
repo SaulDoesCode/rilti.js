@@ -209,7 +209,8 @@ export const infinify = (fn, reflect) => new Proxy(fn, {
 * mutateSet is an abstraction over Set and WeakSet
 * it combines all basic Set ops into a single function
 */
-export const mutateSet = set => (n, state) => set[state == null ? 'has' : state ? 'add' : 'delete'](n)
+export const mutateSet = set => (n, state) =>
+  set[state == null ? 'has' : state ? 'add' : 'delete'](n)
 
 export const copyprop = (host, obj, key) => {
   Object.defineProperty(host, key, Object.getOwnPropertyDescriptor(obj, key))

@@ -1,7 +1,6 @@
 import {ComponentSymbol, run, queryEach, isObj, isStr, isFunc, isMounted} from './common.js'
-import {Mounted, Unmounted, Created} from './lifecycles.js'
+import {Mounted, Unmounted, Created, dispatch} from './lifecycles.js'
 import {dom, assimilate} from './dom-generation.js'
-import {emit} from './dom-functions.js'
 import {$} from './proxy-node.js'
 import {attributeObserver} from './directives.js'
 
@@ -61,7 +60,7 @@ export const updateComponent = (el, config, stage, afterProps) => {
       })
     }
 
-    emit(el, 'create')
+    dispatch(el, 'create')
 
     if (isObj(config.on)) proxied.on(config.on)
     if (isObj(config.once)) proxied.once(config.once)
@@ -84,14 +83,14 @@ export const updateComponent = (el, config, stage, afterProps) => {
         proxied.state.observedAttrs[name].start()
       }
       if (remount) remount.call(el, proxied)
-      emit(el, 'remount')
+      dispatch(el, 'remount')
     } else {
       Mounted(el, true)
       component.plugins && component.plugins.mount.forEach(fn => {
         fn.bind(el, proxied, el)
       })
       if (mount) mount.call(el, proxied)
-      emit(el, 'mount')
+      dispatch(el, 'mount')
     }
   } else if (stage === 'unmount') {
     Mounted(el, false)
@@ -103,7 +102,7 @@ export const updateComponent = (el, config, stage, afterProps) => {
       proxied.state.observedAttrs[name].stop()
     }
     if (unmount) unmount.call(el, proxied)
-    emit(el, stage)
+    dispatch(el, stage)
   }
   return el
 }

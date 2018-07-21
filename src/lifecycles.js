@@ -7,7 +7,7 @@ export const Created = mutateSet(new WeakSet())
 export const Mounted = mutateSet(new WeakSet())
 export const Unmounted = mutateSet(new WeakSet())
 
-const dispatch = (n, state) => {
+export const dispatch = (n, state) => {
   n.dispatchEvent(new CustomEvent(state))
 }
 
