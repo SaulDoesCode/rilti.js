@@ -223,7 +223,8 @@
   * mutateSet is an abstraction over Set and WeakSet
   * it combines all basic Set ops into a single function
   */
-  const mutateSet = set => (n, state) => set[state == null ? 'has' : state ? 'add' : 'delete'](n)
+  const mutateSet = set => (n, state) =>
+    set[state == null ? 'has' : state ? 'add' : 'delete'](n)
 
   const copyprop = (host, obj, key) => {
     Object.defineProperty(host, key, Object.getOwnPropertyDescriptor(obj, key))
@@ -263,8 +264,6 @@
 
   /* global Text Node */
 
-  const ProxiedNodes = new Map()
-
   const state = (data = Object.create(null), host) => {
     const binds = new Map()
     binds.add = (key, fn) => {
@@ -300,7 +299,9 @@
 
     bind.text = (key, revoke) => {
       const txt = new Text()
-      const bindFN = val => { txt.textContent = val }
+      const bindFN = val => {
+        txt.textContent = val
+      }
       bind(key, bindFN, () => {
         if (revoke) revoke(proxy)
         domfn.remove(txt)
@@ -382,6 +383,10 @@
     return proxy
   }
 
+  /* global Node */
+
+  const ProxiedNodes = new Map()
+
   const $ = node => {
     if (isProxyNode(node)) return node
     if (typeof node === 'string') {
@@ -393,8 +398,8 @@
       throw new TypeError(`$ needs a Node: ${node}`)
     }
 
-    const Class = new Proxy((c, state) => {
-      domfn.class(node, c, state)
+    const Class = new Proxy((c, state$$1) => {
+      domfn.class(node, c, state$$1)
       return proxy
     }, {
       get: (fn, key) => node.classList.contains(key),
@@ -1298,7 +1303,7 @@
         })
       }
 
-      emit(el, 'create')
+      dispatch(el, 'create')
 
       if (isObj(config.on)) proxied.on(config.on)
       if (isObj(config.once)) proxied.once(config.once)
@@ -1321,14 +1326,14 @@
           proxied.state.observedAttrs[name].start()
         }
         if (remount) remount.call(el, proxied)
-        emit(el, 'remount')
+        dispatch(el, 'remount')
       } else {
         Mounted(el, true)
         component.plugins && component.plugins.mount.forEach(fn => {
           fn.bind(el, proxied, el)
         })
         if (mount) mount.call(el, proxied)
-        emit(el, 'mount')
+        dispatch(el, 'mount')
       }
     } else if (stage === 'unmount') {
       Mounted(el, false)
@@ -1340,7 +1345,7 @@
         proxied.state.observedAttrs[name].stop()
       }
       if (unmount) unmount.call(el, proxied)
-      emit(el, stage)
+      dispatch(el, stage)
     }
     return el
   }
