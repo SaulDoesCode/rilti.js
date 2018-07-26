@@ -105,10 +105,8 @@ const infinifyDOM = (gen, tag) => (tag = tagify(tag)) && tag in gen
 export const body = (...args) =>
   attach(document.body || 'body', 'appendChild', ...args)
 
-export const text = (options, txt = '') => {
-  if (isPrimitive(options)) [txt, options] = [options, undefined]
-  return dom(new Text(txt), options)
-}
+export const text = (options, txt = '') => isPrimitive(options)
+  ? dom(new Text(options)) : dom(new Text(txt), options)
 
 const reserved = ['$', 'id', 'render', 'children', 'html', 'class', 'className']
 const ns = 'http://www.w3.org/2000/svg'
@@ -116,7 +114,7 @@ const svgEL = (tag, opts, ...children) => {
   const el = document.createElementNS(ns, tag)
   if (isObj(opts)) {
     for (const key in opts) {
-      if (isPrimitive(opts[key]) && reserved.indexOf(key) === -1 && !(key in domfn)) {
+      if (isPrimitive(opts[key]) && !reserved.includes(key) && !(key in domfn)) {
         el.setAttribute(key, opts[key])
         delete opts[key]
       }
@@ -191,7 +189,7 @@ export const dom = new Proxy(Object.assign((tag, opts, ...children) => {
     }
 
     if (iscomponent) {
-      updateComponent(el, undefined, undefined, opts.props)
+      updateComponent(el, null, null, opts.props)
       componentHandled = true
     }
 
