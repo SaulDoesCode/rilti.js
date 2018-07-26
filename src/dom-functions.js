@@ -224,7 +224,7 @@ export const domfn = {
       for (const a in attr) {
         const present = attr[a] == null
         node[present ? 'removeAttribute' : 'setAttribute'](a, attr[a])
-        attributeChange(node, a, undefined, attr[a], !present)
+        attributeChange(node, a, null, attr[a], !present)
       }
     } else if (typeof attr === 'string') {
       const old = node.getAttribute(attr)
@@ -238,7 +238,7 @@ export const domfn = {
   removeAttribute (node, ...attrs) {
     if (attrs.length === 1) {
       node.removeAttribute(attrs[0])
-      attributeChange(node, attrs[0], undefined, undefined, false)
+      attributeChange(node, attrs[0], null, null, false)
     } else {
       for (let i = 0; i < attrs.length; i++) {
         if (isArr(attrs[i])) {
@@ -246,7 +246,7 @@ export const domfn = {
           i--
         }
         node.removeAttribute(attrs[i])
-        attributeChange(node, attrs[i], undefined, undefined, false)
+        attributeChange(node, attrs[i], null, null, false)
       }
     }
     return node
