@@ -1,12 +1,12 @@
-/* global Node */
-import {isObj, isArr, isStr, curry, queryAll} from './common.js'
+/* global Node NodeList */
+import {clone, assign, isObj, isArr, isStr, curry, queryAll} from './common.js'
 import $ from './proxy-node.js'
 
 const listen = (once, target, type, fn, options = false) => {
-  if (
-    isStr(target) &&
-    (isArr(target) ? target : target = queryAll(target)).length === 1
-  ) target = target[0]
+  if (isStr(target)) target = queryAll(target)
+  if ((isArr(target) || target instanceof NodeList) && target.length === 1) {
+    target = target[0]
+  }
 
   if (isArr(target) ? !target.length : !target.addEventListener) {
     throw new Error('nil/empty event target(s)')
@@ -19,9 +19,7 @@ const listen = (once, target, type, fn, options = false) => {
 
   if (isArr(target)) {
     for (let i = 0; i < target.length; i++) {
-      target[i] = listen(
-        once, target[i], typeobj ? Object.assign({}, type) : type, fn, options
-      )
+      target[i] = listen(once, target[i], typeobj ? clone(type) : type, fn, options)
     }
     target.off = () => {
       for (const h of target) h()
@@ -55,7 +53,7 @@ const listen = (once, target, type, fn, options = false) => {
     return off
   }
 
-  const off = Object.assign(() => {
+  const off = assign(() => {
     target.removeEventListener(type, wrapper)
     off.ison = false
     return off
