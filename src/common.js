@@ -96,8 +96,12 @@ export const compose = (...fns) => fns.reduce((a, b) => (...args) => a(b(...args
 * set the arity or pre bound arguments
 */
 export const curry = (fn, arity = fn.length, ...args) => arity <= args.length
-  ? fn(...args)
-  : curry.bind(undefined, fn, arity, ...args)
+  ? fn(...args) : curry.bind(null, fn, arity, ...args)
+
+export const assign = Object.assign
+
+export const clone = (host, empty) =>
+  assign(empty ? Object.create(null) : {}, host)
 
 /*
 * flatten recursively spreads out nested arrays
@@ -224,10 +228,7 @@ export const copyprop = (host, obj, key) => {
 */
 export const merge = (host, target) => {
   if (isArr(host) && isArr(target)) {
-    for (let i = 0; i < target.length; i++) {
-      const val = target[i]
-      if (!host.includes(val)) host.push(val)
-    }
+    for (const val of target) if (!host.includes(val)) host.push(val)
   } else if (merge.able(host) && merge.able(target)) {
     for (const key in target) {
       if (key in host) {
@@ -246,4 +247,5 @@ export const merge = (host, target) => {
   return host
 }
 
-merge.able = o => o != null && (isArr(o) || !(isPrimitive(o) || isPromise(o)))
+merge.able = o => isArr(o) ||
+  (o != null && typeof o === 'object' && !isFunc(o.then))
