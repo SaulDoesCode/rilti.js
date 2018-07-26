@@ -1,28 +1,11 @@
 /* global Text Node */
-import {query, flatten, isArr, isInput, isStr} from './common.js'
+import {assign, query, flatten, isArr, isInput, isStr} from './common.js'
 import {domfn} from './dom-functions.js'
 import $ from './proxy-node.js'
 
-const state = (data = Object.create(null), host) => {
-  const binds = new Map()
-  binds.add = (key, fn) => {
-    if (!binds.has(key)) binds.set(key, new Set())
-    binds.get(key).add(fn)
-  }
-  binds.remove = (key, fn) => {
-    if (binds.has(key)) {
-      if (fn) {
-        binds.get(key).delete(fn)
-      } else {
-        binds.each(key, bind => bind.revoke())
-      }
-
-      if (!binds.get(key).size) binds.delete(key)
-    }
-  }
-  binds.each = (key, fn) => {
-    if (binds.has(key)) binds.get(key).forEach(fn)
-  }
+const state = (data, host) => {
+  data = assign(Object.create(null), data || {})
+  const binds = state.binds()
 
   const bind = (key, fn, revoke, intermediate) => {
     if (isInput(fn, true)) return bind.input(key, fn, revoke)
@@ -98,11 +81,10 @@ const state = (data = Object.create(null), host) => {
     }
     return proxy
   }, {
-    get: (fn, key) =>
-      key === 'bind' ? bind
-        : key === 'binds' ? binds
-          : key[0] === '$' ? bind.bind(null, key.substr(1))
-            : Reflect.get(data, key),
+    get: (fn, key) => key === 'bind' ? bind
+      : key === 'binds' ? binds
+        : key[0] === '$' ? bind.bind(null, key.substr(1))
+          : Reflect.get(data, key),
 
     set (fn, key, val) {
       if (val == null) {
@@ -121,5 +103,21 @@ const state = (data = Object.create(null), host) => {
 
   return proxy
 }
+
+state.binds = (binds = new Map()) => assign(binds, {
+  add (key, fn) {
+    if (!binds.has(key)) binds.set(key, new Set())
+    binds.get(key).add(fn)
+  },
+  remove (key, fn) {
+    if (binds.has(key)) {
+      fn ? binds.get(key).delete(fn) : binds.each(key, bind => bind.revoke())
+      if (!binds.get(key).size) binds.delete(key)
+    }
+  },
+  each (key, fn) {
+    if (binds.has(key)) binds.get(key).forEach(fn)
+  }
+})
 
 export default state
