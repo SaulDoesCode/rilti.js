@@ -1,5 +1,5 @@
-import {mutateSet, run, queryEach} from './common.js'
-import {emit} from './dom-functions.js'
+/* global CustomEvent */
+import {assign, mutateSet, run, queryEach} from './common.js'
 import $ from './proxy-node.js'
 
 /* const watched = Object.create(null)
@@ -32,11 +32,9 @@ export const attributeObserver = (el, name, opts) => {
     return beenInitiated(name, el)
   }
   let removedBefore = false
-  let old = el.getAttribute(name)
-  intialize(el.hasAttribute(name), old)
-  const stop = el.on.attr(({
-    detail: {name: attrName, value, oldvalue, present}
-  }) => {
+  let old = el.attr[name]
+  intialize(el.attr.has(name), old)
+  const stop = el.on.attr(({name: attrName, value, oldvalue, present}) => {
     if (
       attrName === name &&
       old !== value &&
@@ -88,8 +86,13 @@ export const attributeChange = (
   value = el.getAttribute(name),
   present = el.hasAttribute(name)
 ) => {
-  if (directives.has(name)) directives.get(name).init($(el))
+  beenInitiated(name, $(el))
   if (value !== oldvalue) {
-    emit(el, 'attr', {name, value, oldvalue, present})
+    el.dispatchEvent(assign(new CustomEvent('attr'), {
+      name,
+      value,
+      oldvalue,
+      present
+    }))
   }
 }
