@@ -1,4 +1,4 @@
-import {ComponentSymbol, run, queryEach, isObj, isStr, isFunc, isMounted} from './common.js'
+import {clone, merge, ComponentSymbol, run, queryEach, isObj, isStr, isFunc, isMounted} from './common.js'
 import {Mounted, Unmounted, Created, dispatch} from './lifecycles.js'
 import {dom, assimilate} from './dom-generation.js'
 import {$} from './proxy-node.js'
@@ -42,7 +42,7 @@ export const updateComponent = (el, config, stage, afterProps) => {
   const proxied = $(el)
 
   if (!Created(el)) {
-    proxied.state = Object.assign(Object.create(null), state, proxied.state)
+    proxied.state = merge(clone(state, true), proxied.state)
     el[ComponentSymbol] = el.tagName
 
     if (methods) assimilate.methods(el, methods)
