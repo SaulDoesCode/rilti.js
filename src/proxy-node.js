@@ -10,7 +10,7 @@ export const $ = node => {
   if (isProxyNode(node)) return node
   if (typeof node === 'string') {
     node = query(node)
-    if (!node) throw new Error('no selector match')
+    if (!node) throw new Error('$: no match')
   }
   if (ProxiedNodes.has(node)) return ProxiedNodes.get(node)
   if (!(node instanceof Node)) {
@@ -29,7 +29,7 @@ export const $ = node => {
   if (isEl(node)) {
     var getAttr = node.getAttribute.bind(node)
     var hasAttr = node.hasAttribute.bind(node)
-    var rmAttr = domfn.removeAttribute.bind(undefined, node)
+    var rmAttr = domfn.removeAttribute.bind(null, node)
     var Attr = new Proxy((attr, val) => {
       const result = domfn.attr(node, attr, val)
       return result === node ? proxy : result
@@ -68,7 +68,7 @@ export const $ = node => {
     {
       get (fn, key) {
         if (Reflect.has(fn, key)) return Reflect.get(fn, key)
-        else if (key === 'state') return fn[key] || (fn[key] = state(Object.create(null), proxy))
+        else if (key === 'state') return fn[key] || (fn[key] = state(null, proxy))
         else if (key === 'txt') return node[textContent]
         else if (key === 'html') return node[innerHTML]
         else if (key === 'mounted') return isMounted(node)
