@@ -1178,7 +1178,7 @@
     value = el.getAttribute(name),
     present = el.hasAttribute(name)
   ) => {
-    beenInitiated(name, $(el))
+    if (directives.has(name)) directives.get(name).init($(el))
     if (value !== oldvalue) {
       el.dispatchEvent(assign(new CustomEvent('attr'), {
         name,
@@ -1189,7 +1189,7 @@
     }
   }
 
-  /* global CustomEvent MutationObserver */
+  /* global CustomEvent MutationObserver Element */
 
   const Created = mutateSet(new WeakSet())
   const Mounted = mutateSet(new WeakSet())
@@ -1216,6 +1216,12 @@
       }
       if (!iscomponent) Mounted(n, true)
       dispatch(n, 'mount')
+      if (n instanceof Element) {
+        for (const attr of directives.keys()) {
+          const has = n.hasAttribute(attr)
+          if (has) attributeChange(n, attr, null, n.getAttribute(attr), has)
+        }
+      }
     }
   }
 
