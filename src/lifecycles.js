@@ -1,7 +1,7 @@
-/* global CustomEvent MutationObserver */
+/* global CustomEvent MutationObserver Element */
 import {mutateSet, isComponent} from './common.js'
 import {updateComponent} from './components.js'
-import {attributeChange} from './directives.js'
+import {attributeChange, directives} from './directives.js'
 
 export const Created = mutateSet(new WeakSet())
 export const Mounted = mutateSet(new WeakSet())
@@ -28,6 +28,12 @@ export const MNT = (n, iscomponent = isComponent(n)) => {
     }
     if (!iscomponent) Mounted(n, true)
     dispatch(n, 'mount')
+    if (n instanceof Element) {
+      for (const attr of directives.keys()) {
+        const has = n.hasAttribute(attr)
+        if (has) attributeChange(n, attr, null, n.getAttribute(attr), has)
+      }
+    }
   }
 }
 

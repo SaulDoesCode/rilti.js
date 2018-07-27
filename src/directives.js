@@ -86,7 +86,7 @@ export const attributeChange = (
   value = el.getAttribute(name),
   present = el.hasAttribute(name)
 ) => {
-  beenInitiated(name, $(el))
+  if (directives.has(name)) directives.get(name).init($(el))
   if (value !== oldvalue) {
     el.dispatchEvent(assign(new CustomEvent('attr'), {
       name,
