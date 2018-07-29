@@ -24,10 +24,20 @@ export const MNT = (n, iscomponent = isComponent(n)) => {
     if (Unmounted(n)) {
       Unmounted(n, false)
       dispatch(n, 'remount')
+      if (n.childNodes.length) {
+        for (let i = 0; i < n.childNodes.length; i++) {
+          UnmountNodes(n.childNodes[i])
+        }
+      }
       return
     }
     if (!iscomponent) Mounted(n, true)
     dispatch(n, 'mount')
+    if (n.childNodes.length) {
+      for (let i = 0; i < n.childNodes.length; i++) {
+        MountNodes(n.childNodes[i])
+      }
+    }
     if (n instanceof Element) {
       for (const attr of directives.keys()) {
         const has = n.hasAttribute(attr)
