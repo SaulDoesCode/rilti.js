@@ -48,14 +48,18 @@ const listen = function (once, target, type, fn, options = false) {
     options = arguments[5]
     if (options == null) options = false
     wrapper = function (event) {
-      if (event.target.matches(matcher)) {
-        fn.call(this, event, target, $(event.target))
+      if (
+        event.target != null &&
+        event.target !== this &&
+        event.target.matches(matcher)
+      ) {
+        fn.call(this, event, target)
         if (off.once) off()
       }
     }
   } else {
     wrapper = function (event) {
-      fn.call(this, event, target, $(event.target))
+      fn.call(this, event, target)
       if (off.once) off()
     }
   }
