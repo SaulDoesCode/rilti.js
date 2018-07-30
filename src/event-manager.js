@@ -2,7 +2,7 @@
 import {clone, assign, isObj, isArr, isStr, curry, queryAll} from './common.js'
 import $ from './proxy-node.js'
 
-const listen = (once, target, type, fn, options = false) => {
+const listen = function (once, target, type, fn, options = false) {
   if (isStr(target)) target = queryAll(target)
   if ((isArr(target) || target instanceof NodeList) && target.length === 1) {
     target = target[0]
@@ -41,9 +41,23 @@ const listen = (once, target, type, fn, options = false) => {
 
   if (target instanceof Node && !options.proxy) target = $(target)
 
-  function wrapper () {
-    fn.call(this, ...arguments, target)
-    if (off.once) off()
+  let wrapper
+  if (typeof fn === 'string' && options instanceof Function) {
+    let matcher = fn
+    fn = options
+    options = arguments[5]
+    if (options == null) options = false
+    wrapper = function (event) {
+      if (event.target.matches(matcher)) {
+        fn.call(this, event, target, event.target)
+        if (off.once) off()
+      }
+    }
+  } else {
+    wrapper = function (event) {
+      fn.call(this, event, target, event.target)
+      if (off.once) off()
+    }
   }
 
   const on = mode => {
