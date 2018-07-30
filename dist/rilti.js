@@ -313,13 +313,13 @@
       if (options == null) options = false
       wrapper = function (event) {
         if (event.target.matches(matcher)) {
-          fn.call(this, event, target, event.target)
+          fn.call(this, event, target, $(event.target))
           if (off.once) off()
         }
       }
     } else {
       wrapper = function (event) {
-        fn.call(this, event, target, event.target)
+        fn.call(this, event, target, $(event.target))
         if (off.once) off()
       }
     }
