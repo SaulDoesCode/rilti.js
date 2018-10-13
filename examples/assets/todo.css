@@ -1,0 +1,150 @@
+:root {
+  --todo-color: hsl(39, 56%, 72%);
+}
+
+body {
+  background: hsl(0, 0%, 97%);
+}
+
+.maker, .list {
+  display: block;
+  margin: 25px auto;
+  width: 95%;
+  max-width: 540px;
+}
+
+.maker {
+  border-radius: 22px;
+  overflow: hidden;
+  box-shadow: 0 1px 12px rgba(0,0,0,.08);
+}
+
+.maker > input, .maker > button {
+  padding: 10px 8px;
+  border: 0px;
+  outline: 0;
+  font-size: 1.02em;
+}
+
+.maker > input {
+  width: 85%;
+  border-right: 0;
+  padding-left: 12px;
+  color: hsl(0, 0%, 38%);
+}
+
+.maker > button {
+  width: 15%;
+  font-weight: 600;
+  background: var(--todo-color);
+  color: #fff;
+  cursor: pointer;
+  transition: all 100ms ease-in;
+}
+
+.maker > button:hover {
+  filter: contrast(1.1);
+}
+
+.todo-item {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-content: center;
+  align-items: center;
+  width: 100%;
+  height: 11mm;
+  margin: 0 auto 20px auto;
+  padding: 0 11mm 0 11mm;
+  border-radius: 4px 20px 20px 4px;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 1px 6px rgba(0,0,0,.12);
+  transition: all 200ms ease-out;
+}
+
+.todo-item[done] {
+  text-decoration: line-through;
+  color: hsl(0, 0%, 50%);
+}
+
+.todo-item > button {
+  position: absolute;
+  top:0;
+  left: 0;
+  height: 100%;
+  width: auto;
+  padding: 4px 5px 0 5px;
+  border: 0;
+  outline: 0;
+  background: #fff;
+  color: hsl(0, 78%, 58%);
+  font-size: 1.2em;
+  cursor: pointer;
+  transition: all 120ms ease-in;
+}
+
+.todo-item > button:hover {
+  background: hsl(0, 78%, 58%);
+  color: #fff;
+}
+
+.todo-item > [contenteditable] {
+  outline: 0;
+}
+
+.todo-item > .toggle {
+  position: absolute;
+  right: 1mm;
+  top: 1mm;
+}
+
+.toggle {
+  display: inline-block;
+  width: 9mm;
+  height: 9mm;
+  border-radius: 100%;
+  background: #fff;
+  border: 1px solid var(--todo-color);
+  transition: all 120ms ease-in;
+  cursor: pointer;
+}
+
+.toggle.checked {
+  background: var(--todo-color);
+}
+
+.stats {
+  display: flex;
+  justify-content: space-around;
+  align-content: center;
+  align-items: center;
+  user-select: none;
+  margin-bottom: 30px;
+}
+
+.stats > * {
+  padding: 6px 10px 6px 10px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 1.1em;
+  color: var(--todo-color);
+  background: #fff;
+  text-shadow: 0 1px 3px rgba(0,0,0,.05);
+  filter: drop-shadow(0 1px 3px rgba(0,0,0,.05));
+  transition: all 120ms ease-in;
+}
+
+.stats > .active {
+  color: #fff;
+  background: var(--todo-color);
+  text-shadow: 0 1px 3px rgba(0,0,0,.12);
+}
+
+.list[filter="done"] .todo-item:not([done]),
+.list[filter="undone"] .todo-item[done] {
+  pointer-events: none;
+  height: 0;
+  margin: 0;
+  transform: scale(0);
+}

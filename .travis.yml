@@ -1,0 +1,15 @@
+language: node_js
+node_js:
+  - "stable"
+cache:
+  yarn: true
+  directories:
+    - "node_modules"
+addons:
+  firefox: latest
+before_install:
+  - export MOZ_HEADLESS=1
+before_script:
+  - yarn install
+script:
+  - yarn test
