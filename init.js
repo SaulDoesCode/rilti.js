@@ -41,7 +41,7 @@ const watcher = chokidar.watch('../rilti.js/', {
 
 const fileMutation = async location => {
   console.log(`File Change: ${location}`)
-  location = location.replace(/\\/g, '\/')
+  location = location.replace(/\\/g, '/')
   if (location.includes('/src/') && location.includes('.js')) {
     try {
       const success = await buildLibrary()
