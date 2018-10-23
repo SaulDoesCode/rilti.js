@@ -61,11 +61,12 @@ export const $ = node => {
       on,
       once,
       emit: emit.bind(null, node),
-      render: render.bind(null, node)
+      render: render.bind(null, node),
+      [ProxyNodeSymbol]: true
     }),
     {
       get (fn, key) {
-        if (Reflect.has(fn, key)) return Reflect.get(fn, key)
+        if (key in fn) return fn[key]
         else if (key === 'txt') return node[textContent]
         else if (key === 'html') return node[innerHTML]
         else if (key === 'mounted') return isMounted(node)
@@ -77,7 +78,7 @@ export const $ = node => {
             const result = domfn[key](node, ...args)
             return result === node || result === proxy ? proxy : result
           }
-        } else if (key === ProxyNodeSymbol) return true
+        }
         const val = node[key]
         return isFunc(val) && !isProxyNode(val) ? val.bind(node) : val
       },
