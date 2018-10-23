@@ -33,6 +33,19 @@ Feel free to fork or raise issues. Constructive criticism is always welcome
 
 To use rilti just download **/dist/rilti.min.js** and pop it in a script tag. **If you have any issues just tell me, I'm on it.**
 
+## Install
+
+> ``yarn add rilti``  
+
+
+> ``npm i rilti``
+
+or
+
+```html
+<script src="https://unpkg.com/rilti"></script>
+```
+
 ## The Dao of Rilti
 
 1. Nominalism Good | Explicit Paradigms, Patterns & Universalism Bad

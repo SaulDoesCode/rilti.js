@@ -1,8 +1,8 @@
 {
-  "name": "rilti.js",
-  "version": "0.8.0",
+  "name": "rilti",
+  "version": "0.9.0",
   "description": "small opinionated furture forward frontend framework",
-  "main": "init.js",
+  "main": "./dist/rilti.min.js",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/sauldoescode/rilti.js.git"
