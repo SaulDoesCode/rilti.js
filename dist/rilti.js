@@ -14,11 +14,10 @@
 
   /* global Node NodeList Element SVGElement HTMLInputElement HTMLTextAreaElement */
   const ProxyNodeSymbol = Symbol('Proxy Node')
-  const ComponentSymbol = Symbol('Component')
 
   const isProxyNode = o => isFunc(o) && o[ProxyNodeSymbol] === true
 
-  const isComponent = el => el !== undefined && el[ComponentSymbol] !== undefined
+  const isComponent = el => el != null && el.tagName != null && el.tagName.includes('-')
 
   const isArr = Array.isArray
 
@@ -150,7 +149,7 @@
     } else {
       window.addEventListener('DOMContentLoaded',
         e => exports.runAsync.apply(undefined, arguments),
-        {once: true}
+        { once: true }
       )
     }
   }
@@ -219,8 +218,8 @@
   */
   const infinify = (fn, reflect) => new Proxy(fn, {
     get: reflect === true
-      ? (fn, key) => key in fn ? Reflect.get(fn, key) : fn.bind(undefined, key)
-      : (fn, key) => fn.bind(undefined, key)
+      ? (fn, key) => key in fn ? Reflect.get(fn, key) : fn.bind(null, key)
+      : (fn, key) => fn.bind(null, key)
   })
 
   /*
@@ -300,6 +299,14 @@
       for (const name in type) {
         type[name] = listen(once, target, name, type[name], options)
       }
+      target.off = () => {
+        for (const h of Object.values(type)) h()
+        return target
+      }
+      target.on = mode => {
+        for (const h of Object.values(type)) h.on(mode)
+        return target
+      }
       return type
     }
 
@@ -339,7 +346,7 @@
       target.removeEventListener(type, wrapper)
       off.ison = false
       return off
-    }, {target, on, once})
+    }, { target, on, once })
     off.off = off
 
     return on()
@@ -374,7 +381,7 @@
     ? html(inner) : document.createDocumentFragment()
 
   const assimilate = Object.assign(
-    (el, {props, methods}, noProps) => {
+    (el, { props, methods }, noProps) => {
       if (!noProps && props) assimilate.props(el, props)
       if (methods) assimilate.methods(el, methods)
     },
@@ -387,7 +394,7 @@
             el[prop] = val
           } else if (prop === 'accessors') {
             for (const key in val) {
-              const {set = val[key], get = val[key]} = val[key]
+              const { set = val[key], get = val[key] } = val[key]
               const accessors = {}
               if (set instanceof Function) {
                 accessors.set = set.bind(el, proxied)
@@ -407,7 +414,7 @@
       methods (el, methods) {
         const proxied = $(el)
         for (const name in methods) {
-          Object.defineProperty(el, name, {value: methods[name].bind(el, proxied)})
+          Object.defineProperty(el, name, { value: methods[name].bind(el, proxied) })
         }
       }
     }
@@ -451,44 +458,44 @@
 
   const reserved = ['$', 'id', 'render', 'children', 'html', 'class', 'className']
   const ns = 'http://www.w3.org/2000/svg'
-  const svgEL = (tag, opts, ...children) => {
+  const svgEL = (tag, ops, ...children) => {
     const el = document.createElementNS(ns, tag)
-    if (isObj(opts)) {
-      for (const key in opts) {
-        if (isPrimitive(opts[key]) && !reserved.includes(key) && !(key in domfn)) {
-          el.setAttribute(key, opts[key])
-          delete opts[key]
+    if (isObj(ops)) {
+      for (const key in ops) {
+        if (isPrimitive(ops[key]) && !reserved.includes(key) && !(key in domfn)) {
+          el.setAttribute(key, ops[key])
+          delete ops[key]
         }
       }
     }
-    return dom(el, opts, ...children)
+    return dom(el, ops, ...children)
   }
   const svg = new Proxy(svgEL.bind(null, 'svg'), {
     get: (_, tag) => infinifyDOM(svgEL, tag)
   })
 
-  const dom = new Proxy(Object.assign((tag, opts, ...children) => {
+  const dom = new Proxy(Object.assign((tag, ops, ...children) => {
     if (tag[0] === '$') {
       tag = tag.slice(1)
       var pure = true
     }
-    const el = typeof tag === 'string' ? document.createElement(tag) : tag
+    const el = tag.constructor === String ? document.createElement(tag) : tag
 
     const iscomponent = components.has(el.tagName)
     if (iscomponent) var componentHandled
 
     let proxied
-    if (!isObj(opts)) {
+    if (!isObj(ops)) {
       if (!pure) proxied = $(el)
     } else {
-      var {cycle} = opts
-      if (!pure || !(pure = opts.pure)) proxied = $(el)
+      var { cycle, bind } = ops
+      if (!pure || !(pure = ops.pure)) proxied = $(el)
 
-      assimilate(el, opts, iscomponent)
+      assimilate(el, ops, iscomponent)
 
       let val
-      for (const key in opts) {
-        if ((val = opts[key]) == null) continue
+      for (const key in ops) {
+        if ((val = ops[key]) == null) continue
 
         if (key[0] === 'o' && key[1] === 'n') {
           const isOnce = key[2] === 'c' && key[3] === 'e'
@@ -497,49 +504,59 @@
           let type = key.substr(i)
           const evtfn = EventManager(isOnce)
           const args = isArr(val) ? val : [val]
-          if (!opts[mode]) opts[mode] = {}
-          opts[mode][type] = type.length
+          if (!ops[mode]) ops[mode] = {}
+          ops[mode][type] = type.length
             ? evtfn(el, type, ...args) : evtfn(el, ...args)
         } else if (key in el) {
           if (el[key] instanceof Function) {
             isArr(val) ? el[key].apply(el, val) : el[key](val)
           } else {
-            el[key] = opts[key]
+            el[key] = ops[key]
           }
         } else if (key in domfn) {
           val = isArr(val) ? domfn[key](el, ...val) : domfn[key](el, val)
-          if (val !== el) opts[key] = val
+          if (val !== el) ops[key] = val
         }
       }
 
+      if (bind) {
+        for (const key in bind) {
+          if (key in el) throw new Error('databind overwrites property')
+          const b = databind(bind[key], el)
+          Object.defineProperty(bind, key, { get () { return b.ops.val }, set: b })
+          Object.defineProperty(bind, '$' + key, { value: b })
+        }
+        el.bind = bind
+      }
+
+      if (iscomponent) {
+        updateComponent(el, null, null, ops.props)
+        componentHandled = true
+      }
+
       if (cycle) {
-        const {mount, create, remount, unmount} = cycle
+        const { mount, create, remount, unmount } = cycle
         if (create) once.create(el, create.bind(el, proxied || el))
         if (mount) once.mount(el, mount.bind(el, proxied || el))
         if (unmount) cycle.unmount = on.unmount(el, unmount.bind(el, proxied || el))
         if (remount) cycle.remount = on.remount(el, remount.bind(el, proxied || el))
       }
 
-      if (iscomponent) {
-        updateComponent(el, null, null, opts.props)
-        componentHandled = true
-      }
-
-      const host = opts.$ || opts.render
+      const host = ops.$ || ops.render
       if (host) attach(host, 'appendChild', el)
-      else if (opts.renderAfter) attach(opts.renderAfter, 'after', el)
-      else if (opts.renderBefore) attach(opts.renderBefore, 'before', el)
+      else if (ops.renderAfter) attach(ops.renderAfter, 'after', el)
+      else if (ops.renderBefore) attach(ops.renderBefore, 'before', el)
     }
 
     if (el.nodeType !== 3 /* el != Text */) {
-      if (isProxyNode(opts) && (!proxied || opts !== proxied)) {
-        children.unshift(opts(proxied || el))
-      } else if (opts instanceof Function) {
-        const result = opts.call(el, proxied || el)
-        opts = result !== el && result !== proxied ? result : undefined
+      if (isProxyNode(ops) && (!proxied || ops !== proxied)) {
+        children.unshift(ops(proxied || el))
+      } else if (ops instanceof Function) {
+        const result = ops.call(el, proxied || el)
+        ops = result !== el && result !== proxied ? result : undefined
       }
 
-      if (isRenderable(opts)) children.unshift(opts)
+      if (isRenderable(ops)) children.unshift(ops)
 
       if (children.length) attach(proxied || el, 'appendChild', children)
     }
@@ -549,12 +566,12 @@
       : CR(el, true, iscomponent)
 
     return proxied || el
-  }, {text, body, svg, frag, html}), {get: infinifyDOM})
+  }, { text, body, svg, frag, html }), { get: infinifyDOM })
 
   /* global Text Node NodeList CustomEvent */
 
   const emit = (node, type, detail) => {
-    node.dispatchEvent(typeof type !== 'string' ? type : new CustomEvent(type, {detail}))
+    node.dispatchEvent(typeof type !== 'string' ? type : new CustomEvent(type, { detail }))
     return node
   }
 
@@ -568,23 +585,26 @@
   ) => {
     for (let i = 0; i < children.length; i++) {
       let child = children[i]
+      if (child == null) continue
       if (child instanceof Function) {
         if ((child = child(host)) === host) {
           continue
         } else if (child instanceof Function) {
           let lvl = 0
           let ishost = false
+          let lastchild
           while (child instanceof Function && lvl < 25) {
+            lastchild = child
             child = child()
-            if ((ishost = child === host)) break
+            if ((ishost = child === host) || lastchild === child) break
             lvl++
           }
           if (ishost) continue
         }
       }
 
-      const childtype = typeof child
-      if (childtype === 'string' || childtype === 'number') {
+      const ctr = child.constructor
+      if (ctr === String || ctr === Number) {
         if (!child.length) continue
         child = new Text(child)
       } else if (isArr(child)) {
@@ -599,6 +619,9 @@
     if (host && !noHostAppend) {
       run(() => {
         host[connector](dfrag)
+        for (const child of children) {
+          if (child != null && child.dispatchEvent) MNT(child)
+        }
       })
     }
     return children
@@ -823,7 +846,7 @@
     },
 
     refurbish (node) {
-      for (const {name} of node.attributes) {
+      for (const { name } of node.attributes) {
         node.removeAttribute(name)
       }
       node.removeAttribute('class')
@@ -855,12 +878,100 @@
       return pure ? query$$1 : query$$1.map(n => $(n))
     },
 
-    findOne: (node, q, pure) =>
-      pure ? query(q, node) : (q = query(q, node)) ? $(q) : q
+    findOne (node, q, pure) {
+      if (pure) return query(q, node)
+      q = query(q, node)
+      return q ? $(q) : q
+    }
   }
   domfn.empty = domfn.clear
 
-  /* global Node */
+  const databind = (ops, host) => {
+    if (!ops) ops = {}
+    const change = (newval, force, silent) => {
+      if (newval == null) return ops.val
+      if (isFunc(newval)) newval = newval(ops.val, ops)
+      if (force || (newval !== ops.val)) {
+        ops.old = ops.val
+        ops.val = newval
+        if (ops.change) {
+          const res = ops.change(ops.val, ops)
+          if (res != null && ops.val !== res) ops.val = res
+        }
+        if (!silent) {
+          change.observers.forEach(o => {
+            o(o.key != null ? view[o.key](ops.val, ops) : ops.val, ops)
+          })
+        }
+        if (ops.key && ops.host) {
+          ops.host[ops.key] = ops.view ? ops.view(ops.val, ops) : ops.val
+        }
+      }
+      return change
+    }
+    change.change = change
+    change.ops = ops
+    change.observers = new Set()
+    change.observe = infinify((key, fn) => {
+      if (isFunc(key)) [fn, key] = [key, null]
+      if (key) fn.key = key
+      const off = () => {
+        change.observers.delete(fn)
+        return off
+      }
+      return ((off.off = off).on = () => {
+        change.observers.add(fn)
+        return off
+      })()
+    })
+    const view = change.view = infinify((key, fn) => {
+      if (key in view) return fn ? fn(view[key](ops.val, ops), ops) : view[key](ops.val, ops)
+      if (key === 'view') return fn ? fn(ops.view(ops.val, ops), ops) : ops.view(ops.val, ops)
+      if (key === '') return fn ? fn(ops.val, ops) : ops.val
+      view[key] = fn
+    })
+    if (ops.views) for (const key in ops.views) view(key, ops.views[key])
+    ops.$change = change
+    change.stop = ops.$stop = () => {
+      if (ops.isinput) ops.inputUpdaters.off()
+      if (ops.stop) ops.stop(ops.host, ops)
+      change.observers.clear()
+    }
+    change.text = (host, fn) => {
+      const text$$1 = new Text()
+      if (isStr(host)) {
+        text$$1.off = change.observe(host, val => { text$$1.textContent = val })
+      } else {
+        text$$1.off = change.observe(val => {
+          text$$1.textContent = ops.view ? ops.view(ops.val, ops) : ops.val
+        })
+      }
+      if (isFunc(fn)) fn(text$$1, ops)
+      return text$$1
+    }
+
+    if (host) {
+      ops.host = host
+      if (isEl(host) || isProxyNode(host)) {
+        if (isInput(host)) {
+          ops.isinput = true
+          ops.host = $(host)
+          const inputUpdate = e => change(host.value)
+          ops.inputUpdaters = ops.host.on({
+            input: inputUpdate,
+            keyup: inputUpdate,
+            blur: inputUpdate,
+            focus: inputUpdate
+          })
+        }
+      }
+      if (ops.init) ops.init(host, ops)
+      if ('val' in ops) change(ops.val, true)
+    }
+    return change
+  }
+
+  /* global Node Element */
 
   const ProxiedNodes = new Map()
 
@@ -925,7 +1036,7 @@
       }),
       {
         get (fn, key) {
-          if (key in fn) return fn[key]
+          if (key in fn && !(key in Function.prototype)) return fn[key]
           else if (key === 'txt') return node[textContent]
           else if (key === 'html') return node[innerHTML]
           else if (key === 'mounted') return isMounted(node)
@@ -938,8 +1049,9 @@
               return result === node || result === proxy ? proxy : result
             }
           }
+
           const val = node[key]
-          return isFunc(val) && !isProxyNode(val) ? val.bind(node) : val
+          return isFunc(val) && (key in Element.prototype) ? val.bind(node) : val
         },
         set (fn, key, val) {
           if (key === 'class') Class(node, val)
@@ -981,7 +1093,7 @@
 
   const attributeObserver = (el, name, opts) => {
     el = $(el)
-    let {init, update, remove} = opts
+    let { init, update, remove } = opts
     if (!init && !update && opts instanceof Function) {
       [init, update] = [opts, opts]
     }
@@ -999,7 +1111,7 @@
     let removedBefore = false
     let old = el.attr[name]
     intialize(el.attr.has(name), old)
-    const stop = el.on.attr(({name: attrName, value, oldvalue, present}) => {
+    const stop = el.on.attr(({ name: attrName, value, oldvalue, present }) => {
       if (
         attrName === name &&
         old !== value &&
@@ -1119,7 +1231,7 @@
 
   new MutationObserver(muts => {
     for (const mut of muts) {
-      const {addedNodes, removedNodes, attributeName} = mut
+      const { addedNodes, removedNodes, attributeName } = mut
       if (addedNodes.length) {
         for (const node of addedNodes) MountNodes(node)
       }
@@ -1141,11 +1253,12 @@
   const components = new Map()
   const component = (tagName, config) => {
     if (isFunc(config)) config = config()
-    if (tagName.indexOf('-') === -1) {
+    if (!tagName.includes('-')) {
       throw new Error(`component: ${tagName} tagName is un-hyphenated`)
     }
     components.set(tagName.toUpperCase(), config)
     run(() => queryEach(tagName, el => updateComponent(el)))
+    queryEach(tagName, el => updateComponent(el))
     return dom[tagName]
   }
 
@@ -1159,7 +1272,7 @@
     }
   }
 
-  const updateComponent = (el, config, stage, afterProps) => {
+  const updateComponent = function (el, config, stage, afterProps) {
     if (el.nodeType !== 1 || !components.has(el.tagName)) return
     if (isStr(config)) [stage, config] = [config, components.get(el.tagName)]
     else if (!isObj(config)) config = components.get(el.tagName)
@@ -1171,12 +1284,19 @@
       unmount,
       props,
       methods,
+      bind,
       attr
     } = config
     const proxied = $(el)
 
     if (!Created(el)) {
-      el[ComponentSymbol] = el.tagName
+      if (bind) {
+        for (const key in bind) {
+          const b = databind(bind[key], proxied)
+          Object.defineProperty(el, key, { get () { return b.ops.val }, set: b })
+          Object.defineProperty(el, '$' + key, { value: b })
+        }
+      }
 
       if (methods) assimilate.methods(el, methods)
       if (props) assimilate.props(el, props)
@@ -1205,6 +1325,11 @@
         }
       }
       if (remount) proxied.on.remount(remount.bind(el, proxied))
+
+      run(() => {
+        el.componentReady = true
+        dispatch(el, 'componentReady')
+      })
     }
 
     if (!Mounted(el) && (stage === 'mount' || isMounted(el))) {
@@ -1240,6 +1365,12 @@
     return el
   }
 
+  const componentReady = (el, fn) => run(() => {
+    el = $(el)
+    if (el.componentReady) return fn(el)
+    el.once.componentReady(e => fn(el))
+  })
+
   exports.isArr = isArr
   exports.isComponent = isComponent
   exports.isNil = isNil
@@ -1270,6 +1401,8 @@
   exports.compose = compose
   exports.components = components
   exports.component = component
+  exports.componentReady = componentReady
+  exports.databind = databind
   exports.run = run
   exports.render = render
   exports.query = query
