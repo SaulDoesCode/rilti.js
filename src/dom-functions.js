@@ -10,7 +10,11 @@ import {
   isMounted,
   isNodeList,
   isNum,
-  isProxyNode
+  isFunc,
+  isProxyNode,
+  isEl,
+  infinify,
+  isStr
 } from './common.js'
 import {once} from './event-manager.js'
 import {frag} from './dom-generation.js'
@@ -33,23 +37,26 @@ export const vpend = (
 ) => {
   for (let i = 0; i < children.length; i++) {
     let child = children[i]
+    if (child == null) continue
     if (child instanceof Function) {
       if ((child = child(host)) === host) {
         continue
       } else if (child instanceof Function) {
         let lvl = 0
         let ishost = false
+        let lastchild
         while (child instanceof Function && lvl < 25) {
+          lastchild = child
           child = child()
-          if ((ishost = child === host)) break
+          if ((ishost = child === host) || lastchild === child) break
           lvl++
         }
         if (ishost) continue
       }
     }
 
-    const childtype = typeof child
-    if (childtype === 'string' || childtype === 'number') {
+    const ctr = child.constructor
+    if (ctr === String || ctr === Number) {
       if (!child.length) continue
       child = new Text(child)
     } else if (isArr(child)) {
@@ -323,7 +330,95 @@ export const domfn = {
     return pure ? query : query.map(n => $(n))
   },
 
-  findOne: (node, q, pure) =>
-    pure ? query(q, node) : (q = query(q, node)) ? $(q) : q
+  findOne (node, q, pure) {
+    if (pure) return query(q, node)
+    q = query(q, node)
+    return q ? $(q) : q
+  }
 }
 domfn.empty = domfn.clear
+
+export const databind = (ops, host) => {
+  if (!ops) ops = {}
+  const change = (newval, force, silent) => {
+    if (newval == null) return ops.val
+    if (isFunc(newval)) newval = newval(ops.val, ops)
+    if (force || (newval !== ops.val)) {
+      ops.old = ops.val
+      ops.val = newval
+      if (ops.change) {
+        const res = ops.change(ops.val, ops)
+        if (res != null && ops.val !== res) ops.val = res
+      }
+      if (!silent) {
+        change.observers.forEach(o => {
+          o(o.key != null ? view[o.key](ops.val, ops) : ops.val, ops)
+        })
+      }
+      if (ops.key && ops.host) {
+        ops.host[ops.key] = ops.view ? ops.view(ops.val, ops) : ops.val
+      }
+    }
+    return change
+  }
+  change.change = change
+  change.ops = ops
+  change.observers = new Set()
+  change.observe = infinify((key, fn) => {
+    if (isFunc(key)) [fn, key] = [key, null]
+    if (key) fn.key = key
+    const off = () => {
+      change.observers.delete(fn)
+      return off
+    }
+    return ((off.off = off).on = () => {
+      change.observers.add(fn)
+      return off
+    })()
+  })
+  const view = change.view = infinify((key, fn) => {
+    if (key in view) return fn ? fn(view[key](ops.val, ops), ops) : view[key](ops.val, ops)
+    if (key === 'view') return fn ? fn(ops.view(ops.val, ops), ops) : ops.view(ops.val, ops)
+    if (key === '') return fn ? fn(ops.val, ops) : ops.val
+    view[key] = fn
+  })
+  if (ops.views) for (const key in ops.views) view(key, ops.views[key])
+  ops.$change = change
+  change.stop = ops.$stop = () => {
+    if (ops.isinput) ops.inputUpdaters.off()
+    if (ops.stop) ops.stop(ops.host, ops)
+    change.observers.clear()
+  }
+  change.text = (host, fn) => {
+    const text = new Text()
+    if (isStr(host)) {
+      text.off = change.observe(host, val => { text.textContent = val })
+    } else {
+      text.off = change.observe(val => {
+        text.textContent = ops.view ? ops.view(ops.val, ops) : ops.val
+      })
+    }
+    if (isFunc(fn)) fn(text, ops)
+    return text
+  }
+
+  if (host) {
+    ops.host = host
+    if (isEl(host) || isProxyNode(host)) {
+      if (isInput(host)) {
+        ops.isinput = true
+        ops.host = $(host)
+        const inputUpdate = e => change(host.value)
+        ops.inputUpdaters = ops.host.on({
+          input: inputUpdate,
+          keyup: inputUpdate,
+          blur: inputUpdate,
+          focus: inputUpdate
+        })
+      }
+    }
+    if (ops.init) ops.init(host, ops)
+    if ('val' in ops) change(ops.val, true)
+  }
+  return change
+}
