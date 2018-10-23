@@ -36,6 +36,14 @@ const listen = function (once, target, type, fn, options = false) {
     for (const name in type) {
       type[name] = listen(once, target, name, type[name], options)
     }
+    target.off = () => {
+      for (const h of Object.values(type)) h()
+      return target
+    }
+    target.on = mode => {
+      for (const h of Object.values(type)) h.on(mode)
+      return target
+    }
     return type
   }
 
