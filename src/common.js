@@ -1,10 +1,9 @@
 /* global Node NodeList Element SVGElement HTMLInputElement HTMLTextAreaElement */
 export const ProxyNodeSymbol = Symbol('Proxy Node')
-export const ComponentSymbol = Symbol('Component')
 
 export const isProxyNode = o => isFunc(o) && o[ProxyNodeSymbol] === true
 
-export const isComponent = el => el !== undefined && el[ComponentSymbol] !== undefined
+export const isComponent = el => el != null && el.tagName != null && el.tagName.includes('-')
 
 export const isArr = Array.isArray
 
@@ -205,8 +204,8 @@ export const each = (iterable, fn) => {
 */
 export const infinify = (fn, reflect) => new Proxy(fn, {
   get: reflect === true
-    ? (fn, key) => key in fn ? Reflect.get(fn, key) : fn.bind(undefined, key)
-    : (fn, key) => fn.bind(undefined, key)
+    ? (fn, key) => key in fn ? Reflect.get(fn, key) : fn.bind(null, key)
+    : (fn, key) => fn.bind(null, key)
 })
 
 /*
