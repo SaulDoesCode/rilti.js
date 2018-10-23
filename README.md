@@ -10,7 +10,7 @@ a small flavorful and unapologetic library built for the modern web
 Feel free to fork or raise issues. Constructive criticism is always welcome
 
 * 🐫 Loadbearing Spirit - Expressive DOM generation and custom-element components sans polyfill
-* 🐱 Lion - Fearless element/component local *State Solution* with simple data-binding
+* 🐱 Lion - Simple and fearless element/component data-binding
 * 👶 Child - Proxy enhanced DOM manipulation and Powerful all accepting async Rendering System
 
 ## features
@@ -82,41 +82,79 @@ and also ``on(node, { click: e => {} }, =options)``.
 ### Click Counting Button
 
 ```js
-rilti.dom.button({
-  render: 'body',
-  state: {clicks: 0},
-  onclick: (e, {state}) => ++state.clicks
-},
-  ({state}) => state`You clicked me ${'clicks'} times.`
-)
+const {component, componentReady, dom: {h1}, $} = rilti
+
+component('counter-button', {
+  bind: {
+    count: {
+      // set host.innerText to val on create and changes
+      key: 'innerText',
+      val: 0,
+      view: count => `clicks: ${count}`
+    }
+  },
+  on: {
+    click: (e, el) => ++el.count
+  }
+})
+
+componentReady('body > counter-button', el => {
+  const tellEm = h1['tell-em'](`You just won't stop clicking huh?`)
+  el.$count.observe(count => {
+    if (count > 20 && count < 40 && !tellEm.mounted) tellEm.render('body')
+    else if (count > 40 && count < 100) tellEm.txt += ' Seriously? '
+    else if (count > 100) tellEm.txt = 'What? You want a prize or something?'
+  })
+})
 ```
 
 ### Two Button Counter
 
 ```js
-const {button, div, h1} = rilti.dom
+const {databind, dom: {button, div, h1}} = rilti
 
 div({
   render: 'body', // <- apend to <body> on load
-  state: {count: 0}
+  bind: {
+    count: {
+      val: 0,
+      view: count => `current count is at: ${count}`
+    }
+  }
 },
-  ({state}) => [
-    h1(state`${'count'}`),
-    button({onclick: e => ++state.count}, '+'),
-    button({onclick: e => --state.count}, '-')
+  host => [ // <com-po-nents> bind natively, other elements bind to el.bind['$bind/bindValue']
+    h1(host.bind.$count.text),
+    button({onclick: e => ++host.bind.count}, '+'),
+    button({onclick: e => --host.bind.count}, '-')
   ]
 )
 ```
 
 ### Pointer tracker
 ```js
-rilti.dom.div({
+rilti.dom.div.pointer_tracker({
   $: 'body',
   css: {width: '300px', height: '300px'},
-  onpointermove ({x, y}, {state}) { state({x, y}) },
-}, ({state}) => state`
-  The pointer is at (${'x'}x, ${'y'}y)
-`)
+  bind: {
+    pointer: {
+      key: 'innerText',
+      val: {
+        x: 0,
+        y: 0,
+      },
+      view: ({x, y}) => `
+      The pointer is at (${x.toFixed(2)}x, ${y.toFixed(2)}y)
+      `
+    }
+  },
+  onpointermove: ({x, y}, el) => el.bind.$pointer({x, y})
+})
+```
+the above produces this:
+```html
+<div class="pointer-tracker" style="width: 300px; height: 300px;">
+  The pointer is at (0x, 0y)
+</div>
 ```
 
 ### Declaratively Generate a Site Navbar
