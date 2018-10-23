@@ -1326,10 +1326,8 @@
       }
       if (remount) proxied.on.remount(remount.bind(el, proxied))
 
-      run(() => {
-        el.componentReady = true
-        dispatch(el, 'componentReady')
-      })
+      el.componentReady = true
+      dispatch(el, 'componentReady')
     }
 
     if (!Mounted(el) && (stage === 'mount' || isMounted(el))) {

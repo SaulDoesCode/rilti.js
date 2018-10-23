@@ -1,6 +1,7 @@
-import {ComponentSymbol, run, queryEach, isObj, isStr, isFunc, isMounted} from './common.js'
+import {run, queryEach, isObj, isStr, isFunc, isMounted} from './common.js'
 import {Mounted, Unmounted, Created, dispatch} from './lifecycles.js'
 import {dom, assimilate} from './dom-generation.js'
+import {databind} from './dom-functions.js'
 import {$} from './proxy-node.js'
 import {attributeObserver} from './directives.js'
 
@@ -8,11 +9,12 @@ export const ObservedAttrsSymbol = Symbol('observed-attrs')
 export const components = new Map()
 export const component = (tagName, config) => {
   if (isFunc(config)) config = config()
-  if (tagName.indexOf('-') === -1) {
+  if (!tagName.includes('-')) {
     throw new Error(`component: ${tagName} tagName is un-hyphenated`)
   }
   components.set(tagName.toUpperCase(), config)
   run(() => queryEach(tagName, el => updateComponent(el)))
+  queryEach(tagName, el => updateComponent(el))
   return dom[tagName]
 }
 
@@ -26,7 +28,7 @@ component.plugin = plugin => {
   }
 }
 
-export const updateComponent = (el, config, stage, afterProps) => {
+export const updateComponent = function (el, config, stage, afterProps) {
   if (el.nodeType !== 1 || !components.has(el.tagName)) return
   if (isStr(config)) [stage, config] = [config, components.get(el.tagName)]
   else if (!isObj(config)) config = components.get(el.tagName)
@@ -38,12 +40,19 @@ export const updateComponent = (el, config, stage, afterProps) => {
     unmount,
     props,
     methods,
+    bind,
     attr
   } = config
   const proxied = $(el)
 
   if (!Created(el)) {
-    el[ComponentSymbol] = el.tagName
+    if (bind) {
+      for (const key in bind) {
+        const b = databind(bind[key], proxied)
+        Object.defineProperty(el, key, {get () { return b.ops.val }, set: b})
+        Object.defineProperty(el, '$' + key, {value: b})
+      }
+    }
 
     if (methods) assimilate.methods(el, methods)
     if (props) assimilate.props(el, props)
@@ -72,6 +81,9 @@ export const updateComponent = (el, config, stage, afterProps) => {
       }
     }
     if (remount) proxied.on.remount(remount.bind(el, proxied))
+
+    el.componentReady = true
+    dispatch(el, 'componentReady')
   }
 
   if (!Mounted(el) && (stage === 'mount' || isMounted(el))) {
@@ -106,3 +118,9 @@ export const updateComponent = (el, config, stage, afterProps) => {
   }
   return el
 }
+
+export const componentReady = (el, fn) => run(() => {
+  el = $(el)
+  if (el.componentReady) return fn(el)
+  el.once.componentReady(e => fn(el))
+})
