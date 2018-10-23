@@ -1,4 +1,4 @@
-/* global Node */
+/* global Node Element */
 import {query, infinify, isEl, isFunc, isInput, isMounted, isProxyNode, isStr, ProxyNodeSymbol} from './common.js'
 import {domfn, emit, render, vpend, prime} from './dom-functions.js'
 import {EventManager} from './event-manager.js'
@@ -66,7 +66,7 @@ export const $ = node => {
     }),
     {
       get (fn, key) {
-        if (key in fn) return fn[key]
+        if (key in fn && !(key in Function.prototype)) return fn[key]
         else if (key === 'txt') return node[textContent]
         else if (key === 'html') return node[innerHTML]
         else if (key === 'mounted') return isMounted(node)
@@ -79,8 +79,9 @@ export const $ = node => {
             return result === node || result === proxy ? proxy : result
           }
         }
+
         const val = node[key]
-        return isFunc(val) && !isProxyNode(val) ? val.bind(node) : val
+        return isFunc(val) && (key in Element.prototype) ? val.bind(node) : val
       },
       set (fn, key, val) {
         if (key === 'class') Class(node, val)
