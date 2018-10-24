@@ -95,15 +95,16 @@ and also ``on(node, { click: e => {} }, =options)``.
 ### Click Counting Button
 
 ```js
-const {component, componentReady, dom: {h1}, $} = rilti
+const { component, componentReady, dom: { h1 }} = rilti
 
 component('counter-button', {
   bind: {
     count: {
-      // set host.innerText to val on create and changes
-      key: 'innerText',
+      key: 'clicks:innerText',
       val: 0,
-      view: count => `clicks: ${count}`
+      views: {
+        clicks: count => `clicks: ${count}`
+      }
     }
   },
   on: {
@@ -113,7 +114,7 @@ component('counter-button', {
 
 componentReady('body > counter-button', el => {
   const tellEm = h1['tell-em'](`You just won't stop clicking huh?`)
-  el.$count.observe(count => {
+  el.$count.on.change(count => {
     if (count > 20 && count < 40 && !tellEm.mounted) tellEm.render('body')
     else if (count > 40 && count < 100) tellEm.txt += ' Seriously? '
     else if (count > 100) tellEm.txt = 'What? You want a prize or something?'
@@ -126,17 +127,21 @@ componentReady('body > counter-button', el => {
 ```js
 const {databind, dom: {button, div, h1}} = rilti
 
-div({
+div.multicounter({
   render: 'body', // <- apend to <body> on load
   bind: {
     count: {
       val: 0,
-      view: count => `current count is at: ${count}`
+      views: {
+        display: count => `current count is at: ${count}`
+      }
     }
   }
 },
   host => [ // <com-po-nents> bind natively, other elements bind to el.bind['$bind/bindValue']
-    h1(host.bind.$count.text),
+    h1(
+      host.bind.$count.text('display')
+    ),
     button({onclick: e => ++host.bind.count}, '+'),
     button({onclick: e => --host.bind.count}, '-')
   ]
@@ -150,23 +155,23 @@ rilti.dom.div.pointer_tracker({
   css: {width: '300px', height: '300px'},
   bind: {
     pointer: {
-      key: 'innerText',
-      val: {
-        x: 0,
-        y: 0,
+      key: 'location:innerText',
+      val: {x: 0, y: 0},
+      views: {
+        location: ({x, y}) => `Pointer is at (${x}x, ${y}y)`
       },
-      view: ({x, y}) => `
-      The pointer is at (${x.toFixed(2)}x, ${y.toFixed(2)}y)
-      `
+      change: ({x, y}) => ({x: x.toFixed(2), y: y.toFixed(2)})
     }
   },
-  onpointermove: ({x, y}, el) => el.bind.$pointer({x, y})
+  onpointermove ({x, y}, el) {
+    el.bind.pointer = {x, y}
+  }
 })
 ```
 the above produces this:
 ```html
 <div class="pointer-tracker" style="width: 300px; height: 300px;">
-  The pointer is at (0x, 0y)
+  Pointer is at (0x, 0y)
 </div>
 ```
 
