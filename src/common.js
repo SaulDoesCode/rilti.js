@@ -248,3 +248,37 @@ export const merge = (host, target) => {
 
 merge.able = o => isArr(o) ||
   (o != null && typeof o === 'object' && !isFunc(o.then))
+
+export const emitter = (host = Object.create(null), listeners = new Map()) => Object.assign(host, {
+  emit: infinify((event, ...data) => runAsync(() => {
+    if (listeners.has(event)) {
+      for (const h of listeners.get(event)) h.apply(null, data)
+    }
+  })),
+  on: infinify((event, handler) => {
+    if (!listeners.has(event)) listeners.set(event, new Set())
+    listeners.get(event).add(handler)
+    const manager = () => host.off(event, handler)
+    manager.off = manager
+    manager.on = () => {
+      manager()
+      return host.on(event, handler)
+    }
+    manager.once = () => {
+      manager()
+      return host.once(event, handler)
+    }
+    return manager
+  }),
+  once: infinify((event, handler) => host.on(event, function h () {
+    handler(...arguments)
+    host.off(event, h)
+  })),
+  off: infinify((event, handler) => {
+    if (listeners.has(event)) {
+      const ls = listeners.get(event)
+      ls.delete(handler)
+      if (!ls.size) listeners.delete(event)
+    }
+  })
+})
