@@ -999,7 +999,15 @@
       }
     })
 
-    if (core.ops.host) core.bind(core.ops.host, core.ops.key)
+    core.text = view => {
+      const text$$1 = new Text()
+      text$$1.boundby = core.bind(text$$1, 'textContent', view)
+      return text$$1
+    }
+
+    if (core.host && core.ops.key) {
+      core.bind(core.host, core.ops.key)
+    }
 
     return core
   }
