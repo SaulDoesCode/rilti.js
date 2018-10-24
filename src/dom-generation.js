@@ -6,12 +6,13 @@ import {
   isObj,
   isProxyNode,
   isPrimitive,
-  isRenderable
+  isRenderable,
+  isInput
 } from './common.js'
-import {updateComponent, components} from './components.js'
-import {CR} from './lifecycles.js'
-import {attach, databind, domfn} from './dom-functions.js'
-import {once, on, EventManager} from './event-manager.js'
+import { updateComponent, components } from './components.js'
+import { CR } from './lifecycles.js'
+import { attach, databind, domfn } from './dom-functions.js'
+import { once, on, EventManager } from './event-manager.js'
 import $ from './proxy-node.js'
 
 export const html = (input, host) => {
@@ -33,7 +34,7 @@ export const frag = inner => inner != null
   ? html(inner) : document.createDocumentFragment()
 
 export const assimilate = Object.assign(
-  (el, {props, methods}, noProps) => {
+  (el, { props, methods }, noProps) => {
     if (!noProps && props) assimilate.props(el, props)
     if (methods) assimilate.methods(el, methods)
   },
@@ -46,7 +47,7 @@ export const assimilate = Object.assign(
           el[prop] = val
         } else if (prop === 'accessors') {
           for (const key in val) {
-            const {set = val[key], get = val[key]} = val[key]
+            const { set = val[key], get = val[key] } = val[key]
             const accessors = {}
             if (set instanceof Function) {
               accessors.set = set.bind(el, proxied)
@@ -66,7 +67,7 @@ export const assimilate = Object.assign(
     methods (el, methods) {
       const proxied = $(el)
       for (const name in methods) {
-        Object.defineProperty(el, name, {value: methods[name].bind(el, proxied)})
+        Object.defineProperty(el, name, { value: methods[name].bind(el, proxied) })
       }
     }
   }
@@ -140,7 +141,7 @@ export const dom = new Proxy(Object.assign((tag, ops, ...children) => {
   if (!isObj(ops)) {
     if (!pure) proxied = $(el)
   } else {
-    var {cycle, bind} = ops
+    var { cycle, bind } = ops
     if (!pure || !(pure = ops.pure)) proxied = $(el)
 
     assimilate(el, ops, iscomponent)
@@ -172,11 +173,19 @@ export const dom = new Proxy(Object.assign((tag, ops, ...children) => {
     }
 
     if (bind) {
+      const isinput = isInput(el)
       for (const key in bind) {
         if (key in el) throw new Error('databind overwrites property')
-        const b = databind(bind[key], el)
-        Object.defineProperty(bind, key, {get () { return b.ops.val }, set: b})
-        Object.defineProperty(bind, '$' + key, {value: b})
+        bind[key].host = proxied || el
+        bind[key].isinput = isinput
+        const b = databind(bind[key])
+        Object.defineProperty(bind, key, {
+          get () { return b.val },
+          set: b.change
+        })
+        Object.defineProperty(bind, '$' + key, {
+          value: b
+        })
       }
       el.bind = bind
     }
@@ -187,7 +196,7 @@ export const dom = new Proxy(Object.assign((tag, ops, ...children) => {
     }
 
     if (cycle) {
-      const {mount, create, remount, unmount} = cycle
+      const { mount, create, remount, unmount } = cycle
       if (create) once.create(el, create.bind(el, proxied || el))
       if (mount) once.mount(el, mount.bind(el, proxied || el))
       if (unmount) cycle.unmount = on.unmount(el, unmount.bind(el, proxied || el))
@@ -218,4 +227,4 @@ export const dom = new Proxy(Object.assign((tag, ops, ...children) => {
     : CR(el, true, iscomponent)
 
   return proxied || el
-}, {text, body, svg, frag, html}), {get: infinifyDOM})
+}, { text, body, svg, frag, html }), { get: infinifyDOM })

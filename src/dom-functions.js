@@ -1,6 +1,7 @@
 /* global Text Node NodeList CustomEvent */
 import {
   curry,
+  emitter,
   run,
   query,
   queryAll,
@@ -11,19 +12,18 @@ import {
   isNodeList,
   isNum,
   isFunc,
+  isStr,
   isProxyNode,
-  isEl,
-  infinify,
-  isStr
+  infinify
 } from './common.js'
-import {once} from './event-manager.js'
-import {frag} from './dom-generation.js'
-import {MNT} from './lifecycles.js'
-import {attributeChange} from './directives.js'
+import { once } from './event-manager.js'
+import { frag } from './dom-generation.js'
+import { MNT } from './lifecycles.js'
+import { attributeChange } from './directives.js'
 import $ from './proxy-node.js'
 
 export const emit = (node, type, detail) => {
-  node.dispatchEvent(typeof type !== 'string' ? type : new CustomEvent(type, {detail}))
+  node.dispatchEvent(typeof type !== 'string' ? type : new CustomEvent(type, { detail }))
   return node
 }
 
@@ -297,7 +297,7 @@ export const domfn = {
   },
 
   refurbish (node) {
-    for (const {name} of node.attributes) {
+    for (const { name } of node.attributes) {
       node.removeAttribute(name)
     }
     node.removeAttribute('class')
@@ -337,87 +337,79 @@ export const domfn = {
 }
 domfn.empty = domfn.clear
 
-export const databind = (ops, host) => {
-  if (!ops) ops = {}
-  const change = (newval, force, silent) => {
-    if (newval == null) return ops.val
-    if (isFunc(newval)) newval = newval(ops.val, ops)
-    if (force || (newval !== ops.val)) {
-      ops.old = ops.val
-      ops.val = newval
-      if (ops.change) {
-        const res = ops.change(ops.val, ops)
-        if (res != null && ops.val !== res) ops.val = res
-      }
-      if (!silent) {
-        change.observers.forEach(o => {
-          o(o.key != null ? view[o.key](ops.val, ops) : ops.val, ops)
-        })
-      }
-      if (ops.key && ops.host) {
-        ops.host[ops.key] = ops.view ? ops.view(ops.val, ops) : ops.val
+export const databind = ops => {
+  const core = emitter()
+  core.ops = ops
+  core.host = ops.host
+  core.val = ops.val != null ? ops.val : ''
+  delete ops.val
+  core.change = val => {
+    if (val === core.val) return
+    if (core.ops.change) {
+      const out = core.ops.change(val, core)
+      if (out != null && out !== val) val = out
+    }
+    core.emit.change(core.val = val)
+    if (core.ops.views) {
+      for (const name in core.ops.views) {
+        const out = core.ops.views[name](val, core)
+        if (out != null) core.emit[name](out, core)
       }
     }
-    return change
-  }
-  change.change = change
-  change.ops = ops
-  change.observers = new Set()
-  change.observe = infinify((key, fn) => {
-    if (isFunc(key)) [fn, key] = [key, null]
-    if (key) fn.key = key
-    const off = () => {
-      change.observers.delete(fn)
-      return off
-    }
-    return ((off.off = off).on = () => {
-      change.observers.add(fn)
-      return off
-    })()
-  })
-  const view = change.view = infinify((key, fn) => {
-    if (key in view) return fn ? fn(view[key](ops.val, ops), ops) : view[key](ops.val, ops)
-    if (key === 'view') return fn ? fn(ops.view(ops.val, ops), ops) : ops.view(ops.val, ops)
-    if (key === '') return fn ? fn(ops.val, ops) : ops.val
-    view[key] = fn
-  })
-  if (ops.views) for (const key in ops.views) view(key, ops.views[key])
-  ops.$change = change
-  change.stop = ops.$stop = () => {
-    if (ops.isinput) ops.inputUpdaters.off()
-    if (ops.stop) ops.stop(ops.host, ops)
-    change.observers.clear()
-  }
-  change.text = (host, fn) => {
-    const text = new Text()
-    if (isStr(host)) {
-      text.off = change.observe(host, val => { text.textContent = val })
-    } else {
-      text.off = change.observe(val => {
-        text.textContent = ops.view ? ops.view(ops.val, ops) : ops.val
-      })
-    }
-    if (isFunc(fn)) fn(text, ops)
-    return text
   }
 
-  if (host) {
-    ops.host = host
-    if (isEl(host) || isProxyNode(host)) {
-      if (isInput(host)) {
-        ops.isinput = true
-        ops.host = $(host)
-        const inputUpdate = e => change(host.value)
-        ops.inputUpdaters = ops.host.on({
-          input: inputUpdate,
-          keyup: inputUpdate,
-          blur: inputUpdate,
-          focus: inputUpdate
-        })
-      }
+  core.view = infinify((key, fn) => {
+    if (key in core.ops.views) {
+      return fn ? fn(core.ops.views[key](core.val, core), core) : core.ops.views[key](core.val, core)
     }
-    if (ops.init) ops.init(host, ops)
-    if ('val' in ops) change(ops.val, true)
+    if (!isFunc(fn)) throw new TypeError('databind view needs function')
+    core.ops.views[key] = fn
+  })
+
+  core.stop = () => {
+    for (const bind of core.binds) {
+      bind.off()
+      if (bind.inputUpdaters) bind.inputUpdaters.off()
+    }
+    core.bind = core.change = null
   }
-  return change
+
+  core.binds = new Set()
+  core.bind = new Proxy((host, key, view) => {
+    if (isStr(key) && key.includes(':')) [view, key] = key.split(':')
+    if (isInput(host)) {
+      [view, key] = [key, 'value']
+      const inputUpdate = e => {
+        core.change(host[key])
+      }
+      var inputUpdaters = ops.host.on({
+        input: inputUpdate,
+        keyup: inputUpdate,
+        blur: inputUpdate,
+        focus: inputUpdate
+      })
+    }
+    const handle = core.on[isStr(view) ? view : 'change'](val => {
+      if (host[key] !== val) host[key] = val
+    })
+    if (inputUpdaters) handle.inputUpdaters = inputUpdaters
+    host[key] = isStr(view) ? core.view(view) : core.val
+    core.binds.add(handle)
+    return handle
+  }, {
+    get (_, key) {
+      if (key in core) return Reflect.get(core, key)
+      if (key in core.ops.views) return core.ops.views[key](core.val, core)
+    },
+    set (_, key, val) {
+      if (key === 'change') core.ops.change = val
+      else if (key === 'val') core.val = val
+      else Reflect.set(core, key, val)
+      return true
+    }
+  })
+
+  if (core.ops.host) core.bind(core.ops.host, core.ops.key)
+
+  return core
 }

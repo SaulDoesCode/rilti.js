@@ -1,9 +1,9 @@
-import {run, queryEach, isObj, isStr, isFunc, isMounted} from './common.js'
-import {Mounted, Unmounted, Created, dispatch} from './lifecycles.js'
-import {dom, assimilate} from './dom-generation.js'
-import {databind} from './dom-functions.js'
-import {$} from './proxy-node.js'
-import {attributeObserver} from './directives.js'
+import { run, queryEach, isObj, isStr, isFunc, isMounted, isInput } from './common.js'
+import { Mounted, Unmounted, Created, dispatch } from './lifecycles.js'
+import { dom, assimilate } from './dom-generation.js'
+import { databind } from './dom-functions.js'
+import { $ } from './proxy-node.js'
+import { attributeObserver } from './directives.js'
 
 export const ObservedAttrsSymbol = Symbol('observed-attrs')
 export const components = new Map()
@@ -47,10 +47,13 @@ export const updateComponent = function (el, config, stage, afterProps) {
 
   if (!Created(el)) {
     if (bind) {
+      const isinput = isInput(el)
       for (const key in bind) {
-        const b = databind(bind[key], proxied)
-        Object.defineProperty(el, key, {get () { return b.ops.val }, set: b})
-        Object.defineProperty(el, '$' + key, {value: b})
+        bind[key].host = proxied
+        bind[key].isinput = isinput
+        const b = databind(bind[key])
+        Object.defineProperty(el, key, { get () { return b.val }, set: b.change })
+        Object.defineProperty(el, '$' + key, { value: b })
       }
     }
 
