@@ -585,11 +585,9 @@
   ) => {
     for (let i = 0; i < children.length; i++) {
       let child = children[i]
-      if (child == null) continue
       if (child instanceof Function) {
-        if ((child = child(host)) === host) {
-          continue
-        } else if (child instanceof Function) {
+        if ((child = child(host)) === host) continue
+        else if (child instanceof Function) {
           let lvl = 0
           let ishost = false
           let lastchild
@@ -603,6 +601,7 @@
         }
       }
 
+      if (child == null) continue
       const ctr = child.constructor
       if (ctr === String || ctr === Number) {
         if (!child.length) continue
