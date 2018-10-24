@@ -409,7 +409,15 @@ export const databind = ops => {
     }
   })
 
-  if (core.ops.host) core.bind(core.ops.host, core.ops.key)
+  core.text = view => {
+    const text = new Text()
+    text.boundby = core.bind(text, 'textContent', view)
+    return text
+  }
+
+  if (core.host && core.ops.key) {
+    core.bind(core.host, core.ops.key)
+  }
 
   return core
 }
