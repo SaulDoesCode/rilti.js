@@ -1012,7 +1012,7 @@
     return core
   }
 
-  /* global Node Element */
+  /* global Node HTMLElement */
 
   const ProxiedNodes = new Map()
 
@@ -1092,7 +1092,7 @@
           }
 
           const val = node[key]
-          return isFunc(val) && (key in Element.prototype) ? val.bind(node) : val
+          return isFunc(val) && (key in HTMLElement.prototype) ? val.bind(node) : val
         },
         set (fn, key, val) {
           if (key === 'class') Class(node, val)
