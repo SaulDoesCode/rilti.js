@@ -1,6 +1,6 @@
 {
   "name": "rilti",
-  "version": "0.9.2",
+  "version": "0.9.3",
   "description": "small opinionated furture forward frontend framework",
   "main": "./dist/rilti.min.js",
   "repository": {
