@@ -1,7 +1,7 @@
-/* global Node Element */
-import {query, infinify, isEl, isFunc, isInput, isMounted, isProxyNode, isStr, ProxyNodeSymbol} from './common.js'
-import {domfn, emit, render, vpend, prime} from './dom-functions.js'
-import {EventManager} from './event-manager.js'
+/* global Node HTMLElement */
+import { query, infinify, isEl, isFunc, isInput, isMounted, isProxyNode, isStr, ProxyNodeSymbol } from './common.js'
+import { domfn, emit, render, vpend, prime } from './dom-functions.js'
+import { EventManager } from './event-manager.js'
 
 const ProxiedNodes = new Map()
 
@@ -81,7 +81,7 @@ export const $ = node => {
         }
 
         const val = node[key]
-        return isFunc(val) && (key in Element.prototype) ? val.bind(node) : val
+        return isFunc(val) && (key in HTMLElement.prototype) ? val.bind(node) : val
       },
       set (fn, key, val) {
         if (key === 'class') Class(node, val)
