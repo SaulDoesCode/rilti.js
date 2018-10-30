@@ -1,6 +1,7 @@
 export default {
   input: 'src/core.js',
   output: {
+    strict: false,
     banner: `/*
 * rilti a framework for all and none
 * @author Saul van der Walt
