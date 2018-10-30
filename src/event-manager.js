@@ -1,5 +1,5 @@
 /* global Node NodeList */
-import {clone, assign, isObj, isArr, isStr, curry, queryAll} from './common.js'
+import { clone, assign, isObj, isArr, isStr, curry, queryAll } from './common.js'
 import $ from './proxy-node.js'
 
 const listen = function (once, target, type, fn, options = false) {
@@ -83,7 +83,7 @@ const listen = function (once, target, type, fn, options = false) {
     target.removeEventListener(type, wrapper)
     off.ison = false
     return off
-  }, {target, on, once})
+  }, { target, on, once })
   off.off = off
 
   return on()

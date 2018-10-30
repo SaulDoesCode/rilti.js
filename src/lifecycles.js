@@ -1,7 +1,7 @@
 /* global CustomEvent MutationObserver Element */
-import {mutateSet, isComponent} from './common.js'
-import {updateComponent} from './components.js'
-import {attributeChange, directives} from './directives.js'
+import { mutateSet, isComponent } from './common.js'
+import { updateComponent } from './components.js'
+import { attributeChange, directives } from './directives.js'
 
 export const Created = mutateSet(new WeakSet())
 export const Mounted = mutateSet(new WeakSet())
@@ -58,7 +58,7 @@ export const UnmountNodes = n => updateComponent(n, 'unmount') || UNMNT(n)
 
 new MutationObserver(muts => {
   for (const mut of muts) {
-    const {addedNodes, removedNodes, attributeName} = mut
+    const { addedNodes, removedNodes, attributeName } = mut
     if (addedNodes.length) {
       for (const node of addedNodes) MountNodes(node)
     }

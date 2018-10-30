@@ -1,5 +1,5 @@
 /* global CustomEvent */
-import {assign, mutateSet, run, queryEach} from './common.js'
+import { assign, mutateSet, run, queryEach } from './common.js'
 import $ from './proxy-node.js'
 
 /* const watched = Object.create(null)
@@ -11,12 +11,11 @@ watch.update = (name, el, value = el.getAttribute(name)) => {}
 */
 
 const Initiated = new Map()
-const beenInitiated = (name, el) =>
-  Initiated.has(name) && Initiated.get(name)(el)
+const beenInitiated = (name, el) => Initiated.has(name) && Initiated.get(name)(el)
 
 export const attributeObserver = (el, name, opts) => {
   el = $(el)
-  let {init, update, remove} = opts
+  let { init, update, remove } = opts
   if (!init && !update && opts instanceof Function) {
     [init, update] = [opts, opts]
   }
@@ -34,7 +33,7 @@ export const attributeObserver = (el, name, opts) => {
   let removedBefore = false
   let old = el.attr[name]
   intialize(el.attr.has(name), old)
-  const stop = el.on.attr(({name: attrName, value, oldvalue, present}) => {
+  const stop = el.on.attr(({ name: attrName, value, oldvalue, present }) => {
     if (
       attrName === name &&
       old !== value &&

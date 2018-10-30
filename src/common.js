@@ -135,7 +135,7 @@ export const run = function () {
   } else {
     window.addEventListener('DOMContentLoaded',
       e => runAsync.apply(undefined, arguments),
-      {once: true}
+      { once: true }
     )
   }
 }
@@ -176,7 +176,7 @@ export const queryEach = (selector, fn, host = document) => {
 * and anything implementing .forEach
 */
 export const each = (iterable, fn) => {
-  if (isDef(iterable)) {
+  if (iterable != null) {
     if (isObj(iterable)) {
       for (const key in iterable) {
         fn(iterable[key], key, iterable)
