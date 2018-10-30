@@ -1,1 +1,6 @@
-{"presets": ["minify"]}
+{
+  "presets": [
+    ["minify"],
+    ["@babel/env", {"modules": false}]
+  ]
+}
