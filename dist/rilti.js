@@ -1407,11 +1407,17 @@
     return el
   }
 
-  const componentReady = (el, fn) => run(() => {
+  const componentReady = (el, fn) => new Promise(resolve => run(() => {
     el = $(el)
-    if (el.componentReady) return fn(el)
-    el.once.componentReady(e => fn(el))
-  })
+    if (el.componentReady) {
+      resolve(el)
+      if (fn) return fn(el)
+    }
+    el.once.componentReady(e => {
+      resolve(el)
+      if (fn) fn(el)
+    })
+  }))
 
   exports.isArr = isArr
   exports.isComponent = isComponent
