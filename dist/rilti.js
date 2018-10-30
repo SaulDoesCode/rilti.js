@@ -10,8 +10,6 @@
     : typeof define === 'function' && define.amd ? define(['exports'], factory)
       : (factory((global.rilti = {})))
 }(this, function (exports) {
-  'use strict'
-
   /* global Node NodeList Element SVGElement HTMLInputElement HTMLTextAreaElement */
   const ProxyNodeSymbol = Symbol('Proxy Node')
 
@@ -190,7 +188,7 @@
   * and anything implementing .forEach
   */
   const each = (iterable, fn) => {
-    if (isDef(iterable)) {
+    if (iterable != null) {
       if (isObj(iterable)) {
         for (const key in iterable) {
           fn(iterable[key], key, iterable)
@@ -1129,8 +1127,7 @@
   */
 
   const Initiated = new Map()
-  const beenInitiated = (name, el) =>
-    Initiated.has(name) && Initiated.get(name)(el)
+  const beenInitiated = (name, el) => Initiated.has(name) && Initiated.get(name)(el)
 
   const attributeObserver = (el, name, opts) => {
     el = $(el)
