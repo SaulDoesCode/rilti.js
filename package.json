@@ -1,6 +1,6 @@
 {
   "name": "rilti",
-  "version": "0.9.4",
+  "version": "0.9.5",
   "description": "small opinionated furture forward frontend framework",
   "main": "./dist/rilti.min.js",
   "repository": {
@@ -13,6 +13,9 @@
     "view",
     "library",
     "front-end",
+    "frontend",
+    "toolkit",
+    "components",
     "framework",
     "proxy",
     "dom"
@@ -24,7 +27,7 @@
   },
   "scripts": {
     "test": "./node_modules/.bin/karma start karma.conf.js",
-    "build": "./node_modules/.bin/rollup -c && ./node_modules/.bin/standard --fix ./dist/rilti.js && ./node_modules/.bin/minify ./dist/rilti.js --outFile ./dist/rilti.min.js"
+    "build": "./node_modules/.bin/rollup -c && ./node_modules/.bin/standard --fix ./dist/rilti.js && ./node_modules/.bin/terser --verbose -c -m -o ./dist/rilti.min.js -- ./dist/rilti.js"
   },
   "standard": {
     "ignore": [
@@ -38,7 +41,6 @@
   "homepage": "https://github.com/sauldoescode/rilti.js#readme",
   "devDependencies": {
     "@babel/cli": "^7.1.2",
-    "babel-minify": "^0.5.0-alpha.9",
     "chokidar": "^2.0.4",
     "compression": "^1.7.2",
     "express": "^4.16.3",
@@ -49,6 +51,7 @@
     "karma-firefox-launcher": "^1.1.0",
     "karma-jasmine": "^1.1.2",
     "rollup": "^0.66.6",
-    "standard": "^12.0.1"
+    "standard": "^12.0.1",
+    "terser": "^3.10.7"
   }
 }
