@@ -122,8 +122,14 @@ export const updateComponent = function (el, config, stage, afterProps) {
   return el
 }
 
-export const componentReady = (el, fn) => run(() => {
+export const componentReady = (el, fn) => new Promise(resolve => run(() => {
   el = $(el)
-  if (el.componentReady) return fn(el)
-  el.once.componentReady(e => fn(el))
-})
+  if (el.componentReady) {
+    resolve(el)
+    if (fn) return fn(el)
+  }
+  el.once.componentReady(e => {
+    resolve(el)
+    if (fn) fn(el)
+  })
+}))
