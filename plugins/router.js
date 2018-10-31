@@ -15,7 +15,7 @@
     }
   })
   const views = route.views = Object.create(null)
-  route.hash = () => location.hash.substr(1)
+  route.hash = (hash = location.hash) => hash.replace('#', '')
 
   directive('route-link', {
     init (el, val) {
@@ -69,6 +69,22 @@
     route.emit[hash](view, route)
   }
 
+  route.whenActive = (hash, fn, once) => rilti.run(() => {
+    if (hash[0] !== '#') hash = '#' + hash
+    let view = route.views[hash]
+    if (location.hash === hash && view != null) {
+      fn(view, route, hash)
+      if (once) return
+    }
+    hash = route.hash(hash)
+    route[once ? 'once' : 'on'][hash](view => {
+      fn(view, route, hash)
+    })
+  })
+
   window.onhashchange = route.handle
-  run(() => route.handle())
+  run(() => {
+    route.handle()
+    window.dispatchEvent(new window.CustomEvent('routerReady'))
+  })
 }
