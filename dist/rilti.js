@@ -394,7 +394,7 @@
 
   /* global Node Text */
 
-  const html = function (input, host) {
+  const html = (input, host) => {
     if (input instanceof Function) input = input(host)
     if (isNum(input)) input = String(input)
     if (typeof input === 'string') {
@@ -425,6 +425,7 @@
         a[ref] = el
         return a
       }, assign$$1)
+      return content
     }
 
     return content
