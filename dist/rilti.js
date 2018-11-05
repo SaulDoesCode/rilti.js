@@ -394,7 +394,7 @@
 
   /* global Node Text */
 
-  const html = (input, host) => {
+  const html = function (input, host) {
     if (input instanceof Function) input = input(host)
     if (isNum(input)) input = String(input)
     if (typeof input === 'string') {
@@ -404,9 +404,30 @@
     } else if (input instanceof Node) {
       return input
     } else if (isArr(input)) {
-      return input.map(i => html(i))
+      return input.map(i => html(i, host))
     }
     throw new Error('.html: unrenderable input')
+  }
+
+  const h = (strs, ...args) => {
+    let result = ''
+    for (let i = 0; i < args.length; i++) result += strs[i] + args[i]
+    result += strs[strs.length - 1]
+
+    const template = document.createElement('template')
+    template.innerHTML = result
+    const { content } = template
+
+    content.collect = ({ attr = 'ref', keep, assign: assign$$1 = {} } = {}) => {
+      Array.from(content.querySelectorAll('[' + attr + ']')).reduce((a, el) => {
+        const ref = el.getAttribute(attr).trim()
+        if (!keep) el.removeAttribute(attr)
+        a[ref] = el
+        return a
+      }, assign$$1)
+    }
+
+    return content
   }
 
   const frag = inner => inner != null
@@ -746,7 +767,7 @@
         vpend(renderables, host, connector)
       }
     } else if (typeof host === 'string') {
-      return queryAsync(host).then(h => attach(h, connector, ...renderables))
+      return queryAsync(host).then(h$$1 => attach(h$$1, connector, ...renderables))
     } if (isArr(host)) {
       host.push(...renderables)
     }
@@ -1462,6 +1483,7 @@
   exports.dom = dom
   exports.domfn = domfn
   exports.html = html
+  exports.h = h
   exports.directive = directive
   exports.directives = directives
   exports.prime = prime
