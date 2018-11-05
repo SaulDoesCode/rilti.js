@@ -418,11 +418,11 @@
     template.innerHTML = result
     const { content } = template
 
-    content.collect = ({ attr = 'ref', keep, assign: assign$$1 = {} } = {}) => {
+    content.collect = ({ attr = 'ref', keep, assign: assign$$1 = {}, proxy = true } = {}) => {
       Array.from(content.querySelectorAll('[' + attr + ']')).reduce((a, el) => {
         const ref = el.getAttribute(attr).trim()
         if (!keep) el.removeAttribute(attr)
-        a[ref] = el
+        a[ref] = proxy ? el : $(el)
         return a
       }, assign$$1)
       return assign$$1
