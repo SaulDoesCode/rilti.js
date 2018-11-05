@@ -26,7 +26,7 @@ component('card-component', {
 })
 
 {
-  const { component, componentReady, dom: { h1 }, $ } = rilti
+  const { component, componentReady, dom: { h1 } } = rilti
 
   component('counter-button', {
     bind: {
