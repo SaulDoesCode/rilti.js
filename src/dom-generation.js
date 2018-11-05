@@ -46,7 +46,7 @@ export const h = (strs, ...args) => {
       a[ref] = el
       return a
     }, assign)
-    return content
+    return assign
   }
 
   return content
