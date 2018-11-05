@@ -422,7 +422,7 @@
       Array.from(content.querySelectorAll('[' + attr + ']')).reduce((a, el) => {
         const ref = el.getAttribute(attr).trim()
         if (!keep) el.removeAttribute(attr)
-        a[ref] = proxy ? el : $(el)
+        a[ref] = proxy ? $(el) : el
         return a
       }, assign$$1)
       return assign$$1
