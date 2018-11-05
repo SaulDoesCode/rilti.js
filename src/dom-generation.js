@@ -25,9 +25,31 @@ export const html = (input, host) => {
   } else if (input instanceof Node) {
     return input
   } else if (isArr(input)) {
-    return input.map(i => html(i))
+    return input.map(i => html(i, host))
   }
   throw new Error('.html: unrenderable input')
+}
+
+export const h = (strs, ...args) => {
+  let result = ''
+  for (let i = 0; i < args.length; i++) result += strs[i] + args[i]
+  result += strs[strs.length - 1]
+
+  const template = document.createElement('template')
+  template.innerHTML = result
+  const { content } = template
+
+  content.collect = ({ attr = 'ref', keep, assign = {} } = {}) => {
+    Array.from(content.querySelectorAll('[' + attr + ']')).reduce((a, el) => {
+      const ref = el.getAttribute(attr).trim()
+      if (!keep) el.removeAttribute(attr)
+      a[ref] = el
+      return a
+    }, assign)
+    return content
+  }
+
+  return content
 }
 
 export const frag = inner => inner != null

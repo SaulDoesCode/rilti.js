@@ -39,7 +39,7 @@ import {
 import { component, components, componentReady } from './components.js'
 import { attributeObserver, directive, directives } from './directives.js'
 import { domfn, render, prime, databind } from './dom-functions.js'
-import { dom, svg, html } from './dom-generation.js'
+import { dom, svg, html, h } from './dom-generation.js'
 import { Mounted, Unmounted, Created } from './lifecycles.js'
 import { on, once } from './event-manager.js'
 import $ from './proxy-node.js'
@@ -92,6 +92,7 @@ export {
   dom,
   domfn,
   html,
+  h,
   directive,
   directives,
   prime,
