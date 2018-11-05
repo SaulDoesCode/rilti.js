@@ -39,11 +39,11 @@ export const h = (strs, ...args) => {
   template.innerHTML = result
   const { content } = template
 
-  content.collect = ({ attr = 'ref', keep, assign = {} } = {}) => {
+  content.collect = ({ attr = 'ref', keep, assign = {}, proxy = true } = {}) => {
     Array.from(content.querySelectorAll('[' + attr + ']')).reduce((a, el) => {
       const ref = el.getAttribute(attr).trim()
       if (!keep) el.removeAttribute(attr)
-      a[ref] = el
+      a[ref] = proxy ? el : $(el)
       return a
     }, assign)
     return assign
