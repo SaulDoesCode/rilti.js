@@ -425,7 +425,7 @@
         a[ref] = el
         return a
       }, assign$$1)
-      return content
+      return assign$$1
     }
 
     return content
