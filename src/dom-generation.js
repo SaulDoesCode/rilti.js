@@ -43,7 +43,7 @@ export const h = (strs, ...args) => {
     Array.from(content.querySelectorAll('[' + attr + ']')).reduce((a, el) => {
       const ref = el.getAttribute(attr).trim()
       if (!keep) el.removeAttribute(attr)
-      a[ref] = proxy ? el : $(el)
+      a[ref] = proxy ? $(el) : el
       return a
     }, assign)
     return assign
