@@ -40,7 +40,8 @@
   },
   "homepage": "https://github.com/sauldoescode/rilti.js#readme",
   "devDependencies": {
-    "@babel/cli": "^7.1.2",
+    "@babel/cli": "^7.1.5",
+    "@babel/core": "^7.1.6",
     "chokidar": "^2.0.4",
     "compression": "^1.7.2",
     "express": "^4.16.3",
@@ -50,8 +51,8 @@
     "karma-chrome-launcher": "^2.2.0",
     "karma-firefox-launcher": "^1.1.0",
     "karma-jasmine": "^1.1.2",
-    "rollup": "^0.66.6",
+    "rollup": "^0.67.1",
     "standard": "^12.0.1",
-    "terser": "^3.10.7"
+    "terser": "^3.10.11"
   }
 }
