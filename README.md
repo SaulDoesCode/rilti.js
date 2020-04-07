@@ -466,8 +466,8 @@ rilti.component('tick-box', {
 ```
 
 #### weight
-* unminified:  > 42kb
-* minified: > 18kb
-* minified && compressed: > 7kb
+* unminified:  45.9kb
+* minified: 18.9kb
+* minified && compressed: 7.21kb
 
 #### license = MIT
