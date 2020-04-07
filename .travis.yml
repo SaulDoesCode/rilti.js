@@ -2,7 +2,6 @@ language: node_js
 node_js:
   - "stable"
 cache:
-  yarn: true
   directories:
     - "node_modules"
 addons:
@@ -10,6 +9,6 @@ addons:
 before_install:
   - export MOZ_HEADLESS=1
 before_script:
-  - yarn install
+  - npm install
 script:
-  - yarn test
+  - npm test
