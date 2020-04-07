@@ -1,4 +1,4 @@
-const express = require('express')
+const fastify = require('fastify')
 const compression = require('compression')
 const fs = require('fs')
 const chokidar = require('chokidar')
@@ -15,23 +15,26 @@ const exec = cmd => new Promise((resolve, reject) => childProc.exec(cmd,
 
 const buildLibrary = () => exec('yarn build')
 
-const app = express()
+const app = fastify({
+  ignoreTrailingSlash: true
+})
 app.use(compression())
 
 app.get('/', (req, res) => {
   res.redirect('/examples/basics/index.html')
 })
 
-app.use(express.static('./', {
+app.register(require('fastify-static'), {
   dotfiles: 'ignore',
+  root: __dirname,
   redirect: true,
   setHeaders (res, path, stat) {
-    res.set('Access-Control-Allow-Origin', '*')
-    res.set('Access-Control-Allow-Methods', 'GET, POST')
-    res.set('Access-Control-Allow-Headers', 'X-Requested-With,content-type')
-    res.set('Access-Control-Allow-Credentials', true)
+    res.setHeader('Access-Control-Allow-Origin', '*')
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST')
+    res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type')
+    res.setHeader('Access-Control-Allow-Credentials', true)
   }
-}))
+})
 
 app.listen(PORT, () => console.log(`Server Started on at localhost:${PORT}/`))
 
