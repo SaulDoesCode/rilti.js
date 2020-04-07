@@ -19,7 +19,7 @@ const app = express()
 app.use(compression())
 
 app.get('/', (req, res) => {
-  res.redirect('/test/test.html')
+  res.redirect('/examples/basics/index.html')
 })
 
 app.use(express.static('./', {

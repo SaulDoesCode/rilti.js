@@ -1,5 +1,9 @@
 const isTravis = process.env.CI === 'true'
 
+if (!isTravis) {
+  process.env.CHROME_BIN = require('puppeteer').executablePath()
+}
+
 module.exports = config => {
   config.set({
     frameworks: ['jasmine'],
