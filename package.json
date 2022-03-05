@@ -43,7 +43,7 @@
     "chokidar": "^3.3.1",
     "compression": "^1.7.4",
     "fastify": "^2.13.0",
-    "fastify-static": "^2.6.0",
+    "fastify-static": "^4.4.1",
     "jasmine": "^3.5.0",
     "jasmine-core": "^3.5.0",
     "karma": "^6.3.16",
