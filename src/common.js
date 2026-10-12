@@ -39,15 +39,20 @@ export const isPrimitive = o => {
 
 export const isEl = o => o instanceof Element
 
-export const isPromise = o => typeof o === 'object' && isFunc(o.then)
+export const isPromise = o => o != null && typeof o === 'object' && isFunc(o.then)
 
 export const isRegExp = o => o instanceof RegExp
 
 export const isEmpty = o => isNil(o) || !((isObj(o) ? Object.keys(o) : o).length || o.size)
 
-export const isMounted = (child, parent = document) => isNodeList(child)
-  ? Array.from(child).every(n => isMounted(n))
-  : parent === child || !!(parent.compareDocumentPosition(child) & 16)
+export const isMounted = (child, parent = document) => {
+  if (isProxyNode(child)) child = child()
+  if (isNodeList(child)) return Array.from(child).every(n => isMounted(n, parent))
+  if (!(child instanceof Node)) return false
+  return parent === child || (parent === document
+    ? child.isConnected
+    : parent.contains(child))
+}
 
 export const isSvg = o => {
   if (isProxyNode(o)) o = o()
@@ -95,7 +100,8 @@ export const compose = (...fns) => fns.reduce((a, b) => (...args) => a(b(...args
 * set the arity or pre bound arguments
 */
 export const curry = (fn, arity = fn.length, ...args) => arity <= args.length
-  ? fn(...args) : curry.bind(null, fn, arity, ...args)
+  ? fn(...args)
+  : curry.bind(null, fn, arity, ...args)
 
 export const assign = Object.assign
 
@@ -117,26 +123,27 @@ export const flatten = (arr, result = [], encaptulate = true) => {
 }
 
 /*
-* runAsync runs a function asynchronously
+* runAsync runs a function when the browser is idle
+* (falls back to a macrotask where requestIdleCallback is unsupported)
 */
-export let runAsync = (fn, ...args) => window.requestIdleCallback(fn.bind(undefined, ...args))
-
-if (!window.requestIdleCallback) {
-  runAsync = (fn, ...args) => setTimeout(fn, 0, ...args)
-}
+export const runAsync = (fn, ...args) => typeof requestIdleCallback === 'function'
+  ? requestIdleCallback(() => fn(...args))
+  : setTimeout(fn, 0, ...args)
 
 /*
-* run runs a function on DOMContentLoaded or asynchronously
-* if document.body is present and loaded
+* soon runs a function in a microtask, i.e. before the next paint
 */
-export const run = function () {
-  if (document.body || document.readyState === 'complete') {
-    runAsync.apply(undefined, arguments)
+export const soon = (fn, ...args) => queueMicrotask(() => fn(...args))
+
+/*
+* run runs a function on DOMContentLoaded,
+* or in a microtask if document.body is already present
+*/
+export const run = (fn, ...args) => {
+  if (document.body || document.readyState !== 'loading') {
+    soon(fn, ...args)
   } else {
-    window.addEventListener('DOMContentLoaded',
-      e => runAsync.apply(undefined, arguments),
-      { once: true }
-    )
+    window.addEventListener('DOMContentLoaded', () => fn(...args), { once: true })
   }
 }
 
@@ -145,7 +152,12 @@ export const run = function () {
 * DOM Query Selector Functions
 *
 */
-export const query = (selector, host = document) => isNode(selector) ? selector : query(host).querySelector(selector)
+export const query = (selector, host = document) => {
+  if (isProxyNode(selector)) return selector()
+  if (isNode(selector)) return selector
+  host = query(host)
+  return host == null ? null : host.querySelector(selector)
+}
 
 export const queryAsync = (selector, host) => new Promise((resolve, reject) => {
   const find = () => {
@@ -164,7 +176,10 @@ export const queryAsync = (selector, host) => new Promise((resolve, reject) => {
 *  it returns an array of elements matching a selector,
 *  a nicer querySelectorAll essentially.
 */
-export const queryAll = (selector, host = document) => Array.from(query(host).querySelectorAll(selector))
+export const queryAll = (selector, host = document) => {
+  host = query(host)
+  return host == null ? [] : Array.from(host.querySelectorAll(selector))
+}
 
 export const queryEach = (selector, fn, host = document) => {
   if (!isFunc(fn)) [fn, host] = [host, document]
@@ -181,7 +196,7 @@ export const each = (iterable, fn) => {
       for (const key in iterable) {
         fn(iterable[key], key, iterable)
       }
-    } else if (iterable.length) {
+    } else if (isArrlike(iterable)) {
       const len = iterable.length
       let i = 0
       while (i !== len) fn(iterable[i], i++, iterable)
@@ -215,6 +230,8 @@ export const infinify = (fn, reflect) => new Proxy(fn, {
 export const mutateSet = set => (n, state) =>
   set[state == null ? 'has' : state ? 'add' : 'delete'](n)
 
+const unsafeKeys = new Set(['__proto__', 'constructor', 'prototype'])
+
 export const copyprop = (host, obj, key) => {
   Object.defineProperty(host, key, Object.getOwnPropertyDescriptor(obj, key))
   return host
@@ -229,8 +246,10 @@ export const merge = (host, target) => {
   if (isArr(host) && isArr(target)) {
     for (const val of target) if (!host.includes(val)) host.push(val)
   } else if (merge.able(host) && merge.able(target)) {
-    for (const key in target) {
-      if (key in host) {
+    for (const key of Object.keys(target)) {
+      // refuse keys that could pollute prototypes
+      if (unsafeKeys.has(key)) continue
+      if (Object.prototype.hasOwnProperty.call(host, key)) {
         const old = host[key]
         const val = target[key]
         if (merge.able(old) && merge.able(val)) {
@@ -250,9 +269,9 @@ merge.able = o => isArr(o) ||
   (o != null && typeof o === 'object' && !isFunc(o.then))
 
 export const emitter = (host = Object.create(null), listeners = new Map()) => Object.assign(host, {
-  emit: infinify((event, ...data) => runAsync(() => {
+  emit: infinify((event, ...data) => soon(() => {
     if (listeners.has(event)) {
-      for (const h of listeners.get(event)) h.apply(null, data)
+      for (const h of [...listeners.get(event)]) h(...data)
     }
   })),
   on: infinify((event, handler) => {
@@ -270,9 +289,9 @@ export const emitter = (host = Object.create(null), listeners = new Map()) => Ob
     }
     return manager
   }),
-  once: infinify((event, handler) => host.on(event, function h () {
-    handler(...arguments)
+  once: infinify((event, handler) => host.on(event, function h (...args) {
     host.off(event, h)
+    handler(...args)
   })),
   off: infinify((event, handler) => {
     if (listeners.has(event)) {

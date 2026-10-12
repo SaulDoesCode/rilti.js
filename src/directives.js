@@ -78,6 +78,11 @@ export const directive = (name, opts) => {
   return directive
 }
 
+// last value an 'attr' event was dispatched with, per element & attribute.
+// domfn.attr reports changes synchronously and the MutationObserver
+// reports them again later; this keeps that from firing twice.
+const lastSeen = new WeakMap()
+
 export const attributeChange = (
   el,
   name,
@@ -86,6 +91,10 @@ export const attributeChange = (
   present = el.hasAttribute(name)
 ) => {
   if (directives.has(name)) directives.get(name).init($(el))
+  let seen = lastSeen.get(el)
+  if (!seen) lastSeen.set(el, (seen = new Map()))
+  if (seen.has(name) && seen.get(name) === value) return
+  seen.set(name, value)
   if (value !== oldvalue) {
     el.dispatchEvent(assign(new CustomEvent('attr'), {
       name,

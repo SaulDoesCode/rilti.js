@@ -1,4 +1,6 @@
-/* global rilti describe it expect Text beforeEach Node */
+import { describe, it, expect } from 'vitest'
+import * as rilti from '../src/core.js'
+
 const {
   isArr,
   isNil,
@@ -47,6 +49,8 @@ const {
   prime
   */
 } = rilti
+
+const tick = (ms = 0) => new Promise(resolve => setTimeout(resolve, ms))
 
 describe('isX', () => {
   it('should test whether a value is a Function', () => {
@@ -115,7 +119,7 @@ describe('isX', () => {
       !isBool(0) &&
       !isBool('') &&
       !isBool(null) &&
-      !isBool(void 0)
+      !isBool(undefined)
     ).toBeTruthy()
   })
 
@@ -141,7 +145,7 @@ describe('isX', () => {
     const node = new Text()
     const el = document.createElement('p')
     expect(
-      isNode(node) && isNode(el) && !isNode({tagName: 'B', nodeType: 2}) && !isNode('<b>34</b>')
+      isNode(node) && isNode(el) && !isNode({ tagName: 'B', nodeType: 2 }) && !isNode('<b>34</b>')
     ).toBeTruthy()
   })
 
@@ -149,7 +153,7 @@ describe('isX', () => {
     const nl = document
       .createRange()
       .createContextualFragment(
-        `<div>1</div><div>2</div><div>3</div><div>4</div><div>5</div><div>6</div>`
+        '<div>1</div><div>2</div><div>3</div><div>4</div><div>5</div><div>6</div>'
       ).childNodes
     expect(
       isNodeList(nl, false) && isNodeList(Array.from(nl)) && !isNodeList(new Text()) && !isNodeList('<b>34</b>')
@@ -190,7 +194,7 @@ describe('isX', () => {
       isEmpty([]) && isEmpty({}) &&
       isEmpty('') && isEmpty(new Set()) &&
       isEmpty(new Map()) && !isEmpty([1, 2, 3]) &&
-      !isEmpty({a: 3, 3: 'a'}) && !isEmpty('123') &&
+      !isEmpty({ a: 3, 3: 'a' }) && !isEmpty('123') &&
       !isEmpty(new Set([1, 2, 3])) && !isEmpty(new Map([['a', 5], [5, 'a']]))
     ).toBeTruthy()
   })
@@ -202,7 +206,7 @@ describe('isX', () => {
     const nl = document
       .createRange()
       .createContextualFragment(
-        `<div>1</div><div>2</div><div>3</div><div>4</div><div>5</div><div>6</div>`
+        '<div>1</div><div>2</div><div>3</div><div>4</div><div>5</div><div>6</div>'
       ).childNodes
 
     expect(
@@ -254,24 +258,17 @@ describe('curry', () => {
 })
 
 describe('run/runAsync', () => {
-  it('should call a function asynchronously when document.body is loaded', () => {
-    const x1 = 2
+  it('should call a function asynchronously when document.body is loaded', async () => {
     let x = 0
-    run(() => {
-      x++
-      expect(x).toBe(x1)
-      expect(document.body).toBeDefined()
-    })
+    const done = new Promise(resolve => run(() => resolve(++x)))
     x++
+    expect(await done).toBe(2)
   })
-  it('should call a function asynchronously', () => {
-    const x1 = 2
+  it('should call a function asynchronously', async () => {
     let x = 0
-    runAsync(() => {
-      x++
-      expect(x).toBe(x1)
-    })
+    const done = new Promise(resolve => runAsync(() => resolve(++x)))
     x++
+    expect(await done).toBe(2)
   })
 })
 
@@ -288,7 +285,7 @@ describe('$', () => {
     it('should have rilti.domfn properties', () => {
       expect($(el).class.card).toBeTruthy()
 
-      $(el).attr({foo: 'bar'})
+      $(el).attr({ foo: 'bar' })
 
       expect(el.hasAttribute('foo')).toBeTruthy()
       expect(el.getAttribute('foo')).toBe('bar')
@@ -304,25 +301,7 @@ describe('dom', () => {
       expect(el() instanceof Node).toBeTruthy()
     })
     it('should have a Text Node with "Hello World" inside', async () => {
-      if (!await (new Promise(resolve => {
-        window.requestIdleCallback(() => {
-          let limit = 15
-          const checkAgain = (again = false) => {
-            again ? setTimeout(() => {
-              checkAgain(
-                el.childNodes[0] instanceof Text &&
-                el.childNodes[0].textContent !== txt
-              )
-              limit--
-            }, 50) : resolve(true)
-            if (limit === 0) resolve(false)
-          }
-          checkAgain(
-            el.childNodes[0] instanceof Text &&
-            el.childNodes[0].textContent !== txt
-          )
-        })
-      }))) throw new Error('render pipeline is broken fix it now!!!')
+      await tick()
       expect(el.childNodes[0].textContent).toEqual(txt)
     })
   })
@@ -343,18 +322,18 @@ describe('event listening and emtting', () => {
   const el = dom.div()
   const detailsToExpect = 'testing... testing... you seeing this?'
   it('should emit and receive an event with specific data', () => {
-    el.on.test123(({detail}) => {
-      expect(detail).toBe(detailsToExpect)
-    })
+    let received
+    el.on.test123(({ detail }) => { received = detail })
     expect(el.emit).toBeDefined()
     el.emit('test123', detailsToExpect)
+    expect(received).toBe(detailsToExpect)
   })
 })
 
 describe('dom querying', () => {
   const els = 'abcdefg'
     .split('')
-    .map((v, i) => dom.div({attr: {query: i}}, v)())
+    .map((v, i) => dom.div({ attr: { query: i } }, v)())
 
   document.body.append(...els)
 
@@ -393,22 +372,12 @@ describe('dom querying', () => {
 })
 
 describe('async element rendering', () => {
-  const el = dom.div({id: 'r1'}, `I should have been rendered to <body>`)
-  let $el
-  // this proves renderables hidden in nested functions will be degloved
-  render(() => () => el, 'body')
-  beforeEach(done => {
-    setTimeout(() => {
-      $el = query('#r1')
-      done()
-    }, 2222)
-  })
-  it('element should render to document.body', () => {
-    if (!$el) {
-      throw new Error('element did not render')
-    } else {
-      expect($el).toBe(el())
-    }
+  it('element should render to document.body', async () => {
+    const el = dom.div({ id: 'r1' }, 'I should have been rendered to <body>')
+    // this proves renderables hidden in nested functions will be degloved
+    render(() => () => el, 'body')
+    await tick()
+    expect(query('#r1')).toBe(el())
   })
 })
 
@@ -432,7 +401,7 @@ describe('each', () => {
   })
 
   it('should loop over an object', () => {
-    const obj = {a: 1, b: 2, c: 3}
+    const obj = { a: 1, b: 2, c: 3 }
     const result = [1, 2, 3]
     const arr = []
     each(obj, v => arr.push(v))
@@ -493,8 +462,8 @@ describe('merge', () => {
       }
     }
 
-    rilti.merge(a, b)
-    const {plates, utensils} = a.home.kitchen.cuboard
+    merge(a, b)
+    const { plates, utensils } = a.home.kitchen.cuboard
 
     expect(utensils.includes('spoon')).toBeTruthy()
     expect(utensils.includes('knife')).toBeTruthy()
@@ -517,9 +486,9 @@ describe('compose', () => {
   it('should compose functions', () => {
     const nums = [123, 332, 1453]
     const sum = nums[0] + nums[1] + nums[2]
-    const stateCombiner = ({i = 0, n = 0}) => ({i: i + 1, n: nums[i] + n})
+    const stateCombiner = ({ i = 0, n = 0 }) => ({ i: i + 1, n: nums[i] + n })
     expect(
-      compose(stateCombiner, stateCombiner, stateCombiner)({i: 0, n: 0}).n
+      compose(stateCombiner, stateCombiner, stateCombiner)({ i: 0, n: 0 }).n
     ).toBe(sum)
   })
 })
