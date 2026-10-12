@@ -1,9 +1,12 @@
-/* global Node HTMLElement */
-import { query, infinify, isEl, isFunc, isInput, isMounted, isProxyNode, isStr, ProxyNodeSymbol } from './common.js'
+/* global Node */
+import { query, infinify, isEl, isObj, isFunc, isInput, isMounted, isProxyNode, isStr, ProxyNodeSymbol } from './common.js'
 import { domfn, emit, render, vpend, prime } from './dom-functions.js'
 import { EventManager } from './event-manager.js'
 
-const ProxiedNodes = new Map()
+// weak so proxied nodes can still be garbage collected
+const ProxiedNodes = new WeakMap()
+
+const hasOwn = (o, key) => Object.prototype.hasOwnProperty.call(o, key)
 
 export const $ = node => {
   if (isProxyNode(node)) return node
@@ -11,34 +14,51 @@ export const $ = node => {
     node = query(node)
     if (!node) throw new Error('$: no match')
   }
+  if (node == null || typeof node !== 'object') {
+    throw new TypeError(`$ needs a Node: ${String(node)}`)
+  }
   if (ProxiedNodes.has(node)) return ProxiedNodes.get(node)
   if (!(node instanceof Node)) {
-    throw new TypeError(`$ needs a Node: ${node}`)
+    throw new TypeError(`$ needs a Node: ${String(node)}`)
   }
 
   const Class = new Proxy((c, state) => {
     domfn.class(node, c, state)
     return proxy
   }, {
-    get: (fn, key) => node.classList.contains(key),
-    set: (fn, key, val) => fn(key, val),
-    deleteProperty: (_, key) => !!node.classList.remove(key)
+    get: (fn, key) => typeof key === 'symbol'
+      ? Reflect.get(fn, key)
+      : !!node.classList && node.classList.contains(key),
+    set (fn, key, val) {
+      fn(key, !!val)
+      return true
+    },
+    deleteProperty (_, key) {
+      if (node.classList) node.classList.remove(key)
+      return true
+    }
   })
 
+  let Attr
   if (isEl(node)) {
-    var getAttr = node.getAttribute.bind(node)
-    var hasAttr = node.hasAttribute.bind(node)
-    var rmAttr = domfn.removeAttribute.bind(null, node)
-    var Attr = new Proxy((attr, val) => {
+    const getAttr = node.getAttribute.bind(node)
+    const hasAttr = node.hasAttribute.bind(node)
+    const rmAttr = domfn.removeAttribute.bind(null, node)
+    Attr = new Proxy((attr, val) => {
       const result = domfn.attr(node, attr, val)
       return result === node ? proxy : result
     }, {
-      get: (fn, key) => key === 'has' ? hasAttr : key === 'remove' ? rmAttr : getAttr(key),
+      get: (fn, key) => typeof key === 'symbol'
+        ? Reflect.get(fn, key)
+        : key === 'has' ? hasAttr : key === 'remove' ? rmAttr : getAttr(key),
       set (fn, key, val) {
         key === 'remove' ? rmAttr(val) : fn(key, val)
         return true
       },
-      deleteProperty: (_, key) => domfn.removeAttribute(node, key)
+      deleteProperty (_, key) {
+        domfn.removeAttribute(node, key)
+        return true
+      }
     })
   }
 
@@ -81,11 +101,13 @@ export const $ = node => {
         }
 
         const val = node[key]
-        return isFunc(val) && (key in HTMLElement.prototype) ? val.bind(node) : val
+        // bind native (prototype) methods so they work on SVG/Text/etc too,
+        // but leave the user's own function props untouched
+        return isFunc(val) && !hasOwn(node, key) ? val.bind(node) : val
       },
       set (fn, key, val) {
-        if (key === 'class') Class(node, val)
-        else if (key === 'attr') Attr(node, val)
+        if (key === 'class') domfn.class(node, val, isObj(val) ? undefined : true)
+        else if (key === 'attr') domfn.attr(node, val)
         else if (key === 'css') domfn.css(node, val)
         else if (key === 'txt') node[textContent] = val
         else if (key === 'html' || key === 'children') {

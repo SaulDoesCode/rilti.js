@@ -1,4 +1,4 @@
-/* global Text Node NodeList CustomEvent */
+/* global Text Node NodeList HTMLCollection CustomEvent Comment getComputedStyle */
 import {
   curry,
   emitter,
@@ -9,16 +9,17 @@ import {
   isArr,
   isInput,
   isMounted,
-  isNodeList,
   isNum,
   isFunc,
   isStr,
   isProxyNode,
+  isPromise,
+  isObj,
   infinify
 } from './common.js'
 import { once } from './event-manager.js'
 import { frag } from './dom-generation.js'
-import { MNT } from './lifecycles.js'
+import { MountNodes } from './lifecycles.js'
 import { attributeChange } from './directives.js'
 import $ from './proxy-node.js'
 
@@ -35,107 +36,83 @@ export const vpend = (
   dfrag = frag(),
   noHostAppend
 ) => {
-  for (let i = 0; i < children.length; i++) {
-    let child = children[i]
-    if (child instanceof Function) {
-      if ((child = child(host)) === host) continue
-      else if (child instanceof Function) {
-        let lvl = 0
-        let ishost = false
-        let lastchild
-        while (child instanceof Function && lvl < 25) {
-          lastchild = child
-          child = child()
-          if ((ishost = child === host) || lastchild === child) break
-          lvl++
-        }
-        if (ishost) continue
-      }
+  const hostNode = isProxyNode(host) ? host() : host
+  const added = []
+  const add = child => {
+    // deglove renderables hidden in (nested) functions
+    let depth = 0
+    while (child instanceof Function && depth++ < 25) {
+      const next = depth === 1 ? child(host) : child()
+      if (next === child) break
+      child = next
     }
-
-    if (child == null) continue
-    const ctr = child.constructor
-    if (ctr === String || ctr === Number) {
-      if (!child.length) continue
-      child = new Text(child)
-    } else if (isArr(child)) {
-      child = vpend(child, host, connector, dfrag, true)
-    }
-
+    if (child == null || child instanceof Function) return
+    if (child === host || child === hostNode) return
     if (child instanceof Node) {
       dfrag.appendChild(child)
-      children[i] = child
+      added.push(child)
+    } else {
+      for (const c of prime(child)) add(c)
     }
   }
-  if (host && !noHostAppend) {
+  for (let i = 0; i < children.length; i++) add(children[i])
+
+  if (hostNode && !noHostAppend) {
     run(() => {
-      host[connector](dfrag)
-      for (const child of children) {
-        if (child != null && child.dispatchEvent) MNT(child)
+      hostNode[connector](dfrag)
+      for (const child of added) {
+        if (child.isConnected) MountNodes(child)
       }
     })
   }
-  return children
+  return added
+}
+
+// a placeholder that is swapped for whatever the promise resolves to
+const pending = promise => {
+  const marker = new Comment('rilti:pending')
+  Promise.resolve(promise).then(result => {
+    vpend(prime(result), marker, 'replaceWith')
+  })
+  return marker
 }
 
 /*
 * prime takes an array of renderable entities
 * and turns them into just nodes and functions
 * (to be degloved later rather than sooner [by vpend])
+* adjacent strings/numbers are merged into a single Text node
 */
 export const prime = (...nodes) => {
-  for (let i = 0; i < nodes.length; i++) {
-    let n = nodes[i]
-    const ntype = typeof n
-    if (n == null || ntype === 'boolean') {
-      nodes.splice(i, 1)
-      continue
+  const out = []
+  let text = null
+  const flush = () => {
+    if (text) out.push(new Text(text))
+    text = null
+  }
+  const walk = n => {
+    if (n == null || typeof n === 'boolean') return
+    const type = typeof n
+    if (type === 'string' || type === 'number' || type === 'bigint') {
+      text = (text || '') + String(n)
+      return
     }
+    flush()
     if (n instanceof Node || n instanceof Function) {
-      continue
-    } else if (ntype === 'string' || ntype === 'number') {
-      const nextI = i + 1
-      if (nextI < nodes.length) {
-        const next = nodes[nextI]
-        const nexttype = typeof next
-        if (nexttype === 'string' || nexttype === 'number') {
-          nodes[i] = String(n) + String(next)
-          nodes.splice(nextI, 1)
-          i--
-        }
-      } else {
-        nodes[i] = new Text(String(n))
-      }
-      continue
-    }
-
-    const isnl = n instanceof NodeList
-    if (isnl) {
-      if (n.length < 2) {
-        nodes[i] = n[0]
-        continue
-      }
-      n = Array.from(n)
+      out.push(n)
+    } else if (isPromise(n)) {
+      out.push(pending(n))
+    } else if (isArr(n) || n instanceof NodeList || n instanceof HTMLCollection) {
+      for (const c of Array.from(n)) walk(c)
     } else if (n.constructor === Object) {
-      n = Object.values(n)
-    }
-
-    if (isArr(n)) {
-      if (!isnl) {
-        n = prime.apply(null, n)
-        if (n.length < 2) {
-          nodes[i] = n[0]
-          i--
-          continue
-        }
-      }
-      nodes.splice(i, 1, ...n)
-      i--
-    } else if (n != null) {
+      for (const c of Object.values(n)) walk(c)
+    } else {
       throw new Error(`illegal renderable: ${n}`)
     }
   }
-  return nodes
+  for (let i = 0; i < nodes.length; i++) walk(nodes[i])
+  flush()
+  return out
 }
 
 /*
@@ -148,6 +125,10 @@ export const attach = (host, connector, ...renderables) => {
   if (renderables.length === 1 && isArr(renderables[0])) {
     renderables = renderables[0]
   }
+  if (isArr(host)) {
+    host.push(...renderables)
+    return renderables.length === 1 ? renderables[0] : renderables
+  }
 
   const nodeHost = host instanceof Node || isProxyNode(host)
   renderables = prime(renderables)
@@ -159,8 +140,6 @@ export const attach = (host, connector, ...renderables) => {
     }
   } else if (typeof host === 'string') {
     return queryAsync(host).then(h => attach(h, connector, ...renderables))
-  } if (isArr(host)) {
-    host.push(...renderables)
   }
   return renderables.length === 1 ? renderables[0] : renderables
 }
@@ -178,18 +157,14 @@ export const render = (
 export const domfn = {
   css (node, styles, prop) {
     if (styles == null) {
-      if (document.defaultView) {
-        return document.defaultView.getComputedStyle(node)
-      }
-    } else if (styles.constructor === Object) {
+      return getComputedStyle(node)
+    } else if (isObj(styles)) {
       for (const key in styles) domfn.css(node, key, styles[key])
     } else if (typeof styles === 'string') {
       if (prop == null) {
-        if (styles && styles[0] === '-') return node.getPropertyValue(styles)
-        if (document.defaultView) {
-          const style = document.defaultView.getComputedStyle(node)
-          if (style) return styles ? style[styles] : style
-        }
+        const style = getComputedStyle(node)
+        if (!styles) return style
+        return styles[0] === '-' ? style.getPropertyValue(styles) : style[styles]
       } else if (styles[0] === '-') {
         node.style.setProperty(styles, prop)
       } else {
@@ -200,19 +175,19 @@ export const domfn = {
   },
 
   class (node, c, state) {
-    if (!node || c == null || !node.classList) return node
-
     if (isArr(node)) {
       for (let i = 0; i < node.length; i++) {
         domfn.class(node[i], c, state)
       }
       return node
     }
+    if (isProxyNode(node)) node = node()
+    if (!node || c == null || !node.classList) return node
 
-    if (c.constructor === Object) {
-      for (const name in c) domfn.class(node, name, c[name])
+    if (isObj(c)) {
+      for (const name in c) domfn.class(node, name, !!c[name])
     } else {
-      if (typeof c === 'string') c = c.split(' ')
+      if (typeof c === 'string') c = c.split(/\s+/).filter(Boolean)
       if (isArr(c)) {
         const noState = typeof state !== 'boolean'
         for (let i = 0; i < c.length; i++) {
@@ -226,34 +201,27 @@ export const domfn = {
   hasClass: curry((node, name) => node.classList.contains(name)),
 
   attr (node, attr, val) {
-    if (attr.constructor === Object) {
+    if (isObj(attr)) {
       for (const a in attr) {
-        const present = attr[a] == null
-        node[present ? 'removeAttribute' : 'setAttribute'](a, attr[a])
-        attributeChange(node, a, null, attr[a], !present)
+        const old = node.getAttribute(a)
+        const present = attr[a] != null
+        present ? node.setAttribute(a, attr[a]) : node.removeAttribute(a)
+        attributeChange(node, a, old, present ? String(attr[a]) : null, present)
       }
     } else if (typeof attr === 'string') {
       const old = node.getAttribute(attr)
       if (val == null) return old
       node.setAttribute(attr, val)
-      attributeChange(node, attr, old, val)
+      attributeChange(node, attr, old, String(val), true)
     }
     return node
   },
 
   removeAttribute (node, ...attrs) {
-    if (attrs.length === 1) {
-      node.removeAttribute(attrs[0])
-      attributeChange(node, attrs[0], null, null, false)
-    } else {
-      for (let i = 0; i < attrs.length; i++) {
-        if (isArr(attrs[i])) {
-          attrs.splice(i, 1, ...attrs[i])
-          i--
-        }
-        node.removeAttribute(attrs[i])
-        attributeChange(node, attrs[i], null, null, false)
-      }
+    for (const attr of attrs.flat(Infinity)) {
+      const old = node.getAttribute(attr)
+      node.removeAttribute(attr)
+      attributeChange(node, attr, old, null, false)
     }
     return node
   },
@@ -264,8 +232,9 @@ export const domfn = {
     state = !node.hasAttribute(name),
     val = node.getAttribute(name) || ''
   ) {
-    node[state ? 'setAttribute' : 'removeAttribute'](name, val)
-    attributeChange(node, name, state ? val : null, state ? null : val, state)
+    const old = node.getAttribute(name)
+    state ? node.setAttribute(name, val) : node.removeAttribute(name)
+    attributeChange(node, name, old, state ? val : null, state)
     return node
   },
 
@@ -306,20 +275,20 @@ export const domfn = {
 
   remove (node, after) {
     if (node instanceof Function) node = node()
-    if (isArr(node)) {
-      for (let i = 0; i < node.length; i++) domfn.remove(node[i], after)
+    if (isArr(node) || node instanceof NodeList) {
+      for (const n of Array.from(node)) domfn.remove(n, after)
     } else if (isNum(after)) {
       setTimeout(() => domfn.remove(node), after)
-    } else if (isMounted(node)) {
+    } else if (node instanceof Node) {
+      // same queue as appends so append-then-remove keeps its order
       run(() => node.remove())
-    } else if (isNodeList(node)) {
-      for (let i = 0; i < node.length; i++) domfn.remove(node[i])
     }
     return node
   },
 
   replace (node, newnode) {
     if (newnode instanceof Function) newnode = newnode()
+    if (isProxyNode(node)) node = node()
     run(() => node.replaceWith(newnode))
     return newnode
   },
@@ -342,7 +311,7 @@ export const databind = ops => {
   core.ops = ops
   core.host = ops.host
   core.val = ops.val != null ? ops.val : ''
-  delete ops.val
+  if (!ops.views) ops.views = {}
   core.change = val => {
     if (val === core.val) return
     if (core.ops.change) {
@@ -371,18 +340,22 @@ export const databind = ops => {
       bind.off()
       if (bind.inputUpdaters) bind.inputUpdaters.off()
     }
-    core.bind = core.change = null
+    core.binds.clear()
+    core.change = () => {}
   }
 
   core.binds = new Set()
   core.bind = new Proxy((host, key, view) => {
     if (isStr(key) && key.includes(':')) [view, key] = key.split(':')
+    let inputUpdaters
     if (isInput(host)) {
-      [view, key] = [key, 'value']
+      // bind(input, 'viewName') renders a view into the input's value
+      if (view == null && isStr(key) && key in core.ops.views) view = key
+      key = 'value'
       const inputUpdate = e => {
         core.change(host[key])
       }
-      var inputUpdaters = ops.host.on({
+      inputUpdaters = $(host).on({
         input: inputUpdate,
         keyup: inputUpdate,
         blur: inputUpdate,

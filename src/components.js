@@ -1,4 +1,4 @@
-import { run, queryEach, isObj, isStr, isFunc, isMounted, isInput } from './common.js'
+import { run, queryEach, isObj, isStr, isFunc, isInput, mutateSet } from './common.js'
 import { Mounted, Unmounted, Created, dispatch } from './lifecycles.js'
 import { dom, assimilate } from './dom-generation.js'
 import { databind } from './dom-functions.js'
@@ -18,18 +18,30 @@ export const component = (tagName, config) => {
   return dom[tagName]
 }
 
+component.plugins = null
 component.plugin = plugin => {
   if (isObj(plugin)) {
-    if (!component.plugins) component.plugins = {}
+    if (!component.plugins) component.plugins = Object.create(null)
     for (const key in plugin) {
       if (!(key in component.plugins)) component.plugins[key] = new Set()
-      component.plugins.add(plugin[key])
+      component.plugins[key].add(plugin[key])
     }
   }
 }
 
+const runPlugins = (stage, el, ...args) => {
+  const set = component.plugins && component.plugins[stage]
+  if (set) for (const fn of set) fn.call(el, ...args)
+}
+
+// component lifecycle state, kept apart from plain node state
+// so a component registered after its elements exist still initializes
+const Initialized = mutateSet(new WeakSet())
+const CMounted = mutateSet(new WeakSet())
+const CUnmounted = mutateSet(new WeakSet())
+
 export const updateComponent = function (el, config, stage, afterProps) {
-  if (el.nodeType !== 1 || !components.has(el.tagName)) return
+  if (!el || el.nodeType !== 1 || !components.has(el.tagName)) return
   if (isStr(config)) [stage, config] = [config, components.get(el.tagName)]
   else if (!isObj(config)) config = components.get(el.tagName)
 
@@ -45,15 +57,15 @@ export const updateComponent = function (el, config, stage, afterProps) {
   } = config
   const proxied = $(el)
 
-  if (!Created(el)) {
+  if (!Initialized(el)) {
+    Initialized(el, true)
     if (bind) {
       const isinput = isInput(el)
       for (const key in bind) {
-        bind[key].host = proxied
-        bind[key].isinput = isinput
-        const b = databind(bind[key])
-        Object.defineProperty(el, key, { get () { return b.val }, set: b.change })
-        Object.defineProperty(el, '$' + key, { value: b })
+        // copy: the config is shared between every instance
+        const b = databind({ ...bind[key], host: proxied, isinput })
+        Object.defineProperty(el, key, { get () { return b.val }, set: b.change, configurable: true })
+        Object.defineProperty(el, '$' + key, { value: b, configurable: true })
       }
     }
 
@@ -63,14 +75,8 @@ export const updateComponent = function (el, config, stage, afterProps) {
     Created(el, true)
     if (create) create.call(el, proxied)
 
-    if (component.plugins) {
-      component.plugins.config.forEach(fn => {
-        fn.bind(el, config, proxied, el)
-      })
-      component.plugins.create.forEach(fn => {
-        fn.bind(el, proxied, el)
-      })
-    }
+    runPlugins('config', el, config, proxied, el)
+    runPlugins('create', el, proxied, el)
 
     dispatch(el, 'create')
 
@@ -83,41 +89,41 @@ export const updateComponent = function (el, config, stage, afterProps) {
         el[ObservedAttrsSymbol][name] = attributeObserver(el, name, attr[name])
       }
     }
-    if (remount) proxied.on.remount(remount.bind(el, proxied))
 
     el.componentReady = true
     dispatch(el, 'componentReady')
   }
 
-  if (!Mounted(el) && (stage === 'mount' || isMounted(el))) {
-    if (Unmounted(el)) {
-      component.plugins && component.plugins.remount.forEach(fn => {
-        fn.bind(el, proxied, el)
-      })
+  if (stage === 'unmount') {
+    if (CMounted(el) && !el.isConnected) {
+      CMounted(el, false)
+      CUnmounted(el, true)
+      Mounted(el, false)
+      Unmounted(el, true)
+      runPlugins('unmount', el, proxied, el)
+      for (const name in el[ObservedAttrsSymbol]) {
+        el[ObservedAttrsSymbol][name].stop()
+      }
+      if (unmount) unmount.call(el, proxied)
+      dispatch(el, 'unmount')
+    }
+  } else if (!CMounted(el) && el.isConnected) {
+    CMounted(el, true)
+    Mounted(el, true)
+    if (CUnmounted(el)) {
+      CUnmounted(el, false)
+      Unmounted(el, false)
+      runPlugins('remount', el, proxied, el)
       for (const name in el[ObservedAttrsSymbol]) {
         el[ObservedAttrsSymbol][name].start()
       }
       if (remount) remount.call(el, proxied)
       dispatch(el, 'remount')
     } else {
-      Mounted(el, true)
-      component.plugins && component.plugins.mount.forEach(fn => {
-        fn.bind(el, proxied, el)
-      })
+      runPlugins('mount', el, proxied, el)
       if (mount) mount.call(el, proxied)
       dispatch(el, 'mount')
     }
-  } else if (stage === 'unmount') {
-    Mounted(el, false)
-    Unmounted(el, true)
-    component.plugins && component.plugins.unmount.forEach(fn => {
-      fn.bind(el, proxied, el)
-    })
-    for (const name in el[ObservedAttrsSymbol]) {
-      el[ObservedAttrsSymbol][name].stop()
-    }
-    if (unmount) unmount.call(el, proxied)
-    dispatch(el, stage)
   }
   return el
 }
@@ -126,7 +132,8 @@ export const componentReady = (el, fn) => new Promise(resolve => run(() => {
   el = $(el)
   if (el.componentReady) {
     resolve(el)
-    if (fn) return fn(el)
+    if (fn) fn(el)
+    return
   }
   el.once.componentReady(e => {
     resolve(el)

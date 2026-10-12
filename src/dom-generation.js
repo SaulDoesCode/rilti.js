@@ -7,6 +7,7 @@ import {
   isProxyNode,
   isPrimitive,
   isRenderable,
+  isPromise,
   isInput
 } from './common.js'
 import { updateComponent, components } from './components.js'
@@ -52,8 +53,14 @@ export const h = (strs, ...args) => {
   return content
 }
 
-export const frag = inner => inner != null
-  ? html(inner) : document.createDocumentFragment()
+export const frag = inner => {
+  const fragment = document.createDocumentFragment()
+  if (inner != null) {
+    const nodes = html(inner)
+    isArr(nodes) ? fragment.append(...nodes.flat(Infinity)) : fragment.append(nodes)
+  }
+  return fragment
+}
 
 export const assimilate = Object.assign(
   (el, { props, methods }, noProps) => {
@@ -64,7 +71,7 @@ export const assimilate = Object.assign(
     props (el, props) {
       const proxied = $(el)
       for (const prop in props) {
-        let val = props[prop]
+        const val = props[prop]
         if (prop in el) {
           el[prop] = val
         } else if (prop === 'accessors') {
@@ -95,41 +102,41 @@ export const assimilate = Object.assign(
   }
 )
 
-// classes.push(...className.replace(/_/g, '-').split('.'))
+// fooBar -> foo-bar
+const tagify = str => str.replace(/[A-Z]/g, c => '-' + c.toLowerCase()).replace(/^-/, '')
 
-const tagify = str => {
-  const upperChars = str.match(tagify.regexp)
-  if (!upperChars) return str
-  for (let i = 0, n = upperChars.length; i < n; i++) {
-    str = str.replace(new RegExp(upperChars[i]), '-' + upperChars[i].toLowerCase())
-  }
-  return str[0] === '-' ? str.slice(1) : str
-}
-tagify.regexp = /([A-Z])/g
+const toClasses = str => str.replace(/_/g, '-').split('.').filter(Boolean)
 
-const infinifyDOM = (gen, tag) => (tag = tagify(tag)) && tag in gen
-  ? Reflect.get(gen, tag)
-  : (gen[tag] = new Proxy(gen.bind(null, tag), {
-    get (fn, classes) {
-      classes = classes.replace(/_/g, '-').split('.')
-      return new Proxy(function () {
-        const el = fn.apply(null, arguments)
-        el.classList.add(...classes)
-        return el
-      }, {
-        get (_, anotherClass, proxy) {
-          classes.push(...anotherClass.replace(/_/g, '-').split('.'))
-          return proxy
-        }
-      })
-    }
+// dom.div.card.big(...) -> <div class="card big">
+// each step returns a fresh generator so stored chains are never mutated
+const classChain = (fn, classes) => new Proxy(function () {
+  const el = fn.apply(null, arguments)
+  if (classes.length) (isProxyNode(el) ? el() : el).classList.add(...classes)
+  return el
+}, {
+  get: (target, cls) => typeof cls === 'symbol' || cls === 'then'
+    ? Reflect.get(target, cls)
+    : classChain(fn, [...classes, ...toClasses(cls)])
+})
+
+const infinifyDOM = (gen, tag) => {
+  if (typeof tag === 'symbol') return Reflect.get(gen, tag)
+  if (Object.prototype.hasOwnProperty.call(gen, tag)) return gen[tag]
+  if (tag === 'then') return undefined
+  const make = gen.bind(null, tagify(tag))
+  return (gen[tag] = new Proxy(make, {
+    get: (fn, cls) => typeof cls === 'symbol' || cls === 'then'
+      ? Reflect.get(fn, cls)
+      : classChain(fn, toClasses(cls))
   }))
+}
 
 export const body = (...args) =>
   attach(document.body || 'body', 'appendChild', ...args)
 
 export const text = (options, txt = '') => isPrimitive(options)
-  ? dom(new Text(options)) : dom(new Text(txt), options)
+  ? dom(new Text(options))
+  : dom(new Text(txt), options)
 
 const reserved = ['$', 'id', 'render', 'children', 'html', 'class', 'className']
 const ns = 'http://www.w3.org/2000/svg'
@@ -150,38 +157,44 @@ export const svg = new Proxy(svgEL.bind(null, 'svg'), {
 })
 
 export const dom = new Proxy(Object.assign((tag, ops, ...children) => {
-  if (tag[0] === '$') {
+  let pure = false
+  if (typeof tag === 'string' && tag[0] === '$') {
     tag = tag.slice(1)
-    var pure = true
+    pure = true
   }
-  const el = tag.constructor === String ? document.createElement(tag) : tag
+  const el = typeof tag === 'string' ? document.createElement(tag) : tag
 
   const iscomponent = components.has(el.tagName)
-  if (iscomponent) var componentHandled
+  let componentHandled = false
 
   let proxied
   if (!isObj(ops)) {
     if (!pure) proxied = $(el)
   } else {
-    var { cycle, bind } = ops
-    if (!pure || !(pure = ops.pure)) proxied = $(el)
+    const { cycle, bind } = ops
+    if (ops.pure) pure = true
+    if (!pure) proxied = $(el)
 
     assimilate(el, ops, iscomponent)
 
     let val
-    for (const key in ops) {
+    // snapshot keys: event handles get written back onto ops below
+    for (const key of Object.keys(ops)) {
       if ((val = ops[key]) == null) continue
 
       if (key[0] === 'o' && key[1] === 'n') {
         const isOnce = key[2] === 'c' && key[3] === 'e'
         const i = isOnce ? 4 : 2
-        const mode = key.substr(0, i)
-        let type = key.substr(i)
+        const mode = key.slice(0, i)
+        const type = key.slice(i)
         const evtfn = EventManager(isOnce)
         const args = isArr(val) ? val : [val]
-        if (!ops[mode]) ops[mode] = {}
-        ops[mode][type] = type.length
-          ? evtfn(el, type, ...args) : evtfn(el, ...args)
+        if (type.length) {
+          if (!isObj(ops[mode])) ops[mode] = {}
+          ops[mode][type] = evtfn(el, type, ...args)
+        } else {
+          ops[mode] = evtfn(el, ...args)
+        }
       } else if (key in el) {
         if (el[key] instanceof Function) {
           isArr(val) ? el[key].apply(el, val) : el[key](val)
@@ -232,14 +245,16 @@ export const dom = new Proxy(Object.assign((tag, ops, ...children) => {
   }
 
   if (el.nodeType !== 3 /* el != Text */) {
-    if (isProxyNode(ops) && (!proxied || ops !== proxied)) {
-      children.unshift(ops(proxied || el))
+    if (isProxyNode(ops)) {
+      if (ops !== proxied) children.unshift(ops)
     } else if (ops instanceof Function) {
       const result = ops.call(el, proxied || el)
-      ops = result !== el && result !== proxied ? result : undefined
+      if (result !== el && result !== proxied && (isRenderable(result) || isPromise(result))) {
+        children.unshift(result)
+      }
+    } else if (isArr(ops) || isRenderable(ops) || isPromise(ops)) {
+      children.unshift(ops)
     }
-
-    if (isRenderable(ops)) children.unshift(ops)
 
     if (children.length) attach(proxied || el, 'appendChild', children)
   }

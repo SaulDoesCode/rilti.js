@@ -2,17 +2,20 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>rilti.js pointer tracker using state templates</title>
+    <title>rilti.js pointer tracker using databind</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="./assets/defaults.css">
     <script src="../dist/rilti.js"></script>
     <script>
+    const pointer = rilti.databind({
+      val: { x: 0, y: 0 },
+      views: { text: ({ x, y }) => `pointer is at (${x}x, ${y}y)` }
+    })
     rilti.dom.div({
       $: 'body',
-      onpointermove: ({x, y}, {state}) => state({x, y})
-    }, 
-      ({state}) => state`pointer is at (${'x'}x, ${'y'}y)`
-    )
+      style: 'position: fixed; inset: 0',
+      onpointermove: ({ x, y }) => pointer.change({ x, y })
+    }, pointer.text('text'))
     </script>
   </head>
 </html>

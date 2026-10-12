@@ -2,9 +2,8 @@
 
 a small flavorful and unapologetic library built for the modern web
 
-[![JavaScript Style Guide](https://cdn.rawgit.com/standard/standard/master/badge.svg)](https://github.com/standard/standard)
-
-[![Build Status](https://travis-ci.org/SaulDoesCode/rilti.js.svg?branch=master)](https://travis-ci.org/SaulDoesCode/rilti.js)
+[![CI](https://github.com/SaulDoesCode/rilti.js/actions/workflows/ci.yml/badge.svg)](https://github.com/SaulDoesCode/rilti.js/actions/workflows/ci.yml)
+[![neostandard javascript style](https://img.shields.io/badge/code_style-neostandard-brightgreen?style=flat)](https://github.com/neostandard/neostandard)
 
 ##### currently in beta phase and potentially subject to breaking changes
 Feel free to fork or raise issues. Constructive criticism is always welcome
@@ -28,22 +27,37 @@ Feel free to fork or raise issues. Constructive criticism is always welcome
 * powerful emitter system (pub/sub with proxy magic)
 * no classes, no this, no extra fuzz, functional positive
 * no old javascript, we use modern features like Proxy
-* a gziped rilti.min.js weighs > 7kb
+* render promises: they're swapped in when they resolve
+* a gziped rilti.min.js weighs ~7.5kb
 
 
 To use rilti just download **/dist/rilti.min.js** and pop it in a script tag. **If you have any issues just tell me, I'm on it.**
 
 ## Install
 
-> ``yarn add rilti``  
+```sh
+npm i rilti
+```
 
+```js
+// ES modules (bundlers, or <script type="module">)
+import { dom, component, on } from 'rilti'
+```
 
-> ``npm i rilti``
-
-or
+or as a classic script exposing a global `rilti`
 
 ```html
 <script src="https://unpkg.com/rilti"></script>
+```
+
+## Development
+
+```sh
+npm install
+npm test          # vitest + jsdom
+npm run lint      # eslint (neostandard)
+npm run build     # rollup -> dist/rilti.mjs, dist/rilti.js (UMD), dist/rilti.min.js
+npm run dev       # rebuild on change + serve the examples on http://127.0.0.1:2018
 ```
 
 ## The Dao of Rilti
@@ -240,11 +254,11 @@ The above produces this html
 | ``.curry(func, =argsLimit)`` | curries a function |
 | ``.component(tag, {create, mount, unmount, attr, props, methods})`` | define custom elements, no polyfills needed |
 | ``.each(iterable, func)`` | loop through objects, numbers, array(like)s, sets, maps... |
-| ``.extend(hostObj, obj, =safeMode)`` | extends host object with all props of other object, won't overwrite if safe is true |
+| ``.merge(host, obj)`` | deeply merges objects (or arrays) into host, ignores prototype-polluting keys |
 | ``.flatten(arraylike)`` | flattens multidimensional arraylike objects |
 | ``.render(AlmostAnything, Selector/Node, =connector = 'appendChild')`` | renders things, independent of ready state |
-| ``.run(func)`` | asynchronously executes a given function when the DOM is loaded |
-| ``.runAsync(func, ...args)`` | run a function asynchronously |
+| ``.run(func, ...args)`` | runs a function in a microtask once the DOM is loaded |
+| ``.runAsync(func, ...args)`` | runs a function when the browser is idle (``requestIdleCallback``) |
 | ``.isMounted(node, =parentNode)`` | determines whether or not the dom or other node contains a specific node |
 
 ##### rilti also exports a couple of useful Type-Testing functions
@@ -466,8 +480,8 @@ rilti.component('tick-box', {
 ```
 
 #### weight
-* unminified:  45.9kb
-* minified: 18.9kb
-* minified && compressed: 7.21kb
+* unminified:  ~48kb
+* minified: ~19.7kb
+* minified && compressed: ~7.5kb
 
 #### license = MIT
